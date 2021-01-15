@@ -19,9 +19,11 @@ def handle_response(response):
     except json.JSONDecodeError:
         print("-")
 
+
 class ExternalStorage:
     """External storage object.
     """
+
     def __init__(self, client, task_id):
         self.client = client
         self._task_id = task_id
@@ -37,9 +39,9 @@ class ExternalStorage:
             self._status = task["status"]
             self._data = task["data"]
             if not self._object_storage_data:
-                if self._status == '111':
+                if self._status == "111":
                     self._object_storage_data = task["data"]["msg"]
-                elif self._status == '117':
+                elif self._status == "117":
                     self._object_storage_data = task["data"]
 
     @property
@@ -57,6 +59,7 @@ class ExternalStorage:
         self._update()
         return self._data
 
+
 class ExternalUpload(ExternalStorage):
     """
     This class handles the external upload from a file.
@@ -73,7 +76,7 @@ class ExternalUpload(ExternalStorage):
 
     def __init__(self, client, task_id):
         super().__init__(client, task_id)
-        self._final_states = {'114', '115'}
+        self._final_states = {"114", "115"}
 
     @property
     def object_storage_data(self):
@@ -99,7 +102,7 @@ class ExternalDownload(ExternalStorage):
 
     def __init__(self, client, task_id):
         super().__init__(client, task_id)
-        self._final_states = {'117', '118'}
+        self._final_states = {"117", "118"}
 
     @property
     def object_storage_data(self):
@@ -119,9 +122,11 @@ class ExternalDownload(ExternalStorage):
         url = self.object_storage_data
         # TODO: doesn't work yet
 
+
 class Firecrest:
     """Stores all the client information.
     """
+
     def __init__(self, firecrest_url=None, authentication=None):
         self._firecrest_url = firecrest_url
         self._authentication = authentication
@@ -130,17 +135,21 @@ class Firecrest:
         status_code = response.status_code
         # handle_response(response)
         if status_code >= 400:
-            raise Exception(f'Status code: {str(status_code)} {repr(response.json())}')
+            raise Exception(f"Status code: {str(status_code)} {repr(response.json())}")
         elif status_code != expected_status_code:
-            raise Exception(f'status_code ({status_code}) != expected_status_code ({expected_status_code})')
+            raise Exception(
+                f"status_code ({status_code}) != expected_status_code ({expected_status_code})"
+            )
 
         return response.json()
 
-    def _tasks(self, taskid = None):
+    def _tasks(self, taskid=None):
         url = f"{self._firecrest_url}/tasks/"
         if taskid:
             url += taskid
-        headers = {f"Authorization": f"Bearer {self._authentication.get_access_token()}"}
+        headers = {
+            f"Authorization": f"Bearer {self._authentication.get_access_token()}"
+        }
         resp = requests.get(url=url, headers=headers)
 
         return self._json_response(resp, 200)["task"]
@@ -149,7 +158,7 @@ class Firecrest:
         url = f"{self._firecrest_url}/storage/xfer-external/invalidate"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
-            "X-Task-Id": taskid
+            "X-Task-Id": taskid,
         }
         resp = requests.post(url=url, headers=headers)
 
@@ -157,23 +166,27 @@ class Firecrest:
 
     def _poll_tasks(self, taskid, final_status, sleep_time):
         resp = self._tasks(taskid)
-        while resp['status'] < final_status:
+        while resp["status"] < final_status:
             time.sleep(next(sleep_time))
             resp = self._tasks(taskid)
 
-        return resp['data']
+        return resp["data"]
 
     # Status
     def all_services(self):
         url = f"{self._firecrest_url}/status/services"
-        headers = {f"Authorization": f"Bearer {self._authentication.get_access_token()}"}
+        headers = {
+            f"Authorization": f"Bearer {self._authentication.get_access_token()}"
+        }
         resp = requests.get(url=url, headers=headers)
 
         return self._json_response(resp, 200)["out"]
 
     def service(self, servicename):
         url = f"{self._firecrest_url}/status/services/{servicename}"
-        headers = {f"Authorization": f"Bearer {self._authentication.get_access_token()}"}
+        headers = {
+            f"Authorization": f"Bearer {self._authentication.get_access_token()}"
+        }
         resp = requests.get(url=url, headers=headers)
 
         return self._json_response(resp, 200)
@@ -181,21 +194,27 @@ class Firecrest:
 
     def all_systems(self):
         url = f"{self._firecrest_url}/status/systems"
-        headers = {f"Authorization": f"Bearer {self._authentication.get_access_token()}"}
+        headers = {
+            f"Authorization": f"Bearer {self._authentication.get_access_token()}"
+        }
         resp = requests.get(url=url, headers=headers)
 
         return self._json_response(resp, 200)["out"]
 
     def system(self, systemsname):
         url = f"{self._firecrest_url}/status/systems/{systemsname}"
-        headers = {f"Authorization": f"Bearer {self._authentication.get_access_token()}"}
+        headers = {
+            f"Authorization": f"Bearer {self._authentication.get_access_token()}"
+        }
         resp = requests.get(url=url, headers=headers)
 
         return self._json_response(resp, 200)["out"]
 
     def parameters(self):
         url = f"{self._firecrest_url}/status/parameters"
-        headers = {f"Authorization": f"Bearer {self._authentication.get_access_token()}"}
+        headers = {
+            f"Authorization": f"Bearer {self._authentication.get_access_token()}"
+        }
         resp = requests.get(url=url, headers=headers)
 
         return self._json_response(resp, 200)["out"]
@@ -207,17 +226,11 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        params = {
-            "targetPath": f"{targetPath}"
-        }
+        params = {"targetPath": f"{targetPath}"}
         if showhidden:
             params["showhidden"] = showhidden
 
-        resp = requests.get(
-            url=url,
-            headers=headers,
-            params=params,
-        )
+        resp = requests.get(url=url, headers=headers, params=params)
 
         return self._json_response(resp, 200)["output"]
 
@@ -231,11 +244,7 @@ class Firecrest:
         if p:
             data["p"] = p
 
-        resp = requests.post(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.post(url=url, headers=headers, data=data)
 
         self._json_response(resp, 201)
 
@@ -245,16 +254,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data = {
-            "targetPath": targetPath,
-            "sourcePath": sourcePath
-        }
+        data = {"targetPath": targetPath, "sourcePath": sourcePath}
 
-        resp = requests.put(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.put(url=url, headers=headers, data=data)
 
         self._json_response(resp, 200)
 
@@ -264,16 +266,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data = {
-            "targetPath": targetPath,
-            "mode": mode
-        }
+        data = {"targetPath": targetPath, "mode": mode}
 
-        resp = requests.put(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.put(url=url, headers=headers, data=data)
 
         self._json_response(resp, 200)
 
@@ -286,20 +281,14 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data = {
-            "targetPath": targetPath
-        }
+        data = {"targetPath": targetPath}
         if owner:
             data["owner"] = owner
 
         if group:
             data["group"] = group
 
-        resp = requests.put(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.put(url=url, headers=headers, data=data)
 
         self._json_response(resp, 200)
 
@@ -309,16 +298,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data = {
-            "targetPath": targetPath,
-            "sourcePath": sourcePath
-        }
+        data = {"targetPath": targetPath, "sourcePath": sourcePath}
 
-        resp = requests.post(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.post(url=url, headers=headers, data=data)
 
         self._json_response(resp, 201)
 
@@ -328,15 +310,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        params = {
-            "targetPath": targetPath
-        }
+        params = {"targetPath": targetPath}
 
-        resp = requests.get(
-            url=url,
-            headers=headers,
-            params=params,
-        )
+        resp = requests.get(url=url, headers=headers, params=params)
 
         return self._json_response(resp, 200)["out"]
 
@@ -346,16 +322,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data = {
-            "targetPath": targetPath,
-            "linkPath": linkPath
-        }
+        data = {"targetPath": targetPath, "linkPath": linkPath}
 
-        resp = requests.post(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.post(url=url, headers=headers, data=data)
 
         self._json_response(resp, 201)
 
@@ -373,21 +342,17 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        params = {
-            "sourcePath": sourcePath
-        }
+        params = {"sourcePath": sourcePath}
 
-        resp = requests.get(
-            url=url,
-            headers=headers,
-            params=params,
-        )
+        resp = requests.get(url=url, headers=headers, params=params)
 
         if resp.status_code == 200:
             with open(targetPath, "wb") as f:
                 f.write(resp.content)
         else:
-            raise Exception('Status code: '+str(resp.status_code)+' '+repr(resp.json()))
+            raise Exception(
+                "Status code: " + str(resp.status_code) + " " + repr(resp.json())
+            )
 
     def simple_upload(self, machine, sourcePath, targetPath):
         """Blocking call to upload a small file.
@@ -405,19 +370,10 @@ class Firecrest:
         }
 
         with open(sourcePath, "rb") as f:
-            data = {
-                "targetPath": targetPath,
-            }
-            files = {
-                "file": f
-            }
+            data = {"targetPath": targetPath}
+            files = {"file": f}
 
-            resp = requests.post(
-                url=url,
-                headers=headers,
-                data=data,
-                files=files
-            )
+            resp = requests.post(url=url, headers=headers, data=data, files=files)
 
         self._json_response(resp, 201)
 
@@ -432,15 +388,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data={
-            'targetPath': targetPath
-        }
+        data = {"targetPath": targetPath}
 
-        resp = requests.delete(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.delete(url=url, headers=headers, data=data)
 
         assert resp.status_code == 204
 
@@ -450,15 +400,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        params = {
-            "targetPath": targetPath
-        }
+        params = {"targetPath": targetPath}
 
-        resp = requests.get(
-            url=url,
-            headers=headers,
-            params=params,
-        )
+        resp = requests.get(url=url, headers=headers, params=params)
 
         return self._json_response(resp, 200)
         # return self._json_response(resp, 200)["out"]
@@ -469,15 +413,9 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        params = {
-            "targetPath": targetPath
-        }
+        params = {"targetPath": targetPath}
 
-        resp = requests.get(
-            url=url,
-            headers=headers,
-            params=params,
-        )
+        resp = requests.get(url=url, headers=headers, params=params)
 
         return self._json_response(resp, 200)
         # return self._json_response(resp, 200)["out"]
@@ -491,19 +429,13 @@ class Firecrest:
         }
 
         with open(job_script, "rb") as f:
-            files = {
-                "file": f
-            }
+            files = {"file": f}
 
-            resp = requests.post(
-                url=url,
-                headers=headers,
-                files=files,
-            )
+            resp = requests.post(url=url, headers=headers, files=files)
 
         return self._json_response(resp, 201)
 
-    def _squeue_request(self, machine, jobs = []):
+    def _squeue_request(self, machine, jobs=[]):
         url = f"{self._firecrest_url}/compute/jobs"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -511,19 +443,13 @@ class Firecrest:
         }
         params = {}
         if jobs:
-            params = {
-                "jobs": ",".join([str(j) for j in jobs])
-            }
+            params = {"jobs": ",".join([str(j) for j in jobs])}
 
-        resp = requests.get(
-            url=url,
-            headers=headers,
-            params=params
-        )
+        resp = requests.get(url=url, headers=headers, params=params)
 
         return self._json_response(resp, 200)
 
-    def _acct_request(self, machine, jobs = []):
+    def _acct_request(self, machine, jobs=[]):
         url = f"{self._firecrest_url}/compute/acct"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -531,29 +457,27 @@ class Firecrest:
         }
         params = {}
         if jobs:
-            params = {
-                "jobs": ",".join([str(j) for j in jobs])
-            }
+            params = {"jobs": ",".join([str(j) for j in jobs])}
 
-        resp = requests.get(
-            url=url,
-            headers=headers,
-            params=params
-        )
+        resp = requests.get(url=url, headers=headers, params=params)
 
         return self._json_response(resp, 200)
 
     def submit_job(self, machine, job_script):
         json_response = self._submit_request(machine, job_script)
-        return self._poll_tasks(json_response["task_id"], '200', itertools.cycle([1, 5, 10]))
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
-    def poll(self, machine, jobs = []):
+    def poll(self, machine, jobs=[]):
         jobids = [str(j) for j in jobs]
         if not jobids:
             return {}
 
         json_response = self._acct_request(machine, jobids)
-        return self._poll_tasks(json_response["task_id"], '200', itertools.cycle([1, 5, 10]))
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
     def cancel(self, machine, jobid):
         url = f"{self._firecrest_url}/compute/jobs/{jobid}"
@@ -562,13 +486,12 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
 
-        resp = requests.delete(
-            url=url,
-            headers=headers
-        )
+        resp = requests.delete(url=url, headers=headers)
 
         json_response = self._json_response(resp, 200)
-        return self._poll_tasks(json_response["task_id"], '200', itertools.cycle([1, 5, 10]))
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
     # Storage
     def external_upload(self, machine, sourcePath, targetPath):
@@ -593,24 +516,17 @@ class Firecrest:
         url = f"{self._firecrest_url}/storage/xfer-external/upload"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
-            "X-Machine-Name": machine, # will not be taken into account yet
+            "X-Machine-Name": machine,  # will not be taken into account yet
         }
-        data = {
-            "targetPath": targetPath,
-            "sourcePath": sourcePath
-        }
+        data = {"targetPath": targetPath, "sourcePath": sourcePath}
 
-        resp = requests.post(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.post(url=url, headers=headers, data=data)
         try:
             json_response = self._json_response(resp, 201)["task_id"]
             return ExternalUpload(self, json_response)
         except:
             # TODO: handle errors
-            print('TODOOO')
+            print("TODOOO")
             return None
 
     def external_download(self, machine, sourcePath):
@@ -637,62 +553,94 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data = {
-            "sourcePath": sourcePath
-        }
+        data = {"sourcePath": sourcePath}
 
-        resp = requests.post(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.post(url=url, headers=headers, data=data)
 
         return ExternalDownload(self, self._json_response(resp, 201)["task_id"])
 
-    def _internal_transfer(self, url, machine, sourcePath, targetPath, jobname, time, stageOutJobId):
+    def _internal_transfer(
+        self, url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
+    ):
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        data = {
-            "targetPath": targetPath
-        }
+        data = {"targetPath": targetPath}
         if sourcePath:
-            data['sourcePath'] = sourcePath
+            data["sourcePath"] = sourcePath
 
         if jobname:
-            data['jobname'] = jobname
+            data["jobname"] = jobname
 
         if time:
-            data['time'] = time
+            data["time"] = time
 
         if stageOutJobId:
-            data['stageOutJobId'] = stageOutJobId
+            data["stageOutJobId"] = stageOutJobId
 
-        resp = requests.post(
-            url=url,
-            headers=headers,
-            data=data,
-        )
+        resp = requests.post(url=url, headers=headers, data=data)
 
         return self._json_response(resp, 201)
 
-    def submit_move_job(self, machine, sourcePath, targetPath, jobname=None, time=None, stageOutJobId=None):
+    def submit_move_job(
+        self,
+        machine,
+        sourcePath,
+        targetPath,
+        jobname=None,
+        time=None,
+        stageOutJobId=None,
+    ):
         url = f"{self._firecrest_url}/storage/xfer-internal/mv"
-        json_response = self._internal_transfer(url, machine, sourcePath, targetPath, jobname, time, stageOutJobId)
-        return self._poll_tasks(json_response["task_id"], '200', itertools.cycle([1, 5, 10]))
+        json_response = self._internal_transfer(
+            url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
+        )
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
-    def submit_copy_job(self, machine, sourcePath, targetPath, jobname=None, time=None, stageOutJobId=None):
+    def submit_copy_job(
+        self,
+        machine,
+        sourcePath,
+        targetPath,
+        jobname=None,
+        time=None,
+        stageOutJobId=None,
+    ):
         url = f"{self._firecrest_url}/storage/xfer-internal/cp"
-        json_response = self._internal_transfer(url, machine, sourcePath, targetPath, jobname, time, stageOutJobId)
-        return self._poll_tasks(json_response["task_id"], '200', itertools.cycle([1, 5, 10]))
+        json_response = self._internal_transfer(
+            url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
+        )
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
-    def submit_rsync_job(self, machine, sourcePath, targetPath, jobname=None, time=None, stageOutJobId=None):
+    def submit_rsync_job(
+        self,
+        machine,
+        sourcePath,
+        targetPath,
+        jobname=None,
+        time=None,
+        stageOutJobId=None,
+    ):
         url = f"{self._firecrest_url}/storage/xfer-internal/rsync"
-        json_response = self._internal_transfer(url, machine, sourcePath, targetPath, jobname, time, stageOutJobId)
-        return self._poll_tasks(json_response["task_id"], '200', itertools.cycle([1, 5, 10]))
+        json_response = self._internal_transfer(
+            url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
+        )
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
-    def submit_delete_job(self, machine, targetPath, jobname=None, time=None, stageOutJobId=None):
+    def submit_delete_job(
+        self, machine, targetPath, jobname=None, time=None, stageOutJobId=None
+    ):
         url = f"{self._firecrest_url}/storage/xfer-internal/rm"
-        json_response = self._internal_transfer(url, machine, None, targetPath, jobname, time, stageOutJobId)
-        return self._poll_tasks(json_response["task_id"], '200', itertools.cycle([1, 5, 10]))
+        json_response = self._internal_transfer(
+            url, machine, None, targetPath, jobname, time, stageOutJobId
+        )
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
