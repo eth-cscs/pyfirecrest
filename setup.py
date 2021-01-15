@@ -10,7 +10,7 @@ import setuptools
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-version = '0.0.1'
+version = '0.0.2'
 
 setuptools.setup(
     name='pyfirecrest',
@@ -21,11 +21,10 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     url='https://github.com/ekouts/pyfirecrest',
     license='BSD 3-Clause',
-    packages=setuptools.find_packages(),
+    # packages=setuptools.find_packages(),
     packages=["firecrest"],
     # package_data={},
     include_package_data=True,
-    scripts=['bin/reframe'],
     classifiers=(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
@@ -35,5 +34,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ),
     python_requires='>=3.6',
-    install_requires=["requests>=2.14.0", "json"],
+    install_requires=["requests>=2.14.0"],
 )
