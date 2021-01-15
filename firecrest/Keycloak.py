@@ -12,7 +12,7 @@ from logging.handlers import TimedRotatingFileHandler
 from functools import wraps
 
 
-class KeycloakServiceAccount(object):
+class ClientCredentialsAuthentication(object):
     """
     KeycloakServiceAccount class.
     Allows login and control the token validation and refresh workflow for a service account in keycloak (grant_type=client_credentials)
@@ -73,8 +73,10 @@ class KeycloakServiceAccount(object):
         # token objects
         self.TOKENS = {"access_token": None, "refresh_token": None}
 
-        logging.basicConfig(level=logging.INFO)
-        # logging.basicConfig(level=logging.DEBUG)
+        if debug:
+            logging.basicConfig(level=logging.DEBUG)
+        else:
+            logging.basicConfig(level=logging.INFO)
 
     def get_access_token(self):
         """

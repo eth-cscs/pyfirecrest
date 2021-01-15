@@ -35,6 +35,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ),
     python_requires='>=3.6',
-
-    install_requires=["requests>=2.14.0"],
+    install_requires=["requests>=2.14.0", "json"],
 )
