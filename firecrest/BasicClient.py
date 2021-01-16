@@ -64,14 +64,13 @@ class ExternalUpload(ExternalStorage):
     """
     This class handles the external upload from a file.
 
-    Attributes:
-        status (int): Tracks the progress of the upload.
-                      "110" : "Waiting for Form URL from Object Storage to be retrieved"
-                      "111" : "Form URL from Object Storage received"
-                      "112" : "Object Storage confirms that upload to Object Storage has finished"
-                      "113" : "Download from Object Storage to server has started"
-                      "114" : "Download from Object Storage to server has finished"
-                      "115" : "Download from Object Storage error"
+    Tracks the progress of the upload.
+    "110" : "Waiting for Form URL from Object Storage to be retrieved"
+    "111" : "Form URL from Object Storage received"
+    "112" : "Object Storage confirms that upload to Object Storage has finished"
+    "113" : "Download from Object Storage to server has started"
+    "114" : "Download from Object Storage to server has finished"
+    "115" : "Download from Object Storage error"
     """
 
     def __init__(self, client, task_id):
@@ -124,10 +123,19 @@ class ExternalDownload(ExternalStorage):
 
 
 class Firecrest:
-    """Stores all the client information.
+    """
+    This is the basic class you instantiate to access the FirecREST API v1.
+    Necessary parameters are the firecrest URL and an authentication object.
+    This object is responsible of handling the credentials and the only
+    requirement for it is that it has a method get_access_token() that returns
+    a valid access token.
     """
 
-    def __init__(self, firecrest_url=None, authentication=None):
+    def __init__(self, firecrest_url, authentication):
+        """
+        :param firecrest_url: string
+        :param authentication: object
+        """
         self._firecrest_url = firecrest_url
         self._authentication = authentication
 
@@ -174,6 +182,11 @@ class Firecrest:
 
     # Status
     def all_services(self):
+        """Returns a list containing all available micro services with a name, description, and status.
+
+        :calls: GET /status/services
+        :rtype: list of dictionaries (one for each service)
+        """
         url = f"{self._firecrest_url}/status/services"
         headers = {
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
@@ -183,6 +196,13 @@ class Firecrest:
         return self._json_response(resp, 200)["out"]
 
     def service(self, servicename):
+        """Returns informatoin about `servicename` micro service.
+        Returns the name, description, and status.
+
+        :param servicename: string
+        :calls: GET /status/services/{servicename}
+        :rtype: list of dictionaries (one for each service)
+        """
         url = f"{self._firecrest_url}/status/services/{servicename}"
         headers = {
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
@@ -193,6 +213,11 @@ class Firecrest:
         # return self._json_response(resp, 200)["out"]
 
     def all_systems(self):
+        """Returns a list containing all available systems and response status.
+
+        :calls: GET /status/systems
+        :rtype: list of dictionaries (one for each system)
+        """
         url = f"{self._firecrest_url}/status/systems"
         headers = {
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
@@ -202,6 +227,13 @@ class Firecrest:
         return self._json_response(resp, 200)["out"]
 
     def system(self, systemsname):
+        """Returns informatoin about `systemsname` system.
+        Returns the name, description, and status.
+
+        :param servicename: string
+        :calls: GET /status/systems/{systemsname}
+        :rtype: list of dictionaries (one for each system)
+        """
         url = f"{self._firecrest_url}/status/systems/{systemsname}"
         headers = {
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
@@ -211,6 +243,11 @@ class Firecrest:
         return self._json_response(resp, 200)["out"]
 
     def parameters(self):
+        """Returns list of parameters that can be configured in environment files.
+
+        :calls: GET /status/parameters
+        :rtype: list of parameters
+        """
         url = f"{self._firecrest_url}/status/parameters"
         headers = {
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
@@ -497,21 +534,14 @@ class Firecrest:
     def external_upload(self, machine, sourcePath, targetPath):
         """Non blocking call for the upload of larger files.
 
-        # TODO: Should briefly explain the non-blocking process
-
-        Parameters
-        ----------
-        machine: str
-            The machine where the filesystem belongs to
-        sourcePath : str
-            The source path in the local filesystem
-        targetPath: str
-            The target path in the machine's filesystem
-
-        Returns
-        -------
-        ExternalDownload
-            Returns an ExternalDownload object
+        :param machine: the machine where the filesystem belongs to
+        :type machine: str
+        :param sourcePath: the source path in the local filesystem
+        :type sourcePath: str
+        :param targetPath: the target path in the machine's filesystem
+        :type targetPath: str
+        :returns: an ExternalDownload object
+        :rtype: ExternalDownload
         """
         url = f"{self._firecrest_url}/storage/xfer-external/upload"
         headers = {
@@ -532,21 +562,14 @@ class Firecrest:
     def external_download(self, machine, sourcePath):
         """Non blocking call for the download of larger files.
 
-        # TODO: Should briefly explain the non-blocking process
-
-        Parameters
-        ----------
-        machine: str
-            The machine where the filesystem belongs to
-        sourcePath : str
-            The source path in the local filesystem
-        targetPath: str
-            The target path in the machine's filesystem
-
-        Returns
-        -------
-        ExternalDownload
-            Returns an ExternalDownload object
+        :param machine: the machine where the filesystem belongs to
+        :type machine: str
+        :param sourcePath: the source path in the local filesystem
+        :type sourcePath: str
+        :param targetPath: the target path in the machine's filesystem
+        :type targetPath: str
+        :returns: an ExternalDownload object
+        :rtype: ExternalDownload
         """
         url = f"{self._firecrest_url}/storage/xfer-external/download"
         headers = {

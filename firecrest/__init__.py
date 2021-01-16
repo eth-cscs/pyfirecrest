@@ -17,5 +17,5 @@ if sys.version_info[:3] < MIN_PYTHON_VERSION:
                      'Python >= %d.%d.%d is required\n' % MIN_PYTHON_VERSION)
     sys.exit(1)
 
-from firecrest.BasicClient import Firecrest
+from firecrest.BasicClient import Firecrest, ExternalDownload, ExternalUpload
 from firecrest.Keycloak import ClientCredentialsAuthentication
