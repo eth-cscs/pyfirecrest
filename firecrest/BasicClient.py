@@ -1,3 +1,9 @@
+#
+#  Copyright (c) 2019-2021, ETH Zurich. All rights reserved.
+#
+#  Please, refer to the LICENSE file in the root directory.
+#  SPDX-License-Identifier: BSD-3-Clause
+#
 import json
 import requests
 import itertools
@@ -6,6 +12,8 @@ import time
 import subprocess
 import shlex
 import sys
+
+import firecrest.FirecrestException as fe
 
 # This function is temporarily here
 def handle_response(response):
@@ -139,17 +147,23 @@ class Firecrest:
         self._firecrest_url = firecrest_url
         self._authentication = authentication
 
-    def _json_response(self, response, expected_status_code):
+    def _json_response(self, response, expected_status_code, return_json=True):
         status_code = response.status_code
         # handle_response(response)
-        if status_code >= 400:
-            raise Exception(f"Status code: {str(status_code)} {repr(response.json())}")
+        if status_code == 401:
+            raise fe.UnauthorizedException([response])
+        elif status_code >= 400:
+            raise FirecrestException([response])
         elif status_code != expected_status_code:
             raise Exception(
                 f"status_code ({status_code}) != expected_status_code ({expected_status_code})"
             )
 
-        return response.json()
+        ret = None
+        if return_json:
+            ret = response.json()
+
+        return ret
 
     def _tasks(self, taskid=None):
         url = f"{self._firecrest_url}/tasks/"
@@ -196,10 +210,11 @@ class Firecrest:
         return self._json_response(resp, 200)["out"]
 
     def service(self, servicename):
-        """Returns informatoin about `servicename` micro service.
+        """Returns information about a micro service.
         Returns the name, description, and status.
 
-        :param servicename: string
+        :param servicename: the service name
+        :type servicename: string
         :calls: GET /status/services/{servicename}
         :rtype: list of dictionaries (one for each service)
         """
@@ -226,15 +241,16 @@ class Firecrest:
 
         return self._json_response(resp, 200)["out"]
 
-    def system(self, systemsname):
-        """Returns informatoin about `systemsname` system.
+    def system(self, systemname):
+        """Returns information about a system.
         Returns the name, description, and status.
 
-        :param servicename: string
-        :calls: GET /status/systems/{systemsname}
+        :param systemname: the system name
+        :type systemname: string
+        :calls: GET /status/systems/{systemname}
         :rtype: list of dictionaries (one for each system)
         """
-        url = f"{self._firecrest_url}/status/systems/{systemsname}"
+        url = f"{self._firecrest_url}/status/systems/{systemname}"
         headers = {
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
@@ -258,13 +274,24 @@ class Firecrest:
 
     # Utilities
     def list_files(self, machine, targetPath, showhidden=None):
+        """Returns a list of files in a directory.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :param showhidden: show hidden files
+        :type showhidden: boolean, optional
+        :calls: GET /utilities/ls
+        :rtype: list of files
+        """
         url = f"{self._firecrest_url}/utilities/ls"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
         params = {"targetPath": f"{targetPath}"}
-        if showhidden:
+        if showhidden == True:
             params["showhidden"] = showhidden
 
         resp = requests.get(url=url, headers=headers, params=params)
@@ -272,6 +299,17 @@ class Firecrest:
         return self._json_response(resp, 200)["output"]
 
     def mkdir(self, machine, targetPath, p=None):
+        """Creates a new directory.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :param p: no error if existing, make parent directories as needed
+        :type p: boolean, optional
+        :calls: POST /utilities/mkdir
+        :rtype: None
+        """
         url = f"{self._firecrest_url}/utilities/mkdir"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -286,6 +324,17 @@ class Firecrest:
         self._json_response(resp, 201)
 
     def mv(self, machine, sourcePath, targetPath):
+        """Rename/move a file, directory, or symlink at the `sourcePath` to the `targetPath` on `machine`'s filesystem.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param sourcePath: the absolute source path
+        :type sourcePath: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: PUT /utilities/rename
+        :rtype: None
+        """
         url = f"{self._firecrest_url}/utilities/rename"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -298,6 +347,17 @@ class Firecrest:
         self._json_response(resp, 200)
 
     def chmod(self, machine, targetPath, mode):
+        """Changes the file mod bits of a given file according to the specified mode.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :param mode: same as numeric mode of linux chmod tool
+        :type mode: string
+        :calls: PUT /utilities/chmod
+        :rtype: None
+        """
         url = f"{self._firecrest_url}/utilities/chmod"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -310,6 +370,20 @@ class Firecrest:
         self._json_response(resp, 200)
 
     def chown(self, machine, targetPath, owner=None, group=None):
+        """Changes the user and/or group ownership of a given file.
+        If only owner or group information is passed, only that information will be updated.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :param owner: owner username for target
+        :type owner: string, optional
+        :param group: group username for target
+        :type group: string, optional
+        :calls: PUT /utilities/chown
+        :rtype: None
+        """
         if owner is None and group is None:
             return
 
@@ -326,52 +400,87 @@ class Firecrest:
             data["group"] = group
 
         resp = requests.put(url=url, headers=headers, data=data)
-
         self._json_response(resp, 200)
 
     def copy(self, machine, sourcePath, targetPath):
+        """Copies file from `sourcePath` to `targetPath`.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param sourcePath: the absolute source path
+        :type sourcePath: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: POST /utilities/copy
+        :rtype: None
+        """
         url = f"{self._firecrest_url}/utilities/copy"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "sourcePath": sourcePath}
-
         resp = requests.post(url=url, headers=headers, data=data)
-
         self._json_response(resp, 201)
 
     def file_type(self, machine, targetPath):
+        """Uses the `file` linux application to determine the type of a file.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: GET /utilities/file
+        :rtype: string
+        """
         url = f"{self._firecrest_url}/utilities/file"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-
         resp = requests.get(url=url, headers=headers, params=params)
+        t = self._json_response(resp, 200)["out"]
+        if t == 'cannot open (No such file or directory)':
+            raise fe.InvalidPathException([resp])
+        elif t == 'cannot open (Permission denied)':
+            raise fe.PermissionDeniedException([resp])
 
-        return self._json_response(resp, 200)["out"]
+        return t
 
     def symlink(self, machine, targetPath, linkPath):
+        """Creates a symbolic link.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute path that the symlink will point to
+        :type targetPath: string
+        :param symlink: the absolute path to the new symlink
+        :type symlink: string
+        :calls: POST /utilities/symlink
+        :rtype: None
+        """
         url = f"{self._firecrest_url}/utilities/symlink"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "linkPath": linkPath}
-
         resp = requests.post(url=url, headers=headers, data=data)
-
         self._json_response(resp, 201)
 
     def simple_download(self, machine, sourcePath, targetPath):
         """Blocking call to download a small file.
-
         The size of file that is allowed can be found from the parameters() call.
 
-        sourcePath is in the machine's filesystem
-        targetPath is in the local filesystem
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param sourcePath: the absolute source path
+        :type sourcePath: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: GET /utilities/download
+        :rtype: None
         """
 
         url = f"{self._firecrest_url}/utilities/download"
@@ -380,24 +489,23 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"sourcePath": sourcePath}
-
         resp = requests.get(url=url, headers=headers, params=params)
-
-        if resp.status_code == 200:
-            with open(targetPath, "wb") as f:
-                f.write(resp.content)
-        else:
-            raise Exception(
-                "Status code: " + str(resp.status_code) + " " + repr(resp.json())
-            )
+        self._json_response(resp, 200, return_json=False)
+        with open(targetPath, "wb") as f:
+            f.write(resp.content)
 
     def simple_upload(self, machine, sourcePath, targetPath):
         """Blocking call to upload a small file.
-
         The size of file that is allowed can be found from the parameters() call.
 
-        sourcePath: in the local filesystem
-        targetPath: in the machine's filesystem
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param sourcePath: the absolute source path
+        :type sourcePath: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: POST /utilities/upload
+        :rtype: None
         """
 
         url = f"{self._firecrest_url}/utilities/upload"
@@ -405,19 +513,23 @@ class Firecrest:
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-
         with open(sourcePath, "rb") as f:
             data = {"targetPath": targetPath}
             files = {"file": f}
-
             resp = requests.post(url=url, headers=headers, data=data, files=files)
 
         self._json_response(resp, 201)
 
     def simple_delete(self, machine, targetPath):
         """Blocking call to delete a small file.
-
         The size of file that is allowed can be found from the parameters() call.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: DELETE /utilities/rm
+        :rtype: None
         """
 
         url = f"{self._firecrest_url}/utilities/rm"
@@ -426,36 +538,46 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath}
-
         resp = requests.delete(url=url, headers=headers, data=data)
-
-        assert resp.status_code == 204
+        self._json_response(resp, 204, return_json=False)
 
     def checksum(self, machine, targetPath):
+        """Calculate the SHA256 (256-bit) checksum of a specified file
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: GET /utilities/checksum
+        :rtype: string
+        """
         url = f"{self._firecrest_url}/utilities/checksum"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-
         resp = requests.get(url=url, headers=headers, params=params)
-
-        return self._json_response(resp, 200)
-        # return self._json_response(resp, 200)["out"]
+        return self._json_response(resp, 200)["output"]
 
     def view(self, machine, targetPath):
+        """View the content of a specified file
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string
+        :calls: GET /utilities/checksum
+        :rtype: string
+        """
         url = f"{self._firecrest_url}/utilities/view"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-
         resp = requests.get(url=url, headers=headers, params=params)
-
-        return self._json_response(resp, 200)
-        # return self._json_response(resp, 200)["out"]
+        return self._json_response(resp, 200)["output"]
 
     # Compute
     def _submit_request(self, machine, job_script):
