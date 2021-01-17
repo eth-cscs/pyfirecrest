@@ -137,13 +137,14 @@ class Firecrest:
     This object is responsible of handling the credentials and the only
     requirement for it is that it has a method get_access_token() that returns
     a valid access token.
+
+    :param firecrest_url: FirecREST's URL
+    :type firecrest_url: string
+    :param authentication: the authentication object
+    :type authentication: object
     """
 
     def __init__(self, firecrest_url, authentication):
-        """
-        :param firecrest_url: string
-        :param authentication: object
-        """
         self._firecrest_url = firecrest_url
         self._authentication = authentication
 
@@ -198,7 +199,7 @@ class Firecrest:
     def all_services(self):
         """Returns a list containing all available micro services with a name, description, and status.
 
-        :calls: GET /status/services
+        :calls: GET `/status/services`
         :rtype: list of dictionaries (one for each service)
         """
         url = f"{self._firecrest_url}/status/services"
@@ -215,7 +216,7 @@ class Firecrest:
 
         :param servicename: the service name
         :type servicename: string
-        :calls: GET /status/services/{servicename}
+        :calls: GET `/status/services/{servicename}`
         :rtype: list of dictionaries (one for each service)
         """
         url = f"{self._firecrest_url}/status/services/{servicename}"
@@ -230,7 +231,7 @@ class Firecrest:
     def all_systems(self):
         """Returns a list containing all available systems and response status.
 
-        :calls: GET /status/systems
+        :calls: GET `/status/systems`
         :rtype: list of dictionaries (one for each system)
         """
         url = f"{self._firecrest_url}/status/systems"
@@ -247,7 +248,7 @@ class Firecrest:
 
         :param systemname: the system name
         :type systemname: string
-        :calls: GET /status/systems/{systemname}
+        :calls: GET `/status/systems/{systemname}`
         :rtype: list of dictionaries (one for each system)
         """
         url = f"{self._firecrest_url}/status/systems/{systemname}"
@@ -261,7 +262,7 @@ class Firecrest:
     def parameters(self):
         """Returns list of parameters that can be configured in environment files.
 
-        :calls: GET /status/parameters
+        :calls: GET `/status/parameters`
         :rtype: list of parameters
         """
         url = f"{self._firecrest_url}/status/parameters"
@@ -282,7 +283,7 @@ class Firecrest:
         :type targetPath: string
         :param showhidden: show hidden files
         :type showhidden: boolean, optional
-        :calls: GET /utilities/ls
+        :calls: GET `/utilities/ls`
         :rtype: list of files
         """
         url = f"{self._firecrest_url}/utilities/ls"
@@ -307,7 +308,7 @@ class Firecrest:
         :type targetPath: string
         :param p: no error if existing, make parent directories as needed
         :type p: boolean, optional
-        :calls: POST /utilities/mkdir
+        :calls: POST `/utilities/mkdir`
         :rtype: None
         """
         url = f"{self._firecrest_url}/utilities/mkdir"
@@ -332,7 +333,7 @@ class Firecrest:
         :type sourcePath: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: PUT /utilities/rename
+        :calls: PUT `/utilities/rename`
         :rtype: None
         """
         url = f"{self._firecrest_url}/utilities/rename"
@@ -355,7 +356,7 @@ class Firecrest:
         :type targetPath: string
         :param mode: same as numeric mode of linux chmod tool
         :type mode: string
-        :calls: PUT /utilities/chmod
+        :calls: PUT `/utilities/chmod`
         :rtype: None
         """
         url = f"{self._firecrest_url}/utilities/chmod"
@@ -381,7 +382,7 @@ class Firecrest:
         :type owner: string, optional
         :param group: group username for target
         :type group: string, optional
-        :calls: PUT /utilities/chown
+        :calls: PUT `/utilities/chown`
         :rtype: None
         """
         if owner is None and group is None:
@@ -411,7 +412,7 @@ class Firecrest:
         :type sourcePath: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: POST /utilities/copy
+        :calls: POST `/utilities/copy`
         :rtype: None
         """
         url = f"{self._firecrest_url}/utilities/copy"
@@ -430,7 +431,7 @@ class Firecrest:
         :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: GET /utilities/file
+        :calls: GET `/utilities/file`
         :rtype: string
         """
         url = f"{self._firecrest_url}/utilities/file"
@@ -457,7 +458,7 @@ class Firecrest:
         :type targetPath: string
         :param symlink: the absolute path to the new symlink
         :type symlink: string
-        :calls: POST /utilities/symlink
+        :calls: POST `/utilities/symlink`
         :rtype: None
         """
         url = f"{self._firecrest_url}/utilities/symlink"
@@ -479,7 +480,7 @@ class Firecrest:
         :type sourcePath: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: GET /utilities/download
+        :calls: GET `/utilities/download`
         :rtype: None
         """
 
@@ -504,7 +505,7 @@ class Firecrest:
         :type sourcePath: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: POST /utilities/upload
+        :calls: POST `/utilities/upload`
         :rtype: None
         """
 
@@ -528,7 +529,7 @@ class Firecrest:
         :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: DELETE /utilities/rm
+        :calls: DELETE `/utilities/rm`
         :rtype: None
         """
 
@@ -548,7 +549,7 @@ class Firecrest:
         :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: GET /utilities/checksum
+        :calls: GET `/utilities/checksum`
         :rtype: string
         """
         url = f"{self._firecrest_url}/utilities/checksum"
@@ -567,7 +568,7 @@ class Firecrest:
         :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
-        :calls: GET /utilities/checksum
+        :calls: GET `/utilities/checksum`
         :rtype: string
         """
         url = f"{self._firecrest_url}/utilities/view"
@@ -580,17 +581,19 @@ class Firecrest:
         return self._json_response(resp, 200)["output"]
 
     # Compute
-    def _submit_request(self, machine, job_script):
+    def _submit_request(self, machine, job_script, local_file):
         url = f"{self._firecrest_url}/compute/jobs/upload"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-
-        with open(job_script, "rb") as f:
-            files = {"file": f}
-
-            resp = requests.post(url=url, headers=headers, files=files)
+        if local_file:
+            with open(job_script, "rb") as f:
+                files = {"file": f}
+                resp = requests.post(url=url, headers=headers, files=files)
+        else:
+            data = {"targetPath": job_script}
+            resp = requests.post(url=url, headers=headers, data=data)
 
         return self._json_response(resp, 201)
 
@@ -616,19 +619,47 @@ class Firecrest:
         }
         params = {}
         if jobs:
-            params = {"jobs": ",".join([str(j) for j in jobs])}
+            params = {"jobs": ",".join(jobs)}
 
         resp = requests.get(url=url, headers=headers, params=params)
-
         return self._json_response(resp, 200)
 
-    def submit_job(self, machine, job_script):
-        json_response = self._submit_request(machine, job_script)
+    def submit(self, machine, job_script, local_file=True):
+        """Submits a batch script to SLURM on the target system
+
+        :param machine: the machine name where the scheduler belongs to
+        :type machine: string
+        :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
+        :type job_script: string
+        :param local_file: batch file can be local (default) or on the machine's filesystem
+        :type local_file: boolean, optional
+        :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
+
+                GET `/tasks/{taskid}`
+        :rtype: dictionary
+        """
+        json_response = self._submit_request(machine, job_script, local_file)
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def poll(self, machine, jobs=[]):
+    def poll(self, machine, jobs=[], starttime=None, endtime=None):
+        """Retrieves information about submitted jobs.
+        This call uses the `sacct` command.
+
+        :param machine: the machine name where the scheduler belongs to
+        :type machine: string
+        :param jobs: list of the IDs of the jobs (default [])
+        :type jobs: list of strings/integers, optional
+        :param starttime: Start time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
+        :type starttime: string, optional
+        :param endtime: End time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
+        :type endtime: string, optional
+        :calls: GET `/compute/acct`
+
+                GET `/tasks/{taskid}`
+        :rtype: dictionary
+        """
         jobids = [str(j) for j in jobs]
         if not jobids:
             return {}
@@ -639,14 +670,24 @@ class Firecrest:
         )
 
     def cancel(self, machine, jobid):
+        """Retrieves information about submitted jobs.
+        This call uses the `scancel` command.
+
+        :param machine: the machine name where the scheduler belongs to
+        :type machine: string
+        :param jobid: the absolute target path (default [])
+        :type jobid: list of strings/integers, optional
+        :calls: DELETE `/compute/jobs/{jobid}`
+
+                GET `/tasks/{taskid}`
+        :rtype: dictionary
+        """
         url = f"{self._firecrest_url}/compute/jobs/{jobid}"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
-
         resp = requests.delete(url=url, headers=headers)
-
         json_response = self._json_response(resp, 200)
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
