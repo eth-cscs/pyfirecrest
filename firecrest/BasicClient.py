@@ -740,13 +740,11 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"sourcePath": sourcePath}
-
         resp = requests.post(url=url, headers=headers, data=data)
-
         return ExternalDownload(self, self._json_response(resp, 201)["task_id"])
 
     def _internal_transfer(
-        self, url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
+        self, url, machine, sourcePath, targetPath, jobname, time, stageOutJobId, account
     ):
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -765,6 +763,9 @@ class Firecrest:
         if stageOutJobId:
             data["stageOutJobId"] = stageOutJobId
 
+        if account:
+            data["account"] = account
+
         resp = requests.post(url=url, headers=headers, data=data)
 
         return self._json_response(resp, 201)
@@ -777,10 +778,35 @@ class Firecrest:
         jobname=None,
         time=None,
         stageOutJobId=None,
+        account=None
     ):
+        """Move files between internal CSCS file systems.
+        Rename/Move sourcePath to targetPath.
+        Possible to stage-out jobs providing the SLURM Id of a production job.
+        More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
+
+        :param machine: the machine name where the scheduler belongs to
+        :type machine: string
+        :param sourcePath: the absolute source path
+        :type sourcePath: string
+        :param targetPath: the absolute target path
+        :type targetPath: string,
+        :param jobname: job name
+        :type jobname: string, optional
+        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :type time: string, optional
+        :param stageOutJobId: transfer data after job with ID {stageOutJobId} is completed
+        :type stageOutJobId: string, optional
+        :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
+        :type account: string, optional
+        :calls: POST `/storage/xfer-internal/mv`
+
+                GET `/tasks/{taskid}`
+        :rtype: dictionary with the jobid of the submitted job
+        """
         url = f"{self._firecrest_url}/storage/xfer-internal/mv"
         json_response = self._internal_transfer(
-            url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
+            url, machine, sourcePath, targetPath, jobname, time, stageOutJobId, account
         )
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -794,7 +820,32 @@ class Firecrest:
         jobname=None,
         time=None,
         stageOutJobId=None,
+        account=None
     ):
+        """Copy files between internal CSCS file systems.
+        Copy sourcePath to targetPath.
+        Possible to stage-out jobs providing the SLURM Id of a production job.
+        More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
+
+        :param machine: the machine name where the scheduler belongs to
+        :type machine: string
+        :param sourcePath: the absolute source path
+        :type sourcePath: string
+        :param targetPath: the absolute target path
+        :type targetPath: string,
+        :param jobname: job name
+        :type jobname: string, optional
+        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :type time: string, optional
+        :param stageOutJobId: transfer data after job with ID {stageOutJobId} is completed
+        :type stageOutJobId: string, optional
+        :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
+        :type account: string, optional
+        :calls: POST `/storage/xfer-internal/cp`
+
+                GET `/tasks/{taskid}`
+        :rtype: dictionary with the jobid of the submitted job
+        """
         url = f"{self._firecrest_url}/storage/xfer-internal/cp"
         json_response = self._internal_transfer(
             url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
@@ -811,7 +862,32 @@ class Firecrest:
         jobname=None,
         time=None,
         stageOutJobId=None,
+        account=None
     ):
+        """Transfer files between internal CSCS file systems.
+        Transfer sourcePath to targetPath.
+        Possible to stage-out jobs providing the SLURM Id of a production job.
+        More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
+
+        :param machine: the machine name where the scheduler belongs to
+        :type machine: string
+        :param sourcePath: the absolute source path
+        :type sourcePath: string
+        :param targetPath: the absolute target path
+        :type targetPath: string,
+        :param jobname: job name
+        :type jobname: string, optional
+        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :type time: string, optional
+        :param stageOutJobId: transfer data after job with ID {stageOutJobId} is completed
+        :type stageOutJobId: string, optional
+        :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
+        :type account: string, optional
+        :calls: POST `/storage/xfer-internal/rsync`
+
+                GET `/tasks/{taskid}`
+        :rtype: dictionary with the jobid of the submitted job
+        """
         url = f"{self._firecrest_url}/storage/xfer-internal/rsync"
         json_response = self._internal_transfer(
             url, machine, sourcePath, targetPath, jobname, time, stageOutJobId
@@ -821,8 +897,30 @@ class Firecrest:
         )
 
     def submit_delete_job(
-        self, machine, targetPath, jobname=None, time=None, stageOutJobId=None
+        self, machine, targetPath, jobname=None, time=None, stageOutJobId=None, account=None
     ):
+        """Remove files in internal CSCS file systems.
+        Remove file in targetPath.
+        Possible to stage-out jobs providing the SLURM Id of a production job.
+        More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
+
+        :param machine: the machine name where the scheduler belongs to
+        :type machine: string
+        :param targetPath: the absolute target path
+        :type targetPath: string,
+        :param jobname: job name
+        :type jobname: string, optional
+        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :type time: string, optional
+        :param stageOutJobId: transfer data after job with ID {stageOutJobId} is completed
+        :type stageOutJobId: string, optional
+        :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
+        :type account: string, optional
+        :calls: POST `/storage/xfer-internal/rm`
+
+                GET `/tasks/{taskid}`
+        :rtype: dictionary with the jobid of the submitted job
+        """
         url = f"{self._firecrest_url}/storage/xfer-internal/rm"
         json_response = self._internal_transfer(
             url, machine, None, targetPath, jobname, time, stageOutJobId
