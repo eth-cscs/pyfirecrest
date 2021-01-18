@@ -4,6 +4,9 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+import json
+
+
 class FirecrestException(Exception):
     """Base class for exceptions raised when using PyFirecREST.
     """
@@ -17,7 +20,12 @@ class FirecrestException(Exception):
         return self._responses
 
     def __str__(self):
-        return f'last request status: {self._responses[-1].status_code}'
+        try:
+            last_json_response = self._responses[-1].json()
+        except json.decoder.JSONDecodeError:
+            last_json_response = None
+
+        return f"last request: {self._responses[-1].status_code} {last_json_response}"
 
 
 class UnauthorizedException(FirecrestException):
@@ -25,7 +33,7 @@ class UnauthorizedException(FirecrestException):
     """
 
     def __str__(self):
-        return f'unauthorized request: {self._responses[-1].status_code} {self._responses[-1].json()}'
+        return f"{super().__str__()}: unauthorized request"
 
 
 class InvalidPathException(FirecrestException):
@@ -33,7 +41,13 @@ class InvalidPathException(FirecrestException):
     """
 
     def __str__(self):
-        return f'cannot open (No such file or directory)'
+        s = f"{super().__str__()}: "
+        if "X-Invalid-Path" in self._responses[-1].headers:
+            s += self._responses[-1].headers["X-Invalid-Path"]
+        else:
+            s += "invalid path"
+
+        return s
 
 
 class PermissionDeniedException(FirecrestException):
@@ -41,4 +55,22 @@ class PermissionDeniedException(FirecrestException):
     """
 
     def __str__(self):
-        return f'cannot open (Permission denied)'
+        s = f"{super().__str__()}: "
+        if "X-Invalid-Path" in self._responses[-1].headers:
+            s += self._responses[-1].headers["X-Invalid-Path"]
+        else:
+            s += "permission denied"
+
+        return s
+
+
+class UnexpectedStatusException(FirecrestException):
+    """Exception raised when a request gets an unexpected status
+    """
+
+    def __init__(self, responses, expected_status_code):
+        super().__init__(responses)
+        self._expected_status_code = expected_status_code
+
+    def __str__(self):
+        return f"{super().__str__()}: expected status {self._expected_status_code}"

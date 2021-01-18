@@ -148,21 +148,24 @@ class Firecrest:
         self._firecrest_url = firecrest_url
         self._authentication = authentication
 
-    def _json_response(self, response, expected_status_code, return_json=True):
+    def _json_response(self, response, expected_status_code):
         status_code = response.status_code
         # handle_response(response)
-        if status_code == 401:
+        if "X-Permission-Denied" in response.headers:
+            raise fe.PermissionDeniedException([response])
+        elif "X-Invalid-Path" in response.headers:
+            raise fe.InvalidPathException([response])
+        elif status_code == 401:
             raise fe.UnauthorizedException([response])
         elif status_code >= 400:
-            raise FirecrestException([response])
+            raise fe.FirecrestException([response])
         elif status_code != expected_status_code:
-            raise Exception(
-                f"status_code ({status_code}) != expected_status_code ({expected_status_code})"
-            )
+            raise fe.UnexpectedStatusException([response], expected_status_code)
 
-        ret = None
-        if return_json:
+        try:
             ret = response.json()
+        except json.decoder.JSONDecodeError:
+            ret = None
 
         return ret
 
@@ -174,7 +177,6 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-
         return self._json_response(resp, 200)["task"]
 
     def _invalidate(self, taskid):
@@ -184,7 +186,6 @@ class Firecrest:
             "X-Task-Id": taskid,
         }
         resp = requests.post(url=url, headers=headers)
-
         return self._json_response(resp, 201)
 
     def _poll_tasks(self, taskid, final_status, sleep_time):
@@ -207,7 +208,6 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-
         return self._json_response(resp, 200)["out"]
 
     def service(self, servicename):
@@ -224,9 +224,7 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-
         return self._json_response(resp, 200)
-        # return self._json_response(resp, 200)["out"]
 
     def all_systems(self):
         """Returns a list containing all available systems and response status.
@@ -239,7 +237,6 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-
         return self._json_response(resp, 200)["out"]
 
     def system(self, systemname):
@@ -256,7 +253,6 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-
         return self._json_response(resp, 200)["out"]
 
     def parameters(self):
@@ -270,7 +266,6 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-
         return self._json_response(resp, 200)["out"]
 
     # Utilities
@@ -296,7 +291,6 @@ class Firecrest:
             params["showhidden"] = showhidden
 
         resp = requests.get(url=url, headers=headers, params=params)
-
         return self._json_response(resp, 200)["output"]
 
     def mkdir(self, machine, targetPath, p=None):
@@ -321,7 +315,6 @@ class Firecrest:
             data["p"] = p
 
         resp = requests.post(url=url, headers=headers, data=data)
-
         self._json_response(resp, 201)
 
     def mv(self, machine, sourcePath, targetPath):
@@ -342,9 +335,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "sourcePath": sourcePath}
-
         resp = requests.put(url=url, headers=headers, data=data)
-
         self._json_response(resp, 200)
 
     def chmod(self, machine, targetPath, mode):
@@ -365,9 +356,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "mode": mode}
-
         resp = requests.put(url=url, headers=headers, data=data)
-
         self._json_response(resp, 200)
 
     def chown(self, machine, targetPath, owner=None, group=None):
@@ -442,9 +431,9 @@ class Firecrest:
         params = {"targetPath": targetPath}
         resp = requests.get(url=url, headers=headers, params=params)
         t = self._json_response(resp, 200)["out"]
-        if t == 'cannot open (No such file or directory)':
+        if t == "cannot open (No such file or directory)":
             raise fe.InvalidPathException([resp])
-        elif t == 'cannot open (Permission denied)':
+        elif t == "cannot open (Permission denied)":
             raise fe.PermissionDeniedException([resp])
 
         return t
@@ -491,7 +480,7 @@ class Firecrest:
         }
         params = {"sourcePath": sourcePath}
         resp = requests.get(url=url, headers=headers, params=params)
-        self._json_response(resp, 200, return_json=False)
+        self._json_response(resp, 200)
         with open(targetPath, "wb") as f:
             f.write(resp.content)
 
@@ -540,7 +529,7 @@ class Firecrest:
         }
         data = {"targetPath": targetPath}
         resp = requests.delete(url=url, headers=headers, data=data)
-        self._json_response(resp, 204, return_json=False)
+        self._json_response(resp, 204)
 
     def checksum(self, machine, targetPath):
         """Calculate the SHA256 (256-bit) checksum of a specified file
@@ -712,7 +701,6 @@ class Firecrest:
             "X-Machine-Name": machine,  # will not be taken into account yet
         }
         data = {"targetPath": targetPath, "sourcePath": sourcePath}
-
         resp = requests.post(url=url, headers=headers, data=data)
         try:
             json_response = self._json_response(resp, 201)["task_id"]
@@ -744,7 +732,15 @@ class Firecrest:
         return ExternalDownload(self, self._json_response(resp, 201)["task_id"])
 
     def _internal_transfer(
-        self, url, machine, sourcePath, targetPath, jobname, time, stageOutJobId, account
+        self,
+        url,
+        machine,
+        sourcePath,
+        targetPath,
+        jobname,
+        time,
+        stageOutJobId,
+        account,
     ):
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -767,7 +763,6 @@ class Firecrest:
             data["account"] = account
 
         resp = requests.post(url=url, headers=headers, data=data)
-
         return self._json_response(resp, 201)
 
     def submit_move_job(
@@ -778,7 +773,7 @@ class Firecrest:
         jobname=None,
         time=None,
         stageOutJobId=None,
-        account=None
+        account=None,
     ):
         """Move files between internal CSCS file systems.
         Rename/Move sourcePath to targetPath.
@@ -820,7 +815,7 @@ class Firecrest:
         jobname=None,
         time=None,
         stageOutJobId=None,
-        account=None
+        account=None,
     ):
         """Copy files between internal CSCS file systems.
         Copy sourcePath to targetPath.
@@ -862,7 +857,7 @@ class Firecrest:
         jobname=None,
         time=None,
         stageOutJobId=None,
-        account=None
+        account=None,
     ):
         """Transfer files between internal CSCS file systems.
         Transfer sourcePath to targetPath.
@@ -897,7 +892,13 @@ class Firecrest:
         )
 
     def submit_delete_job(
-        self, machine, targetPath, jobname=None, time=None, stageOutJobId=None, account=None
+        self,
+        machine,
+        targetPath,
+        jobname=None,
+        time=None,
+        stageOutJobId=None,
+        account=None,
     ):
         """Remove files in internal CSCS file systems.
         Remove file in targetPath.

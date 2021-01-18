@@ -8,13 +8,14 @@
 import sys
 
 
-VERSION = '0.0.1'
 MIN_PYTHON_VERSION = (3, 6, 0)
 
 # Check python version
 if sys.version_info[:3] < MIN_PYTHON_VERSION:
-    sys.stderr.write('Unsupported Python version: '
-                     'Python >= %d.%d.%d is required\n' % MIN_PYTHON_VERSION)
+    sys.stderr.write(
+        "Unsupported Python version: "
+        "Python >= %d.%d.%d is required\n" % MIN_PYTHON_VERSION
+    )
     sys.exit(1)
 
 from firecrest.BasicClient import Firecrest, ExternalDownload, ExternalUpload
