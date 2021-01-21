@@ -20,3 +20,4 @@ if sys.version_info[:3] < MIN_PYTHON_VERSION:
 
 from firecrest.BasicClient import Firecrest, ExternalDownload, ExternalUpload
 from firecrest.Keycloak import ClientCredentialsAuthentication
+from firecrest.FirecrestException import FirecrestException

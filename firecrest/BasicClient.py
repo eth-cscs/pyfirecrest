@@ -4,16 +4,17 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+import itertools
 import json
 import requests
-import itertools
-import time
-
-import subprocess
 import shlex
-import sys
+import shutil
+import subprocess
+import time
+import urllib.request
 
 import firecrest.FirecrestException as fe
+
 
 # This function is temporarily here
 def handle_response(response):
@@ -97,8 +98,16 @@ class ExternalUpload(ExternalStorage):
         return self._object_storage_data
 
     def finish_upload(self):
-        link = self.object_storage_data
-        subprocess.run(shlex.split(link["command"]), stdout=subprocess.PIPE)
+        c = self.object_storage_data["command"]
+        # LOCAL FIX FOR MAC
+        # c = c.replace("192.168.220.19", "localhost")
+        command = subprocess.run(
+            shlex.split(c), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if command.returncode != 0:
+            raise Exception(
+                f"failed to finish upload with error: {command.stderr.decode('utf-8')}"
+            )
 
 
 class ExternalDownload(ExternalStorage):
@@ -127,7 +136,12 @@ class ExternalDownload(ExternalStorage):
 
     def finish_download(self, targetname):
         url = self.object_storage_data
-        # TODO: doesn't work yet
+        # LOCAL FIX FOR MAC
+        # url = url.replace("192.168.220.19", "localhost")
+        with urllib.request.urlopen(url) as response, open(
+            targetname, "wb"
+        ) as out_file:
+            shutil.copyfileobj(response, out_file)
 
 
 class Firecrest:
@@ -151,11 +165,11 @@ class Firecrest:
     def _json_response(self, response, expected_status_code):
         status_code = response.status_code
         # handle_response(response)
-        if "X-Permission-Denied" in response.headers:
-            raise fe.PermissionDeniedException([response])
-        elif "X-Invalid-Path" in response.headers:
-            raise fe.InvalidPathException([response])
-        elif status_code == 401:
+        for h in fe.ERROR_HEADERS:
+            if h in response.headers:
+                raise fe.HeaderException([response])
+
+        if status_code == 401:
             raise fe.UnauthorizedException([response])
         elif status_code >= 400:
             raise fe.FirecrestException([response])
@@ -177,7 +191,16 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authentication.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-        return self._json_response(resp, 200)["task"]
+        taskinfo = self._json_response(resp, 200)
+        status = int(taskinfo["task"]["status"])
+        if status == 115:
+            raise fe.StorageDownloadException([resp])
+        if status == 118:
+            raise fe.StorageDownloadException([resp])
+        if status >= 400:
+            raise fe.FirecrestException([resp])
+
+        return taskinfo["task"]
 
     def _invalidate(self, taskid):
         url = f"{self._firecrest_url}/storage/xfer-external/invalidate"
@@ -431,10 +454,6 @@ class Firecrest:
         params = {"targetPath": targetPath}
         resp = requests.get(url=url, headers=headers, params=params)
         t = self._json_response(resp, 200)["out"]
-        if t == "cannot open (No such file or directory)":
-            raise fe.InvalidPathException([resp])
-        elif t == "cannot open (Permission denied)":
-            raise fe.PermissionDeniedException([resp])
 
         return t
 
@@ -571,16 +590,17 @@ class Firecrest:
 
     # Compute
     def _submit_request(self, machine, job_script, local_file):
-        url = f"{self._firecrest_url}/compute/jobs/upload"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
             "X-Machine-Name": machine,
         }
         if local_file:
+            url = f"{self._firecrest_url}/compute/jobs/upload"
             with open(job_script, "rb") as f:
                 files = {"file": f}
                 resp = requests.post(url=url, headers=headers, files=files)
         else:
+            url = f"{self._firecrest_url}/compute/jobs/path"
             data = {"targetPath": job_script}
             resp = requests.post(url=url, headers=headers, data=data)
 
@@ -597,10 +617,9 @@ class Firecrest:
             params = {"jobs": ",".join([str(j) for j in jobs])}
 
         resp = requests.get(url=url, headers=headers, params=params)
-
         return self._json_response(resp, 200)
 
-    def _acct_request(self, machine, jobs=[]):
+    def _acct_request(self, machine, jobs=[], starttime=None, endtime=None):
         url = f"{self._firecrest_url}/compute/acct"
         headers = {
             "Authorization": f"Bearer {self._authentication.get_access_token()}",
@@ -608,7 +627,13 @@ class Firecrest:
         }
         params = {}
         if jobs:
-            params = {"jobs": ",".join(jobs)}
+            params["jobs"] = ",".join(jobs)
+
+        if starttime:
+            params["starttime"] = starttime
+
+        if endtime:
+            params["endtime"] = endtime
 
         resp = requests.get(url=url, headers=headers, params=params)
         return self._json_response(resp, 200)
@@ -653,7 +678,7 @@ class Firecrest:
         if not jobids:
             return {}
 
-        json_response = self._acct_request(machine, jobids)
+        json_response = self._acct_request(machine, jobids, starttime, endtime)
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -702,13 +727,8 @@ class Firecrest:
         }
         data = {"targetPath": targetPath, "sourcePath": sourcePath}
         resp = requests.post(url=url, headers=headers, data=data)
-        try:
-            json_response = self._json_response(resp, 201)["task_id"]
-            return ExternalUpload(self, json_response)
-        except:
-            # TODO: handle errors
-            print("TODOOO")
-            return None
+        json_response = self._json_response(resp, 201)["task_id"]
+        return ExternalUpload(self, json_response)
 
     def external_download(self, machine, sourcePath):
         """Non blocking call for the download of larger files.

@@ -7,6 +7,11 @@
 import json
 
 
+ERROR_HEADERS = {
+    "X-Permission-Denied", "X-Invalid-Path", "X-Machine-Does-Not-Exist", "X-Machine-Not-Available",
+    "X-Timeout", "X-Not-A-Directory", "X-A-Directory", "X-Error"
+}
+
 class FirecrestException(Exception):
     """Base class for exceptions raised when using PyFirecREST.
     """
@@ -29,37 +34,23 @@ class FirecrestException(Exception):
 
 
 class UnauthorizedException(FirecrestException):
-    """Exception raised with an invalid token
+    """Exception raised by an unauthorized request
     """
 
     def __str__(self):
         return f"{super().__str__()}: unauthorized request"
 
 
-class InvalidPathException(FirecrestException):
-    """Exception raised with an invalid token
+class HeaderException(FirecrestException):
+    """Exception raised by a request with an error header
     """
 
     def __str__(self):
         s = f"{super().__str__()}: "
-        if "X-Invalid-Path" in self._responses[-1].headers:
-            s += self._responses[-1].headers["X-Invalid-Path"]
-        else:
-            s += "invalid path"
-
-        return s
-
-
-class PermissionDeniedException(FirecrestException):
-    """Exception raised with an invalid token
-    """
-
-    def __str__(self):
-        s = f"{super().__str__()}: "
-        if "X-Invalid-Path" in self._responses[-1].headers:
-            s += self._responses[-1].headers["X-Invalid-Path"]
-        else:
-            s += "permission denied"
+        for h in ERROR_HEADERS:
+            if h in self._responses[-1].headers:
+                s += self._responses[-1].headers[h]
+                break
 
         return s
 
