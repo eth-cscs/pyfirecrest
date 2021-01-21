@@ -2,7 +2,17 @@
 
 This is a simple python wrapper for the [FirecREST API](https://github.com/eth-cscs/firecrest).
 
-*Example code*
+### How to install
+- Through [PyPI](https://test.pypi.org/project/pyfirecrest/):
+
+  ```
+  pip install -i https://test.pypi.org/simple/ pyfirecrest
+  ```
+
+### How to use
+To run a simple example you can use the testbuild from the demo environment [here](https://github.com/eth-cscs/firecrest/tree/master/deploy/demo).
+The configuration corresponds to the service account `firecrest-sample`.
+
 ```python
 import firecrest as fc
 
@@ -23,7 +33,6 @@ class MyKeycloakServiceAccount:
 
     @keycloak.service_account_login
     def get_access_token(self):
-        # return 'keycloak.get_access_token()'
         return keycloak.get_access_token()
 
 
