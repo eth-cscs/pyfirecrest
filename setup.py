@@ -10,7 +10,7 @@ import setuptools
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-version = '0.0.2'
+version = '0.0.4'
 
 setuptools.setup(
     name='pyfirecrest',

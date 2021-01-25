@@ -12,10 +12,10 @@ The ``Firecrest`` class
     :show-inheritance:
 
 
-
 The ``ExternalUpload`` class
 ****************************
 .. autoclass:: firecrest.ExternalUpload
+    :inherited-members:
     :members:
     :undoc-members:
     :show-inheritance:
@@ -24,6 +24,7 @@ The ``ExternalUpload`` class
 The ``ExternalDownload`` class
 ******************************
 .. autoclass:: firecrest.ExternalDownload
+    :inherited-members:
     :members:
     :undoc-members:
     :show-inheritance:

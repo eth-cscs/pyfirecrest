@@ -54,40 +54,43 @@ class ExternalStorage:
                     self._object_storage_data = task["data"]
 
     @property
-    def in_progress(self):
-        self._update()
-        return self._status not in self._final_states
-
-    @property
     def status(self):
+        """Returns status of the task that is associated with this transfer.
+
+        :calls: GET `/tasks/{taskid}`
+        :rtype: string
+        """
         self._update()
         return self._status
 
     @property
+    def in_progress(self):
+        """Returns `True` when the transfer has been completed (succesfully or with errors).
+
+        :calls: GET `/tasks/{taskid}`
+        :rtype: boolean
+        """
+        self._update()
+        return self._status not in self._final_states
+
+    @property
     def data(self):
+        """Returns the task information from the latest response.
+
+        :calls: GET `/tasks/{taskid}`
+        :rtype: dictionary
+        """
         self._update()
         return self._data
 
-
-class ExternalUpload(ExternalStorage):
-    """
-    This class handles the external upload from a file.
-
-    Tracks the progress of the upload.
-    "110" : "Waiting for Form URL from Object Storage to be retrieved"
-    "111" : "Form URL from Object Storage received"
-    "112" : "Object Storage confirms that upload to Object Storage has finished"
-    "113" : "Download from Object Storage to server has started"
-    "114" : "Download from Object Storage to server has finished"
-    "115" : "Download from Object Storage error"
-    """
-
-    def __init__(self, client, task_id):
-        super().__init__(client, task_id)
-        self._final_states = {"114", "115"}
-
     @property
     def object_storage_data(self):
+        """Returns the necessary information for the external transfer.
+        The call is blocking and in cases of large file transfers it might take a long time.
+
+        :calls: GET `/tasks/{taskid}`
+        :rtype: dictionary or string
+        """
         if not self._object_storage_data:
             self._update()
 
@@ -97,7 +100,44 @@ class ExternalUpload(ExternalStorage):
 
         return self._object_storage_data
 
+
+class ExternalUpload(ExternalStorage):
+    """
+    This class handles the external upload from a file.
+
+    Tracks the progress of the upload through the status of the associated task.
+    Final states: *114* and *115*.
+
+    +--------+--------------------------------------------------------------------+
+    | Status | Description                                                        |
+    +========+====================================================================+
+    | 110    | Waiting for Form URL from Object Storage to be retrieved           |
+    +--------+--------------------------------------------------------------------+
+    | 111    | Form URL from Object Storage received                              |
+    +--------+--------------------------------------------------------------------+
+    | 112    | Object Storage confirms that upload to Object Storage has finished |
+    +--------+--------------------------------------------------------------------+
+    | 113    | Download from Object Storage to server has started                 |
+    +--------+--------------------------------------------------------------------+
+    | 114    | Download from Object Storage to server has finished                |
+    +--------+--------------------------------------------------------------------+
+    | 115    | Download from Object Storage error                                 |
+    +--------+--------------------------------------------------------------------+
+
+    """
+
+    def __init__(self, client, task_id):
+        super().__init__(client, task_id)
+        self._final_states = {"114", "115"}
+
     def finish_upload(self):
+        """Finish the upload process.
+        This call will upload the file to the staging area.
+        Check with the method `status` or `in_progress` to see the status of the transfer.
+        The transfer from the staging area to the systems's filesystem can take several seconds to start to start.
+
+        :rtype: None
+        """
         c = self.object_storage_data["command"]
         # LOCAL FIX FOR MAC
         # c = c.replace("192.168.220.19", "localhost")
@@ -111,30 +151,43 @@ class ExternalUpload(ExternalStorage):
 
 
 class ExternalDownload(ExternalStorage):
-    # download process states:
-    # ST_UPL_BEG = "116" # on download process: start upload from filesystem to Object Storage
-    # ST_UPL_END = "117" # on download process: upload from filesystem to Object Storage is finished
-    # ST_UPL_ERR = "118" # on download process: upload from filesystem to Object Storage is erroneous
+    """
+    This class handles the external download from a file.
+
+    Tracks the progress of the download through the status of the associated task.
+    Final states: *117* and *118*.
+
+    +--------+--------------------------------------------------------------------+
+    | Status | Description                                                        |
+    +========+====================================================================+
+    | 116    | Started upload from filesystem to Object Storage                   |
+    +--------+--------------------------------------------------------------------+
+    | 117    | Upload from filesystem to Object Storage has finished succesfully  |
+    +--------+--------------------------------------------------------------------+
+    | 118    | Upload from filesystem to Object Storage has finished with errors  |
+    +--------+--------------------------------------------------------------------+
+
+    """
 
     def __init__(self, client, task_id):
         super().__init__(client, task_id)
         self._final_states = {"117", "118"}
 
-    @property
-    def object_storage_data(self):
-        if not self._object_storage_data:
-            self._update()
-
-        while not self._object_storage_data:
-            time.sleep(next(self._sleep_time))
-            self._update()
-
-        return self._object_storage_data
-
     def invalidate_object_storage_link(self):
+        """Invalidate the temporary URL for downloading.
+
+        :calls: POST `/storage/xfer-external/invalidate`
+        :rtype: None
+        """
         self.client._invalidate(self._task_id)
 
     def finish_download(self, targetname):
+        """Finish the download process.
+
+        :param targetname: the local path to save the file
+        :type targetname: string
+        :rtype: None
+        """
         url = self.object_storage_data
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")
