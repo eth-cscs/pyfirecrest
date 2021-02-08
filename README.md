@@ -10,7 +10,8 @@ This is a simple python wrapper for the [FirecREST API](https://github.com/eth-c
   ```
 
 ### How to use
-To run a simple example you can use the testbuild from the demo environment [here](https://github.com/eth-cscs/firecrest/tree/master/deploy/demo).
+The full documentation of pyFirecREST is in [this page](https://pyfirecrest.readthedocs.io) but you can get an idea from the following example.
+This is how you can use the testbuild from the demo environment [here](https://github.com/eth-cscs/firecrest/tree/master/deploy/demo).
 The configuration corresponds to the service account `firecrest-sample`.
 
 ```python
