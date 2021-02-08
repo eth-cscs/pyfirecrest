@@ -12,12 +12,6 @@ Installation
 This package is temporarily in `TestPyPi <https://test.pypi.org/project/pyfirecrest/>`__, and ``pip install -i https://test.pypi.org/simple/ pyfirecrest`` should be enough.
 You can also clone it from `Github <https://github.com/ekouts/pyfirecrest>`__ and even modify according to your needs.
 
-
-Contact
-=======
-
-In case of questions/bugs/feature requests feel free to open issues in the public `repository in Github <https://github.com/ekouts/pyfirecrest>`__.
-
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
@@ -25,3 +19,8 @@ In case of questions/bugs/feature requests feel free to open issues in the publi
    authorization
    tutorial
    reference
+
+Contact
+=======
+
+In case of questions/bugs/feature requests feel free to open issues in the public `repository in Github <https://github.com/ekouts/pyfirecrest>`__.
