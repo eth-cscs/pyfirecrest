@@ -29,29 +29,9 @@ The ``ExternalDownload`` class
     :undoc-members:
     :show-inheritance:
 
-.. The ``ClientCredentialsAuthentication`` class
-.. *****************************
-.. .. autoclass:: firecrest.ClientCredentialsAuthentication
-..     :members:
-..     :undoc-members:
-..     :show-inheritance:
-
-.. Submodules
-.. ----------
-
-.. firecrest.BasicClient module
-.. ----------------------------
-
-.. .. automodule:: firecrest.BasicClient
-..    :members:
-..    :undoc-members:
-..    :show-inheritance:
-
-.. firecrest.Keycloak module
-.. -------------------------
-
-.. .. automodule:: firecrest.Keycloak
-..    :members:
-..    :undoc-members:
-..    :show-inheritance:
-
+The ``ClientCredentialsAuthorization`` class
+*********************************************
+.. autoclass:: firecrest.ClientCredentialsAuthorization
+    :members:
+    :undoc-members:
+    :show-inheritance:

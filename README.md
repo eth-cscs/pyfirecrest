@@ -14,15 +14,15 @@ To run a simple example you can use the testbuild from the demo environment [her
 The configuration corresponds to the service account `firecrest-sample`.
 
 ```python
-import firecrest as fc
+import firecrest as f7c
 
-# Configuration parameters for the Authentication Object
+# Configuration parameters for the Authorization Object
 client_id = "firecrest-sample"
 client_secret = "b391e177-fa50-4987-beaf-e6d33ca93571"
 token_uri = "http://localhost:8080/auth/realms/kcrealm/protocol/openid-connect/token"
 
 # Create a keycloak service account object
-keycloak = fc.ClientCredentialsAuthentication(
+keycloak = f7c.ClientCredentialsAuthorization(
     client_id, client_secret, token_uri, debug=False
 )
 
@@ -38,7 +38,7 @@ class MyKeycloakServiceAccount:
 
 # Setup the client for the specific service account
 client = fc.Firecrest(
-    firecrest_url="http://localhost:8000", authentication=MyKeycloakServiceAccount()
+    firecrest_url="http://localhost:8000", authorization=MyKeycloakServiceAccount()
 )
 
 try:

@@ -1,20 +1,27 @@
-.. PyFirecREST documentation master file, created by
-   sphinx-quickstart on Sat Jan 16 14:57:57 2021.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+======================
+Welcome to PyFirecREST
+======================
 
-Welcome to PyFirecREST's documentation!
-=======================================
+PyFirecREST is a Python library to use the `FirecREST API <https://firecrest.readthedocs.io>`__. With it, you can manage your resources from Python 3 scripts.
+
+
+
+Installation
+============
+
+This package is temporarily in `TestPyPi <https://test.pypi.org/project/pyfirecrest/>`__, and ``pip install -i https://test.pypi.org/simple/ pyfirecrest`` should be enough.
+You can also clone it from `Github <https://github.com/ekouts/pyfirecrest>`__ and even modify according to your needs.
+
+
+Contact
+=======
+
+In case of questions/bugs/feature requests feel free to open issues in the public `repository in Github <https://github.com/ekouts/pyfirecrest>`__.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   firecrest
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   authorization
+   tutorial
+   reference
