@@ -9,7 +9,7 @@ For this tutorial we will assume the simplest kind of authorization class, where
 
 .. code-block:: Python
 
-    import firecrest as f7c
+    import firecrest as f7t
 
     class MyAuthorizationClass:
         def __init__(self):
@@ -19,7 +19,7 @@ For this tutorial we will assume the simplest kind of authorization class, where
             return <TOKEN>
 
     # Setup the client with the appropriate URL and the authorization class
-    client = f7c.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
+    client = f7t.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
 
 
 Simple blocking requests
@@ -171,7 +171,7 @@ External Upload
 The case of external upload is very similar.
 To upload a file you would have to ask for the link in the staging area and upload the file there.
 **Even after uploading the file there, it will take some time for the file to appear in the filesystem.**
-You can alway follow the status of the task with the ``status`` method and when the file has been successfully uploaded the status of the task will be 114..
+You can alway follow the status of the task with the ``status`` method and when the file has been successfully uploaded the status of the task will be 114.
 
 +--------+--------------------------------------------------------------------+
 | Status | Description                                                        |

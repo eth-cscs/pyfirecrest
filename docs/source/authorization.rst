@@ -38,9 +38,9 @@ If you want to use the Client Credentials authorization grant, you can use the `
 
 .. code-block:: Python
 
-    import firecrest as f7c
+    import firecrest as f7t
 
-    keycloak = f7c.ClientCredentialsAuthorization(
+    keycloak = f7t.ClientCredentialsAuthorization(
         <client_id>, <client_secret>, <token_uri>
     )
 

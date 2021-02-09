@@ -15,7 +15,7 @@ This is how you can use the testbuild from the demo environment [here](https://g
 The configuration corresponds to the service account `firecrest-sample`.
 
 ```python
-import firecrest as f7c
+import firecrest as f7t
 
 # Configuration parameters for the Authorization Object
 client_id = "firecrest-sample"
@@ -23,7 +23,7 @@ client_secret = "b391e177-fa50-4987-beaf-e6d33ca93571"
 token_uri = "http://localhost:8080/auth/realms/kcrealm/protocol/openid-connect/token"
 
 # Create a keycloak service account object
-keycloak = f7c.ClientCredentialsAuthorization(
+keycloak = f7t.ClientCredentialsAuthorization(
     client_id, client_secret, token_uri, debug=False
 )
 
@@ -38,14 +38,14 @@ class MyKeycloakServiceAccount:
 
 
 # Setup the client for the specific service account
-client = fc.Firecrest(
+client = f7t.Firecrest(
     firecrest_url="http://localhost:8000", authorization=MyKeycloakServiceAccount()
 )
 
 try:
     parameters = client.parameters()
     print(f"Firecrest parameters: {parameters}")
-except fc.FirecrestException as e:
+except f7t.FirecrestException as e:
     # When the error comes from the responses to a firecrest request you will get a
     # `FirecrestException` and from this you can examine the http responses yourself
     # through the `responses` property
