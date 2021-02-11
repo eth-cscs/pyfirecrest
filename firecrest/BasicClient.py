@@ -53,7 +53,7 @@ class ExternalStorage:
 
     def _update(self):
         if self._status not in self._final_states:
-            task = self._client._tasks(self._task_id)
+            task = self._client._tasks(self._task_id, self._responses)
             self._status = task["status"]
             self._data = task["data"]
             if not self._object_storage_data:
@@ -268,7 +268,7 @@ class Firecrest:
             f"Authorization": f"Bearer {self._authorization.get_access_token()}"
         }
         resp = requests.get(url=url, headers=headers)
-        responses.append[resp]
+        responses.append(resp)
         taskinfo = self._json_response(responses, 200)
         status = int(taskinfo["task"]["status"])
         if status == 115:
@@ -783,7 +783,8 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         resp = requests.delete(url=url, headers=headers)
-        json_response = self._json_response(resp, 200)
+        self._current_method_requests.append(resp)
+        json_response = self._json_response(self._current_method_requests, 200)
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
