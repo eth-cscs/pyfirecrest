@@ -66,7 +66,7 @@ You can get a list of the files, with all the usual properties that ls provides 
 
 .. code-block:: Python
 
-    files = client.list_files("cluster", "/home/myuser")
+    files = client.list_files("cluster", "/home/test_user")
     print(files)
 
 The output will be something like this:
@@ -96,11 +96,13 @@ The output will be something like this:
         }
     ]
 
-Methods that will make more than one requests
----------------------------------------------
+Interact with the scheduler
+---------------------------
 
-Some methods of this client will be blocking, but will require at least two requests to FirecREST to return the results.
-One example of this is job submission, which you would call simply as follows:
+pyFirecREST offers three basic functionalities of the scheduler: submit jobs on behalf of a user, poll for the jobs of the user and cancel jobs.
+Although the methods of this client will be blocking, on the background it will make at least two requests to Firecrest to return the results of the action.
+
+This is how can make a simple job submission, when the batch script is on your local filesystem:
 
 .. code-block:: Python
 
@@ -112,12 +114,22 @@ For a successful submission the output would look like this.
 .. code-block:: json
 
     {
+        "job_data_err": "",
+        "job_data_out": "",
+        "job_file": "/home/test_user/firecrest/cfd276f40d7ee4f9d082b73b29a4d76e/script.sh",
+        "job_file_err": "/home/test_user/firecrest/cfd276f40d7ee4f9d082b73b29a4d76e/slurm-2.out",
+        "job_file_out": "/home/test_user/firecrest/cfd276f40d7ee4f9d082b73b29a4d76e/slurm-2.out",
         "jobid": 42,
         "result": "Job submitted"
     }
 
+From the returned fields, you can see the result of the job submission (``result``), the ``jobid``, the location of the uploaded batch script (``job_file``) as well as the location of output (``job_file_out``) and error (``job_file_err``) files. Finally you also get the content of the beginning output and error file, but since the job probably hasn't started running yet, it will be empty.
+
 All requests that involve the scheduler will create a FirecREST task and be part of an internal queue.
-In order to get the results from the scheduler, more requests have to be made.
+When you upload a batch script, FirecREST will create a new directory called ``firecrest``, and a subdirectory there with the Firecrest task ID. It will upload the batchscript there and submit the job from this directory.
+
+If you choose to submit the job with a batch script in the machine's filesystem, with the option ``local_file=False``, then FirecREST will submit the job from the directory of the batch script.
+
 This method hides the multiple requests and will be blocking, but you can find more information about the job submission `here <https://firecrest.readthedocs.io/en/latest/tutorial.html#upload-a-small-file-with-the-blocking-call>`__.
 
 Transfer of large files
