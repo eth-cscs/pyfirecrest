@@ -48,7 +48,7 @@ If you want to use the Client Credentials authorization grant, you can use the `
         def __init__(self):
             pass
 
-        @keycloak.service_account_login
+        @keycloak.account_login
         def get_access_token(self):
             return keycloak.get_access_token()
 

@@ -12,7 +12,7 @@ This is a simple python wrapper for the [FirecREST API](https://github.com/eth-c
 ### How to use
 The full documentation of pyFirecREST is in [this page](https://pyfirecrest.readthedocs.io) but you can get an idea from the following example.
 This is how you can use the testbuild from the demo environment [here](https://github.com/eth-cscs/firecrest/tree/master/deploy/demo).
-The configuration corresponds to the service account `firecrest-sample`.
+The configuration corresponds to the account `firecrest-sample`.
 
 ```python
 import firecrest as f7t
@@ -22,24 +22,24 @@ client_id = "firecrest-sample"
 client_secret = "b391e177-fa50-4987-beaf-e6d33ca93571"
 token_uri = "http://localhost:8080/auth/realms/kcrealm/protocol/openid-connect/token"
 
-# Create a keycloak service account object
+# Create an authorization account object with Client Credentials authorization grant
 keycloak = f7t.ClientCredentialsAuthorization(
     client_id, client_secret, token_uri, debug=False
 )
 
 
-class MyKeycloakServiceAccount:
+class MyKeycloakCCAccount:
     def __init__(self):
         pass
 
-    @keycloak.service_account_login
+    @keycloak.account_login
     def get_access_token(self):
         return keycloak.get_access_token()
 
 
-# Setup the client for the specific service account
+# Setup the client for the specific account
 client = f7t.Firecrest(
-    firecrest_url="http://localhost:8000", authorization=MyKeycloakServiceAccount()
+    firecrest_url="http://localhost:8000", authorization=MyKeycloakCCAccount()
 )
 
 try:
