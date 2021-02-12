@@ -139,8 +139,8 @@ class ExternalUpload(ExternalStorage):
     :type task_id: string
     """
 
-    def __init__(self, client, task_id):
-        super().__init__(client, task_id)
+    def __init__(self, client, task_id, previous_responses=[]):
+        super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
 
     def finish_upload(self):
@@ -186,8 +186,8 @@ class ExternalDownload(ExternalStorage):
     :type task_id: string
     """
 
-    def __init__(self, client, task_id):
-        super().__init__(client, task_id)
+    def __init__(self, client, task_id, previous_responses=[]):
+        super().__init__(client, task_id, previous_responses)
         self._final_states = {"117", "118"}
 
     def invalidate_object_storage_link(self):
