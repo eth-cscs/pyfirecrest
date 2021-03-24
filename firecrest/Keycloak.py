@@ -59,7 +59,7 @@ class ClientCredentialsAuthorization(object):
             logging.debug("Checks if access token is valid")
 
         url = f"{self._token_uri}/introspect"
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        headers = {"Content-Type": "application/x-www-form-urlencoded", 'scope':'openid'}
         data = {
             "client_id": self._client_id,
             "client_secret": self._client_secret,
@@ -106,7 +106,7 @@ class ClientCredentialsAuthorization(object):
         if self._debug:
             logging.debug("Getting new access token from refresh token")
 
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        headers = {"Content-Type": "application/x-www-form-urlencoded", 'scope':'openid'}
         data = {
             "grant_type": "refresh_token",
             "client_id": self._client_id,
@@ -148,7 +148,7 @@ class ClientCredentialsAuthorization(object):
         # -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET_KEY' \
         # TOKEN_URI
 
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        headers = {"Content-Type": "application/x-www-form-urlencoded", 'scope':'openid'}
         data = {
             "grant_type": "client_credentials",
             "client_id": self._client_id,
