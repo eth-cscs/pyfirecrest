@@ -264,9 +264,7 @@ class Firecrest:
         if taskid:
             url += taskid
 
-        headers = {
-            f"Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         resp = requests.get(url=url, headers=headers)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
@@ -308,9 +306,7 @@ class Firecrest:
         :rtype: list of dictionaries (one for each service)
         """
         url = f"{self._firecrest_url}/status/services"
-        headers = {
-            f"Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         resp = requests.get(url=url, headers=headers)
         return self._json_response([resp], 200)["out"]
 
@@ -324,9 +320,7 @@ class Firecrest:
         :rtype: list of dictionaries (one for each service)
         """
         url = f"{self._firecrest_url}/status/services/{servicename}"
-        headers = {
-            f"Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         resp = requests.get(url=url, headers=headers)
         return self._json_response([resp], 200)
 
@@ -337,9 +331,7 @@ class Firecrest:
         :rtype: list of dictionaries (one for each system)
         """
         url = f"{self._firecrest_url}/status/systems"
-        headers = {
-            f"Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         resp = requests.get(url=url, headers=headers)
         return self._json_response([resp], 200)["out"]
 
@@ -353,9 +345,7 @@ class Firecrest:
         :rtype: list of dictionaries (one for each system)
         """
         url = f"{self._firecrest_url}/status/systems/{systemname}"
-        headers = {
-            f"Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         resp = requests.get(url=url, headers=headers)
         return self._json_response([resp], 200)["out"]
 
@@ -366,9 +356,7 @@ class Firecrest:
         :rtype: list of parameters
         """
         url = f"{self._firecrest_url}/status/parameters"
-        headers = {
-            f"Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         resp = requests.get(url=url, headers=headers)
         return self._json_response([resp], 200)["out"]
 
@@ -1037,4 +1025,6 @@ class Firecrest:
         }
         data = {"sourcePath": sourcePath}
         resp = requests.post(url=url, headers=headers, data=data)
-        return ExternalDownload(self, self._json_response([resp], 201)["task_id"], [resp])
+        return ExternalDownload(
+            self, self._json_response([resp], 201)["task_id"], [resp]
+        )

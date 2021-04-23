@@ -8,8 +8,14 @@ import json
 
 
 ERROR_HEADERS = {
-    "X-Permission-Denied", "X-Invalid-Path", "X-Machine-Does-Not-Exist", "X-Machine-Not-Available",
-    "X-Timeout", "X-Not-A-Directory", "X-A-Directory", "X-Error"
+    "X-Permission-Denied",
+    "X-Invalid-Path",
+    "X-Machine-Does-Not-Exist",
+    "X-Machine-Not-Available",
+    "X-Timeout",
+    "X-Not-A-Directory",
+    "X-A-Directory",
+    "X-Error",
 }
 
 class FirecrestException(Exception):
@@ -65,3 +71,13 @@ class UnexpectedStatusException(FirecrestException):
 
     def __str__(self):
         return f"{super().__str__()}: expected status {self._expected_status_code}"
+
+
+class StorageDownloadException(FirecrestException):
+    """Exception raised by a failed external download
+    """
+
+
+class StorageUploadException(FirecrestException):
+    """Exception raised by a failed external upload
+    """

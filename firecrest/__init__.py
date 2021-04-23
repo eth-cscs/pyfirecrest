@@ -18,6 +18,11 @@ if sys.version_info[:3] < MIN_PYTHON_VERSION:
     )
     sys.exit(1)
 
-from firecrest.BasicClient import Firecrest, ExternalDownload, ExternalUpload, ExternalStorage
+from firecrest.BasicClient import (
+    Firecrest,
+    ExternalDownload,
+    ExternalUpload,
+    ExternalStorage,
+)
 from firecrest.Keycloak import ClientCredentialsAuthorization
 from firecrest.FirecrestException import FirecrestException
