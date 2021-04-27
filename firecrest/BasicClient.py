@@ -270,13 +270,13 @@ class Firecrest:
         taskinfo = self._json_response(responses, 200)
         status = int(taskinfo["task"]["status"])
         if status == 115:
-            raise fe.StorageUploadException([responses])
+            raise fe.StorageUploadException(responses)
 
         if status == 118:
-            raise fe.StorageDownloadException([responses])
+            raise fe.StorageDownloadException(responses)
 
         if status >= 400:
-            raise fe.FirecrestException([responses])
+            raise fe.FirecrestException(responses)
 
         return taskinfo["task"]
 
