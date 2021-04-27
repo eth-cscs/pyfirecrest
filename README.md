@@ -3,10 +3,10 @@
 This is a simple python wrapper for the [FirecREST API](https://github.com/eth-cscs/firecrest).
 
 ### How to install
-- Through [PyPI](https://test.pypi.org/project/pyfirecrest/):
+- Through [PyPI](https://pypi.org/project/pyfirecrest/):
 
   ```
-  pip install -i https://test.pypi.org/simple/ pyfirecrest
+  python3 -m pip install pyfirecrest
   ```
 
 ### How to use
