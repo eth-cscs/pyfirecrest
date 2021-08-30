@@ -1035,10 +1035,10 @@ class Firecrest:
 
         :param machine: the machine name
         :type machine: string
-        :calls: GET `/reservations/`
+        :calls: GET `/reservations`
         :rtype: list of dictionaries (one for each reservation)
         """
-        url = f"{self._firecrest_url}/reservations/"
+        url = f"{self._firecrest_url}/reservations"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
@@ -1065,10 +1065,10 @@ class Firecrest:
         :type starttime: string
         :param endtime: end time for reservation (YYYY-MM-DDTHH:MM:SS)
         :type endtime: string
-        :calls: POST `/reservations/`
+        :calls: POST `/reservations`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/reservations/"
+        url = f"{self._firecrest_url}/reservations"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
