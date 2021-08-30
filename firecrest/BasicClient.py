@@ -986,11 +986,11 @@ class Firecrest:
         """Non blocking call for the upload of larger files.
 
         :param machine: the machine where the filesystem belongs to
-        :type machine: str
+        :type machine: string
         :param sourcePath: the source path in the local filesystem
-        :type sourcePath: str
+        :type sourcePath: string
         :param targetPath: the target path in the machine's filesystem
-        :type targetPath: str
+        :type targetPath: string
         :returns: an ExternalDownload object
         :rtype: ExternalDownload
         """
@@ -1009,11 +1009,11 @@ class Firecrest:
         """Non blocking call for the download of larger files.
 
         :param machine: the machine where the filesystem belongs to
-        :type machine: str
+        :type machine: string
         :param sourcePath: the source path in the local filesystem
-        :type sourcePath: str
+        :type sourcePath: string
         :param targetPath: the target path in the machine's filesystem
-        :type targetPath: str
+        :type targetPath: string
         :returns: an ExternalDownload object
         :rtype: ExternalDownload
         """
@@ -1028,3 +1028,116 @@ class Firecrest:
         return ExternalDownload(
             self, self._json_response([resp], 201)["task_id"], [resp]
         )
+
+    # Reservation
+    def all_reservations(self, machine):
+        """List all active reservations and their status
+
+        :param machine: the machine name
+        :type machine: string
+        :calls: GET `/reservations/`
+        :rtype: list of dictionaries (one for each reservation)
+        """
+        url = f"{self._firecrest_url}/reservations/"
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}",
+            "X-Machine-Name": machine,
+        }
+        resp = requests.get(url=url, headers=headers)
+        return self._json_response([resp], 200)["success"]
+
+    def create_reservation(
+        self, machine, reservation, account, numberOfNodes, nodeType, starttime, endtime
+    ):
+        """Creates a new reservation with {reservation} name for a given SLURM groupname
+
+        :param machine: the machine name
+        :type machine: string
+        :param reservation: the reservation name
+        :type reservation: string
+        :param account: the account in SLURM to which the reservation is made for
+        :type account: string
+        :param numberOfNodes: number of nodes needed for the reservation
+        :type numberOfNodes: string
+        :param nodeType: type of node
+        :type nodeType: string
+        :param starttime: start time for reservation (YYYY-MM-DDTHH:MM:SS)
+        :type starttime: string
+        :param endtime: end time for reservation (YYYY-MM-DDTHH:MM:SS)
+        :type endtime: string
+        :calls: POST `/reservations/`
+        :rtype: None
+        """
+        url = f"{self._firecrest_url}/reservations/"
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}",
+            "X-Machine-Name": machine,
+        }
+        data = {
+            "reservation": reservation,
+            "account": account,
+            "numberOfNodes": numberOfNodes,
+            "nodeType": nodeType,
+            "starttime": starttime,
+            "endtime": endtime
+        }
+
+        resp = requests.post(url=url, headers=headers, data=data)
+        self._json_response([resp], 201)
+
+
+    def update_reservation(
+        self, machine, reservation, account, numberOfNodes, nodeType, starttime, endtime
+    ):
+        """Updates an already created reservation named {reservation}
+
+        :param machine: the machine name
+        :type machine: string
+        :param reservation: the reservation name
+        :type reservation: string
+        :param account: the account in SLURM to which the reservation is made for
+        :type account: string
+        :param numberOfNodes: number of nodes needed for the reservation
+        :type numberOfNodes: string
+        :param nodeType: type of node
+        :type nodeType: string
+        :param starttime: start time for reservation (YYYY-MM-DDTHH:MM:SS)
+        :type starttime: string
+        :param endtime: end time for reservation (YYYY-MM-DDTHH:MM:SS)
+        :type endtime: string
+        :calls: PUT `/reservations/{reservation}`
+        :rtype: None
+        """
+        url = f"{self._firecrest_url}/reservations/{reservation}"
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}",
+            "X-Machine-Name": machine,
+        }
+        data = {
+            "account": account,
+            "numberOfNodes": numberOfNodes,
+            "nodeType": nodeType,
+            "starttime": starttime,
+            "endtime": endtime
+        }
+        resp = requests.put(url=url, headers=headers, data=data)
+        self._json_response([resp], 200)
+
+    def delete_reservation(self, machine, reservation):
+        """Deletes an already created reservation named {reservation}
+
+        :param machine: the machine name
+        :type machine: string
+        :param reservation: the reservation name
+        :type reservation: string
+        :calls: DELETE `/reservations/{reservation}`
+        :rtype: None
+        """
+
+        url = f"{self._firecrest_url}/reservations/{reservation}"
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}",
+            "X-Machine-Name": machine,
+        }
+        resp = requests.delete(url=url, headers=headers)
+        self._json_response([resp], 204)
