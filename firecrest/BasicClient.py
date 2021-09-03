@@ -226,12 +226,15 @@ class Firecrest:
     :type firecrest_url: string
     :param authorization: the authorization object
     :type authorization: object
+    :param verify: either a boolean, in which case it controls whether requests will verify the server’s TLS certificate, or a string, in which case it must be a path to a CA bundle to use (default True)
+    :type verify: boolean or string, optional
     """
 
-    def __init__(self, firecrest_url, authorization):
+    def __init__(self, firecrest_url, authorization, verify=None):
         self._firecrest_url = firecrest_url
         self._authorization = authorization
         self._current_method_requests = []
+        self._verify = verify
 
     def _json_response(self, responses, expected_status_code):
         # Will examine only the last response
@@ -265,7 +268,7 @@ class Firecrest:
             url += taskid
 
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers)
+        resp = requests.get(url=url, headers=headers, verify=self._verify)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
         status = int(taskinfo["task"]["status"])
@@ -286,7 +289,7 @@ class Firecrest:
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Task-Id": taskid,
         }
-        resp = requests.post(url=url, headers=headers)
+        resp = requests.post(url=url, headers=headers, verify=self._verify)
         responses.append(resp)
         return self._json_response(responses, 201)
 
@@ -307,7 +310,7 @@ class Firecrest:
         """
         url = f"{self._firecrest_url}/status/services"
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers)
+        resp = requests.get(url=url, headers=headers, verify=self._verify)
         return self._json_response([resp], 200)["out"]
 
     def service(self, servicename):
@@ -321,7 +324,7 @@ class Firecrest:
         """
         url = f"{self._firecrest_url}/status/services/{servicename}"
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers)
+        resp = requests.get(url=url, headers=headers, verify=self._verify)
         return self._json_response([resp], 200)
 
     def all_systems(self):
@@ -332,7 +335,7 @@ class Firecrest:
         """
         url = f"{self._firecrest_url}/status/systems"
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers)
+        resp = requests.get(url=url, headers=headers, verify=self._verify)
         return self._json_response([resp], 200)["out"]
 
     def system(self, systemname):
@@ -346,7 +349,7 @@ class Firecrest:
         """
         url = f"{self._firecrest_url}/status/systems/{systemname}"
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers)
+        resp = requests.get(url=url, headers=headers, verify=self._verify)
         return self._json_response([resp], 200)["out"]
 
     def parameters(self):
@@ -357,7 +360,7 @@ class Firecrest:
         """
         url = f"{self._firecrest_url}/status/parameters"
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers)
+        resp = requests.get(url=url, headers=headers, verify=self._verify)
         return self._json_response([resp], 200)["out"]
 
     # Utilities
@@ -382,7 +385,7 @@ class Firecrest:
         if showhidden == True:
             params["showhidden"] = showhidden
 
-        resp = requests.get(url=url, headers=headers, params=params)
+        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
         return self._json_response([resp], 200)["output"]
 
     def mkdir(self, machine, targetPath, p=None):
@@ -406,7 +409,7 @@ class Firecrest:
         if p:
             data["p"] = p
 
-        resp = requests.post(url=url, headers=headers, data=data)
+        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
 
     def mv(self, machine, sourcePath, targetPath):
@@ -427,7 +430,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "sourcePath": sourcePath}
-        resp = requests.put(url=url, headers=headers, data=data)
+        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
     def chmod(self, machine, targetPath, mode):
@@ -448,7 +451,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "mode": mode}
-        resp = requests.put(url=url, headers=headers, data=data)
+        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
     def chown(self, machine, targetPath, owner=None, group=None):
@@ -481,7 +484,7 @@ class Firecrest:
         if group:
             data["group"] = group
 
-        resp = requests.put(url=url, headers=headers, data=data)
+        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
     def copy(self, machine, sourcePath, targetPath):
@@ -502,7 +505,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "sourcePath": sourcePath}
-        resp = requests.post(url=url, headers=headers, data=data)
+        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
 
     def file_type(self, machine, targetPath):
@@ -521,7 +524,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-        resp = requests.get(url=url, headers=headers, params=params)
+        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
         return self._json_response([resp], 200)["out"]
 
     def symlink(self, machine, targetPath, linkPath):
@@ -542,7 +545,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath, "linkPath": linkPath}
-        resp = requests.post(url=url, headers=headers, data=data)
+        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
 
     def simple_download(self, machine, sourcePath, targetPath):
@@ -565,7 +568,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"sourcePath": sourcePath}
-        resp = requests.get(url=url, headers=headers, params=params)
+        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
         self._json_response([resp], 200)
         with open(targetPath, "wb") as f:
             f.write(resp.content)
@@ -592,7 +595,7 @@ class Firecrest:
         with open(sourcePath, "rb") as f:
             data = {"targetPath": targetPath}
             files = {"file": f}
-            resp = requests.post(url=url, headers=headers, data=data, files=files)
+            resp = requests.post(url=url, headers=headers, data=data, files=files, verify=self._verify)
 
         self._json_response([resp], 201)
 
@@ -613,7 +616,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         data = {"targetPath": targetPath}
-        resp = requests.delete(url=url, headers=headers, data=data)
+        resp = requests.delete(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 204)
 
     def checksum(self, machine, targetPath):
@@ -632,7 +635,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-        resp = requests.get(url=url, headers=headers, params=params)
+        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
         return self._json_response([resp], 200)["output"]
 
     def view(self, machine, targetPath):
@@ -651,7 +654,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-        resp = requests.get(url=url, headers=headers, params=params)
+        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
         return self._json_response([resp], 200)["output"]
 
     # Compute
@@ -664,11 +667,11 @@ class Firecrest:
             url = f"{self._firecrest_url}/compute/jobs/upload"
             with open(job_script, "rb") as f:
                 files = {"file": f}
-                resp = requests.post(url=url, headers=headers, files=files)
+                resp = requests.post(url=url, headers=headers, files=files, verify=self._verify)
         else:
             url = f"{self._firecrest_url}/compute/jobs/path"
             data = {"targetPath": job_script}
-            resp = requests.post(url=url, headers=headers, data=data)
+            resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
 
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
@@ -683,7 +686,7 @@ class Firecrest:
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobs])}
 
-        resp = requests.get(url=url, headers=headers, params=params)
+        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
@@ -703,7 +706,7 @@ class Firecrest:
         if endtime:
             params["endtime"] = endtime
 
-        resp = requests.get(url=url, headers=headers, params=params)
+        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
@@ -1001,7 +1004,7 @@ class Firecrest:
             "X-Machine-Name": machine,  # will not be taken into account yet
         }
         data = {"targetPath": targetPath, "sourcePath": sourcePath}
-        resp = requests.post(url=url, headers=headers, data=data)
+        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
 
@@ -1024,7 +1027,7 @@ class Firecrest:
             "X-Machine-Name": machine,  # will not be taken into account yet
         }
         data = {"sourcePath": sourcePath}
-        resp = requests.post(url=url, headers=headers, data=data)
+        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         return ExternalDownload(
             self, self._json_response([resp], 201)["task_id"], [resp]
         )
@@ -1043,7 +1046,7 @@ class Firecrest:
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        resp = requests.get(url=url, headers=headers)
+        resp = requests.get(url=url, headers=headers, verify=self._verify)
         return self._json_response([resp], 200)["success"]
 
     def create_reservation(
@@ -1082,7 +1085,7 @@ class Firecrest:
             "endtime": endtime
         }
 
-        resp = requests.post(url=url, headers=headers, data=data)
+        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
 
 
@@ -1120,7 +1123,7 @@ class Firecrest:
             "starttime": starttime,
             "endtime": endtime
         }
-        resp = requests.put(url=url, headers=headers, data=data)
+        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
     def delete_reservation(self, machine, reservation):
@@ -1139,5 +1142,5 @@ class Firecrest:
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        resp = requests.delete(url=url, headers=headers)
+        resp = requests.delete(url=url, headers=headers, verify=self._verify)
         self._json_response([resp], 204)
