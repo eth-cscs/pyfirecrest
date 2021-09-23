@@ -22,7 +22,7 @@ copyright = '2021, CSCS Swiss National Supercomputing Center'
 author = 'CSCS Swiss National Supercomputing Center'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.11'
+release = '0.0.12'
 
 
 # -- General configuration ---------------------------------------------------
