@@ -812,7 +812,7 @@ class Firecrest:
         if account:
             data["account"] = account
 
-        resp = requests.post(url=url, headers=headers, data=data)
+        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
