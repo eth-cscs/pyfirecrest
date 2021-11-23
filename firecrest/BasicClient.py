@@ -674,6 +674,7 @@ class Firecrest:
         """Returns the username that FirecREST will be using to perform the other calls.
 
         :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
+        :type sa_role: string
         :rtype: string
         """
 
