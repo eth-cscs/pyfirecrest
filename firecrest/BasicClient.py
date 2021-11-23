@@ -6,6 +6,7 @@
 #
 import itertools
 import json
+import jwt
 import requests
 import shlex
 import shutil
@@ -385,7 +386,9 @@ class Firecrest:
         if showhidden == True:
             params["showhidden"] = showhidden
 
-        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
         return self._json_response([resp], 200)["output"]
 
     def mkdir(self, machine, targetPath, p=None):
@@ -524,7 +527,9 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
         return self._json_response([resp], 200)["out"]
 
     def symlink(self, machine, targetPath, linkPath):
@@ -568,7 +573,9 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"sourcePath": sourcePath}
-        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
         self._json_response([resp], 200)
         with open(targetPath, "wb") as f:
             f.write(resp.content)
@@ -595,7 +602,9 @@ class Firecrest:
         with open(sourcePath, "rb") as f:
             data = {"targetPath": targetPath}
             files = {"file": f}
-            resp = requests.post(url=url, headers=headers, data=data, files=files, verify=self._verify)
+            resp = requests.post(
+                url=url, headers=headers, data=data, files=files, verify=self._verify
+            )
 
         self._json_response([resp], 201)
 
@@ -635,7 +644,9 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
         return self._json_response([resp], 200)["output"]
 
     def view(self, machine, targetPath):
@@ -654,8 +665,35 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": targetPath}
-        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
         return self._json_response([resp], 200)["output"]
+
+    def whoami(self, sa_role="firecrest-sa"):
+        """Returns the username that FirecREST will be using to perform the other calls.
+
+        :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
+        :rtype: string
+        """
+
+        # FIXME This needs to be added as an endpoint in FirecREST,
+        # now it's making a guess and it could be wrong.
+        try:
+            decoded = jwt.decode(self._authorization.get_access_token(), verify=False)
+            try:
+                if sa_role in decoded["realm_access"]["roles"]:
+                    clientId = decoded["clientId"]
+                    username = decoded["resource_access"][clientId]["roles"][0]
+                    return username
+
+                return decoded["preferred_username"]
+            except KeyError:
+                return decoded["preferred_username"]
+
+        except Exception:
+            # Invalid token, cannot retrieve username
+            return None
 
     # Compute
     def _submit_request(self, machine, job_script, local_file):
@@ -667,11 +705,15 @@ class Firecrest:
             url = f"{self._firecrest_url}/compute/jobs/upload"
             with open(job_script, "rb") as f:
                 files = {"file": f}
-                resp = requests.post(url=url, headers=headers, files=files, verify=self._verify)
+                resp = requests.post(
+                    url=url, headers=headers, files=files, verify=self._verify
+                )
         else:
             url = f"{self._firecrest_url}/compute/jobs/path"
             data = {"targetPath": job_script}
-            resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+            resp = requests.post(
+                url=url, headers=headers, data=data, verify=self._verify
+            )
 
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
@@ -686,7 +728,9 @@ class Firecrest:
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobs])}
 
-        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
@@ -706,7 +750,9 @@ class Firecrest:
         if endtime:
             params["endtime"] = endtime
 
-        resp = requests.get(url=url, headers=headers, params=params, verify=self._verify)
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
@@ -1082,12 +1128,11 @@ class Firecrest:
             "numberOfNodes": numberOfNodes,
             "nodeType": nodeType,
             "starttime": starttime,
-            "endtime": endtime
+            "endtime": endtime,
         }
 
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
-
 
     def update_reservation(
         self, machine, reservation, account, numberOfNodes, nodeType, starttime, endtime
@@ -1121,7 +1166,7 @@ class Firecrest:
             "numberOfNodes": numberOfNodes,
             "nodeType": nodeType,
             "starttime": starttime,
-            "endtime": endtime
+            "endtime": endtime,
         }
         resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
