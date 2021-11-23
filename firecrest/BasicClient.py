@@ -629,7 +629,7 @@ class Firecrest:
         self._json_response([resp], 204)
 
     def checksum(self, machine, targetPath):
-        """Calculate the SHA256 (256-bit) checksum of a specified file
+        """Calculate the SHA256 (256-bit) checksum of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string
@@ -650,7 +650,7 @@ class Firecrest:
         return self._json_response([resp], 200)["output"]
 
     def view(self, machine, targetPath):
-        """View the content of a specified file
+        """View the content of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string
@@ -672,10 +672,11 @@ class Firecrest:
 
     def whoami(self, sa_role="firecrest-sa"):
         """Returns the username that FirecREST will be using to perform the other calls.
+        Will return `None` if the token is not valid.
 
         :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
         :type sa_role: string
-        :rtype: string
+        :rtype: string or None
         """
 
         # FIXME This needs to be added as an endpoint in FirecREST,
