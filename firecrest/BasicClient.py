@@ -229,13 +229,18 @@ class Firecrest:
     :type authorization: object
     :param verify: either a boolean, in which case it controls whether requests will verify the server’s TLS certificate, or a string, in which case it must be a path to a CA bundle to use (default True)
     :type verify: boolean or string, optional
+    :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
+    :type sa_role: string, optional
     """
 
-    def __init__(self, firecrest_url, authorization, verify=None):
+    def __init__(
+        self, firecrest_url, authorization, verify=None, sa_role="firecrest-sa"
+    ):
         self._firecrest_url = firecrest_url
         self._authorization = authorization
         self._current_method_requests = []
         self._verify = verify
+        self._sa_role = sa_role
 
     def _json_response(self, responses, expected_status_code):
         # Will examine only the last response
@@ -670,12 +675,10 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def whoami(self, sa_role="firecrest-sa"):
+    def whoami(self):
         """Returns the username that FirecREST will be using to perform the other calls.
         Will return `None` if the token is not valid.
 
-        :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
-        :type sa_role: string
         :rtype: string or None
         """
 
@@ -684,7 +687,7 @@ class Firecrest:
         try:
             decoded = jwt.decode(self._authorization.get_access_token(), verify=False)
             try:
-                if sa_role in decoded["realm_access"]["roles"]:
+                if self._sa_role in decoded["realm_access"]["roles"]:
                     clientId = decoded["clientId"]
                     username = decoded["resource_access"][clientId]["roles"][0]
                     return username
