@@ -18,6 +18,7 @@ ERROR_HEADERS = {
     "X-Error",
 }
 
+
 class FirecrestException(Exception):
     """Base class for exceptions raised when using PyFirecREST.
     """

@@ -34,5 +34,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ),
     python_requires='>=3.6',
-    install_requires=["requests>=2.14.0"],
+    # FIXME PyJWT is only necessary until FirecREST has an appropriate endpoint
+    install_requires=['requests>=2.14.0', 'PyJWT==1.7.1'],
 )
