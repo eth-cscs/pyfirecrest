@@ -11,7 +11,7 @@ build:
     python: "3.6"
 
 sphinx:
-  configuration: doc/source/conf.py
+  configuration: docs/source/conf.py
 
 python:
   install:
