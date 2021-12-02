@@ -239,6 +239,36 @@ def copy_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def file_type_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on file operation", "error": "Machine does not exist"}',
+        ]
+
+    targetPath = request.querystring.get("targetPath", [None])[0]
+    if targetPath == "/path/to/empty/file":
+        ret = {"description": "Success to file file or directory.", "output": "empty"}
+        status_code = 200
+    elif targetPath == "/path/to/directory":
+        ret = {
+            "description": "Success to file file or directory.",
+            "output": "directory",
+        }
+        status_code = 200
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "Error on file operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
 )
@@ -261,6 +291,10 @@ httpretty.register_uri(
 
 httpretty.register_uri(
     httpretty.POST, "http://firecrest.cscs.ch/utilities/copy", body=copy_callback
+)
+
+httpretty.register_uri(
+    httpretty.GET, "http://firecrest.cscs.ch/utilities/file", body=file_type_callback
 )
 
 
@@ -473,3 +507,23 @@ def test_copy_invalid_machine(valid_client):
 def test_copy_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.copy("cluster1", "/path/to/source", "/path/to/destination")
+
+
+def test_file_type(valid_client):
+    assert valid_client.file_type("cluster1", "/path/to/empty/file") == "empty"
+    assert valid_client.file_type("cluster1", "/path/to/directory") == "directory"
+
+
+def test_file_type_invalid_arguments(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.file_type("cluster1", "/path/to/invalid/file")
+
+
+def test_file_type_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.file_type("cluster2", "/path/to/file")
+
+
+def test_file_type_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.file_type("cluster1", "/path/to/file")
