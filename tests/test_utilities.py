@@ -43,7 +43,6 @@ def ls_callback(request, uri, response_headers):
             '{"description": "Error on ls operation", "error": "Machine does not exist"}',
         ]
 
-    print(request.querystring)
     targetPath = request.querystring.get("targetPath", [None])[0]
     if targetPath == "/path/to/valid/dir":
         ret = {
@@ -102,7 +101,7 @@ def mkdir_callback(request, uri, response_headers):
         return [
             400,
             response_headers,
-            '{"description": "Error on ls operation", "error": "Machine does not exist"}',
+            '{"description": "Error on mkdir operation", "error": "Machine does not exist"}',
         ]
 
     target_path = request.parsed_body["targetPath"][0]
@@ -131,7 +130,7 @@ def mv_callback(request, uri, response_headers):
         return [
             400,
             response_headers,
-            '{"description": "Error on ls operation", "error": "Machine does not exist"}',
+            '{"description": "Error on rename operation", "error": "Machine does not exist"}',
         ]
 
     source_path = request.parsed_body["sourcePath"][0]
@@ -160,7 +159,7 @@ def chmod_callback(request, uri, response_headers):
         return [
             400,
             response_headers,
-            '{"description": "Error on ls operation", "error": "Machine does not exist"}',
+            '{"description": "Error on chmod operation", "error": "Machine does not exist"}',
         ]
 
     target_path = request.parsed_body["targetPath"][0]
@@ -190,7 +189,7 @@ def chown_callback(request, uri, response_headers):
         return [
             400,
             response_headers,
-            '{"description": "Error on ls operation", "error": "Machine does not exist"}',
+            '{"description": "Error on chown operation", "error": "Machine does not exist"}',
         ]
 
     target_path = request.parsed_body["targetPath"][0]
@@ -206,6 +205,35 @@ def chown_callback(request, uri, response_headers):
     else:
         response_headers["X-Invalid-Path"] = "path is an invalid path"
         ret = {"description": "Error on chown operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
+def copy_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on copy operation", "error": "Machine does not exist"}',
+        ]
+
+    source_path = request.parsed_body["sourcePath"][0]
+    target_path = request.parsed_body["targetPath"][0]
+
+    if (
+        source_path == "/path/to/valid/source"
+        and target_path == "/path/to/valid/destination"
+    ):
+        ret = {"description": "Success to copy file or directory.", "output": ""}
+        status_code = 201
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "Error on copy operation"}
         status_code = 400
 
     return [status_code, response_headers, json.dumps(ret)]
@@ -229,6 +257,10 @@ httpretty.register_uri(
 
 httpretty.register_uri(
     httpretty.PUT, "http://firecrest.cscs.ch/utilities/chown", body=chown_callback
+)
+
+httpretty.register_uri(
+    httpretty.POST, "http://firecrest.cscs.ch/utilities/copy", body=copy_callback
 )
 
 
@@ -414,3 +446,30 @@ def test_chown_invalid_client(invalid_client):
         invalid_client.chown(
             "cluster1", "/path/to/file", owner="new_owner", group="new_group"
         )
+
+
+def test_copy(valid_client):
+    # Make sure this doesn't raise an error
+    valid_client.copy("cluster1", "/path/to/valid/source", "/path/to/valid/destination")
+
+
+def test_copy_invalid_arguments(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.copy(
+            "cluster1", "/path/to/invalid/source", "/path/to/valid/destination"
+        )
+
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.copy(
+            "cluster1", "/path/to/valid/source", "/path/to/invalid/destination"
+        )
+
+
+def test_copy_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.copy("cluster2", "/path/to/source", "/path/to/destination")
+
+
+def test_copy_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.copy("cluster1", "/path/to/source", "/path/to/destination")
