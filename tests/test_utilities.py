@@ -134,7 +134,6 @@ def mv_callback(request, uri, response_headers):
             '{"description": "Error on ls operation", "error": "Machine does not exist"}',
         ]
 
-    print(request.parsed_body)
     source_path = request.parsed_body["sourcePath"][0]
     target_path = request.parsed_body["targetPath"][0]
 
@@ -151,6 +150,38 @@ def mv_callback(request, uri, response_headers):
 
     return [status_code, response_headers, json.dumps(ret)]
 
+def chmod_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on ls operation", "error": "Machine does not exist"}',
+        ]
+
+    target_path = request.parsed_body["targetPath"][0]
+    mode = request.parsed_body["mode"][0]
+
+    if (
+        target_path == "/path/to/valid/file"
+        and mode == '777'
+    ):
+        ret = {
+            "description": "Success to chmod file or directory.",
+            "output": "mode of '/path/to/valid/file' changed from 0755 (rwxr-xr-x) to 0777 (rwxrwxrwx)"
+}
+        status_code = 200
+    else:
+        # FIXME: FirecREST sets the X-Invalid-Path even when the problem is the mode argument
+        response_headers['X-Invalid-Path'] = "path is an invalid path"
+        ret = {"description": "Error on chmod operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
 
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
@@ -162,6 +193,10 @@ httpretty.register_uri(
 
 httpretty.register_uri(
     httpretty.PUT, "http://firecrest.cscs.ch/utilities/rename", body=mv_callback
+)
+
+httpretty.register_uri(
+    httpretty.PUT, "http://firecrest.cscs.ch/utilities/chmod", body=chmod_callback
 )
 
 
@@ -286,3 +321,26 @@ def test_mv_invalid_machine(valid_client):
 def test_mv_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.mv("cluster1", "/path/to/source", "/path/to/destination")
+
+
+def test_chmod(valid_client):
+    # Make sure this doesn't raise an error
+    valid_client.chmod("cluster1", "/path/to/valid/file", "777")
+
+
+def test_chmod_invalid_arguments(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.chmod("cluster1", "/path/to/invalid/file", "777")
+
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.chmod("cluster1", "/path/to/valid/file", "random_string")
+
+
+def test_chmod_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.mv("cluster2", "/path/to/file", "700")
+
+
+def test_chmod_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.mv("cluster1", "/path/to/file", "600")
