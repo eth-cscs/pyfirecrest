@@ -197,24 +197,19 @@ def chown_callback(request, uri, response_headers):
     owner = request.parsed_body.get("owner", [""])[0]
     group = request.parsed_body.get("group", [""])[0]
 
-    if (
-        target_path == "/path/to/file"
-        and owner == "new_owner"
-        and group == "new_group"
-    ):
+    if target_path == "/path/to/file" and owner == "new_owner" and group == "new_group":
         ret = {
             "description": "Success to chown file or directory.",
-            "output": "changed ownership of '/path/to/file' from old_owner:old_group to new_owner:new_group"
+            "output": "changed ownership of '/path/to/file' from old_owner:old_group to new_owner:new_group",
         }
         status_code = 200
     else:
         response_headers["X-Invalid-Path"] = "path is an invalid path"
-        ret = {
-            "description": "Error on chown operation"
-        }
+        ret = {"description": "Error on chown operation"}
         status_code = 400
 
     return [status_code, response_headers, json.dumps(ret)]
+
 
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
@@ -385,25 +380,37 @@ def test_chmod_invalid_client(invalid_client):
 
 def test_chown(valid_client):
     # Make sure this doesn't raise an error
-    valid_client.chown("cluster1", "/path/to/file", owner="new_owner", group="new_group")
+    valid_client.chown(
+        "cluster1", "/path/to/file", owner="new_owner", group="new_group"
+    )
 
 
 def test_chown_invalid_arguments(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.chown("cluster1", "/bad/path", owner="new_owner", group="new_group")
+        valid_client.chown(
+            "cluster1", "/bad/path", owner="new_owner", group="new_group"
+        )
 
     with pytest.raises(firecrest.HeaderException):
-        valid_client.chown("cluster1", "/path/to/file", owner="bad_owner", group="new_group")
+        valid_client.chown(
+            "cluster1", "/path/to/file", owner="bad_owner", group="new_group"
+        )
 
     with pytest.raises(firecrest.HeaderException):
-        valid_client.chown("cluster1", "/path/to/file", owner="new_owner", group="bad_group")
+        valid_client.chown(
+            "cluster1", "/path/to/file", owner="new_owner", group="bad_group"
+        )
 
 
 def test_chown_invalid_machine(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.chown("cluster2", "/path/to/file", owner="new_owner", group="new_group")
+        valid_client.chown(
+            "cluster2", "/path/to/file", owner="new_owner", group="new_group"
+        )
 
 
 def test_chown_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.chown("cluster1", "/path/to/file", owner="new_owner", group="new_group")
+        invalid_client.chown(
+            "cluster1", "/path/to/file", owner="new_owner", group="new_group"
+        )
