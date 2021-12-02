@@ -150,6 +150,7 @@ def mv_callback(request, uri, response_headers):
 
     return [status_code, response_headers, json.dumps(ret)]
 
+
 def chmod_callback(request, uri, response_headers):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
@@ -165,18 +166,15 @@ def chmod_callback(request, uri, response_headers):
     target_path = request.parsed_body["targetPath"][0]
     mode = request.parsed_body["mode"][0]
 
-    if (
-        target_path == "/path/to/valid/file"
-        and mode == '777'
-    ):
+    if target_path == "/path/to/valid/file" and mode == "777":
         ret = {
             "description": "Success to chmod file or directory.",
-            "output": "mode of '/path/to/valid/file' changed from 0755 (rwxr-xr-x) to 0777 (rwxrwxrwx)"
-}
+            "output": "mode of '/path/to/valid/file' changed from 0755 (rwxr-xr-x) to 0777 (rwxrwxrwx)",
+        }
         status_code = 200
     else:
         # FIXME: FirecREST sets the X-Invalid-Path even when the problem is the mode argument
-        response_headers['X-Invalid-Path'] = "path is an invalid path"
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
         ret = {"description": "Error on chmod operation"}
         status_code = 400
 
