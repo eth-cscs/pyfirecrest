@@ -86,6 +86,16 @@ def ls_callback(request, uri, response_headers):
         response_headers["X-Invalid-Path"] = "path is an invalid path"
         return [400, response_headers, '{"description": "Error on ls operation"}']
 
+def mkdir_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [400, response_headers, '{"description": "Error on ls operation", "error": "Machine does not exist"}']
+
+    print('')
+
 # httpretty.register_uri(
 #     httpretty.GET,
 #     re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/services.*"),
@@ -157,11 +167,13 @@ def test_list_files(valid_client):
     ]
 
 
-def test_list_files_invalid_path(invalid_client):
-    with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.list_files("cluster1", '/path/to/dir')
+def test_list_files_invalid_path(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.list_files("cluster1", '/path/to/invalid/dir')
 
 
 def test_list_files_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.list_files("cluster1", '/path/to/dir')
+
+# def test_mkdir(valid)
