@@ -122,12 +122,46 @@ def mkdir_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def mv_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on ls operation", "error": "Machine does not exist"}',
+        ]
+
+    print(request.parsed_body)
+    source_path = request.parsed_body["sourcePath"][0]
+    target_path = request.parsed_body["targetPath"][0]
+
+    if (
+        source_path == "/path/to/valid/source"
+        and target_path == "/path/to/valid/destination"
+    ):
+        ret = {"description": "Success to rename file or directory.", "output": ""}
+        status_code = 200
+    else:
+        # FIXME: FirecREST updates the response_headers as well, so the error might be HeaderException
+        ret = {"description": "Error on rename operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
 )
 
 httpretty.register_uri(
     httpretty.POST, "http://firecrest.cscs.ch/utilities/mkdir", body=mkdir_callback
+)
+
+httpretty.register_uri(
+    httpretty.PUT, "http://firecrest.cscs.ch/utilities/rename", body=mv_callback
 )
 
 
@@ -225,3 +259,30 @@ def test_mkdir_invalid_machine(valid_client):
 def test_mkdir_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.mkdir("cluster1", "path/to/dir")
+
+
+def test_mv(valid_client):
+    # Make sure this doesn't raise an error
+    valid_client.mv("cluster1", "/path/to/valid/source", "/path/to/valid/destination")
+
+
+def test_mv_invalid_paths(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.mv(
+            "cluster1", "/path/to/invalid/source", "/path/to/valid/destination"
+        )
+
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.mv(
+            "cluster1", "/path/to/valid/source", "/path/to/invalid/destination"
+        )
+
+
+def test_mv_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.mv("cluster2", "/path/to/source", "/path/to/destination")
+
+
+def test_mv_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.mv("cluster1", "/path/to/source", "/path/to/destination")
