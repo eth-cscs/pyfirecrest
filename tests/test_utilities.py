@@ -269,6 +269,32 @@ def file_type_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def symlink_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on symlink operation", "error": "Machine does not exist"}',
+        ]
+
+    target_path = request.parsed_body["targetPath"][0]
+    link_path = request.parsed_body["linkPath"][0]
+
+    if target_path == "/path/to/file" and link_path == "/path/to/link":
+        ret = {"description": "Success to link file or directory.", "output": ""}
+        status_code = 201
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "Error on symlink operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
 )
@@ -295,6 +321,10 @@ httpretty.register_uri(
 
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/file", body=file_type_callback
+)
+
+httpretty.register_uri(
+    httpretty.POST, "http://firecrest.cscs.ch/utilities/symlink", body=symlink_callback
 )
 
 
@@ -527,3 +557,26 @@ def test_file_type_invalid_machine(valid_client):
 def test_file_type_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.file_type("cluster1", "/path/to/file")
+
+
+def test_symlink(valid_client):
+    # Make sure this doesn't raise an error
+    valid_client.symlink("cluster1", "/path/to/file", "/path/to/link")
+
+
+def test_symlink_invalid_arguments(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.symlink("cluster1", "/path/to/invalid/file", "/path/to/link")
+
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.symlink("cluster1", "/path/to/file", "/path/to/invalid/link")
+
+
+def test_symlink_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.symlink("cluster2", "/path/to/file", "/path/to/link")
+
+
+def test_symlink_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.symlink("cluster1", "/path/to/file", "/path/to/link")
