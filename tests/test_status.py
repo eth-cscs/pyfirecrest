@@ -84,7 +84,33 @@ def systems_callback(request, uri, response_headers):
             },
         ],
     }
-    return [200, response_headers, json.dumps(ret)]
+    if uri == "http://firecrest.cscs.ch/status/systems":
+        return [200, response_headers, json.dumps(ret)]
+
+    service = uri.split("/")[-1]
+    if service == "cluster1":
+        ret = {
+            "description": "System information",
+            "out": {
+                "description": "System ready",
+                "status": "available",
+                "system": "cluster1"
+            }
+        }
+        return [200, response_headers, json.dumps(ret)]
+    elif service == "cluster2":
+        ret = {
+            "description": "System information",
+            "out": {
+                "description": "System ready",
+                "status": "available",
+                "system": "cluster2"
+            }
+        }
+        return [200, response_headers, json.dumps(ret)]
+    else:
+        ret = {"description": "System does not exists."}
+        return [404, response_headers, json.dumps(ret)]
 
 
 httpretty.register_uri(
@@ -148,3 +174,21 @@ def test_all_systems(valid_client):
 def test_all_systems_invalid(invalid_client):
     with pytest.raises(Exception):
         invalid_client.all_systems()
+
+
+def test_system(valid_client):
+    assert valid_client.system("cluster1") == {
+        "description": "System ready",
+        "status": "available",
+        "system": "cluster1"
+    }
+
+
+def test_invalid_system(valid_client):
+    with pytest.raises(Exception):
+        valid_client.system("invalid_system")
+
+
+def test_system_invalid(invalid_client):
+    with pytest.raises(Exception):
+        invalid_client.system("cluster1")
