@@ -535,7 +535,7 @@ class Firecrest:
         resp = requests.get(
             url=url, headers=headers, params=params, verify=self._verify
         )
-        return self._json_response([resp], 200)["out"]
+        return self._json_response([resp], 200)["output"]
 
     def symlink(self, machine, targetPath, linkPath):
         """Creates a symbolic link.
