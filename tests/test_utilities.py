@@ -207,7 +207,7 @@ def test_list_files_invalid_client(invalid_client):
 
 
 def test_mkdir(valid_client):
-    # Make sure these doen't raise an error
+    # Make sure these don't raise an error
     valid_client.mkdir("cluster1", "path/to/valid/dir")
     valid_client.mkdir("cluster1", "path/to/valid/dir/with/p", p=True)
 
