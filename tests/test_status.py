@@ -50,7 +50,19 @@ def services_callback(request, uri, response_headers):
             },
         ],
     }
-    return [200, response_headers, json.dumps(ret)]
+    if uri == "http://firecrest.cscs.ch/status/services":
+        return [200, response_headers, json.dumps(ret)]
+
+    service = uri.split("/")[-1]
+    if service == "utilities":
+        ret = ret["out"][0]
+        return [200, response_headers, json.dumps(ret)]
+    elif service == "compute":
+        ret = ret["out"][1]
+        return [200, response_headers, json.dumps(ret)]
+    else:
+        ret = {"description": "Service does not exists"}
+        return [404, response_headers, json.dumps(ret)]
 
 
 def systems_callback(request, uri, response_headers):
@@ -106,6 +118,24 @@ def test_all_services(valid_client):
 def test_all_services_invalid(invalid_client):
     with pytest.raises(Exception):
         invalid_client.all_services()
+
+
+def test_service(valid_client):
+    assert valid_client.service("utilities") == {
+        "description": "server up & flask running",
+        "service": "utilities",
+        "status": "available",
+    }
+
+
+def test_invalid_service(valid_client):
+    with pytest.raises(Exception):
+        valid_client.service("invalid_service")
+
+
+def test_service_invalid(invalid_client):
+    with pytest.raises(Exception):
+        invalid_client.service("utilities")
 
 
 def test_all_systems(valid_client):
