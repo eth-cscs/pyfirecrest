@@ -113,6 +113,59 @@ def systems_callback(request, uri, response_headers):
         return [404, response_headers, json.dumps(ret)]
 
 
+def parameters_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    ret = {
+        "description": "Firecrest's parameters",
+        "out": {
+            "storage": [
+                {
+                    "name": "OBJECT_STORAGE",
+                    "unit": "",
+                    "value": "swift"
+                },
+                {
+                    "name": "STORAGE_TEMPURL_EXP_TIME",
+                    "unit": "seconds",
+                    "value": "2592000"
+                },
+                {
+                    "name": "STORAGE_MAX_FILE_SIZE",
+                    "unit": "MB",
+                    "value": "512000"
+                },
+                {
+                    "name": "FILESYSTEMS",
+                    "unit": "",
+                    "value": [
+                        {
+                            "mounted": [
+                                "/fs1"
+                            ],
+                            "system": "cluster1"
+                        }
+                    ]
+                }
+            ],
+            "utilities": [
+                {
+                    "name": "UTILITIES_MAX_FILE_SIZE",
+                    "unit": "MB",
+                    "value": "5"
+                },
+                {
+                    "name": "UTILITIES_TIMEOUT",
+                    "unit": "seconds",
+                    "value": "5"
+                }
+            ]
+        }
+    }
+    return [200, response_headers, json.dumps(ret)]
+
+
 httpretty.register_uri(
     httpretty.GET,
     re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/services.*"),
@@ -123,6 +176,12 @@ httpretty.register_uri(
     httpretty.GET,
     re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/systems.*"),
     body=systems_callback,
+)
+
+httpretty.register_uri(
+    httpretty.GET,
+    "http://firecrest.cscs.ch/status/parameters",
+    body=parameters_callback,
 )
 
 
@@ -192,3 +251,54 @@ def test_invalid_system(valid_client):
 def test_system_invalid(invalid_client):
     with pytest.raises(Exception):
         invalid_client.system("cluster1")
+
+
+def test_parameters(valid_client):
+    assert valid_client.parameters() == {
+        "storage": [
+            {
+                "name": "OBJECT_STORAGE",
+                "unit": "",
+                "value": "swift"
+            },
+            {
+                "name": "STORAGE_TEMPURL_EXP_TIME",
+                "unit": "seconds",
+                "value": "2592000"
+            },
+            {
+                "name": "STORAGE_MAX_FILE_SIZE",
+                "unit": "MB",
+                "value": "512000"
+            },
+            {
+                "name": "FILESYSTEMS",
+                "unit": "",
+                "value": [
+                    {
+                        "mounted": [
+                            "/fs1"
+                        ],
+                        "system": "cluster1"
+                    }
+                ]
+            }
+        ],
+        "utilities": [
+            {
+                "name": "UTILITIES_MAX_FILE_SIZE",
+                "unit": "MB",
+                "value": "5"
+            },
+            {
+                "name": "UTILITIES_TIMEOUT",
+                "unit": "seconds",
+                "value": "5"
+            }
+        ]
+    }
+
+
+def test_parameters_invalid(invalid_client):
+    with pytest.raises(Exception):
+        invalid_client.parameters()
