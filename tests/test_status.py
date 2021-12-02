@@ -201,7 +201,7 @@ def test_all_services(valid_client):
 
 
 def test_all_services_invalid(invalid_client):
-    with pytest.raises(Exception):
+    with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.all_services()
 
 
@@ -214,12 +214,12 @@ def test_service(valid_client):
 
 
 def test_invalid_service(valid_client):
-    with pytest.raises(Exception):
+    with pytest.raises(firecrest.FirecrestException):
         valid_client.service("invalid_service")
 
 
 def test_service_invalid(invalid_client):
-    with pytest.raises(Exception):
+    with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.service("utilities")
 
 
@@ -231,7 +231,7 @@ def test_all_systems(valid_client):
 
 
 def test_all_systems_invalid(invalid_client):
-    with pytest.raises(Exception):
+    with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.all_systems()
 
 
@@ -244,12 +244,12 @@ def test_system(valid_client):
 
 
 def test_invalid_system(valid_client):
-    with pytest.raises(Exception):
+    with pytest.raises(firecrest.FirecrestException):
         valid_client.system("invalid_system")
 
 
 def test_system_invalid(invalid_client):
-    with pytest.raises(Exception):
+    with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.system("cluster1")
 
 
@@ -300,5 +300,5 @@ def test_parameters(valid_client):
 
 
 def test_parameters_invalid(invalid_client):
-    with pytest.raises(Exception):
+    with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.parameters()
