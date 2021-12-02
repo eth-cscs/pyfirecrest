@@ -94,8 +94,8 @@ def systems_callback(request, uri, response_headers):
             "out": {
                 "description": "System ready",
                 "status": "available",
-                "system": "cluster1"
-            }
+                "system": "cluster1",
+            },
         }
         return [200, response_headers, json.dumps(ret)]
     elif service == "cluster2":
@@ -104,8 +104,8 @@ def systems_callback(request, uri, response_headers):
             "out": {
                 "description": "System ready",
                 "status": "available",
-                "system": "cluster2"
-            }
+                "system": "cluster2",
+            },
         }
         return [200, response_headers, json.dumps(ret)]
     else:
@@ -121,47 +121,24 @@ def parameters_callback(request, uri, response_headers):
         "description": "Firecrest's parameters",
         "out": {
             "storage": [
-                {
-                    "name": "OBJECT_STORAGE",
-                    "unit": "",
-                    "value": "swift"
-                },
+                {"name": "OBJECT_STORAGE", "unit": "", "value": "swift"},
                 {
                     "name": "STORAGE_TEMPURL_EXP_TIME",
                     "unit": "seconds",
-                    "value": "2592000"
+                    "value": "2592000",
                 },
-                {
-                    "name": "STORAGE_MAX_FILE_SIZE",
-                    "unit": "MB",
-                    "value": "512000"
-                },
+                {"name": "STORAGE_MAX_FILE_SIZE", "unit": "MB", "value": "512000"},
                 {
                     "name": "FILESYSTEMS",
                     "unit": "",
-                    "value": [
-                        {
-                            "mounted": [
-                                "/fs1"
-                            ],
-                            "system": "cluster1"
-                        }
-                    ]
-                }
+                    "value": [{"mounted": ["/fs1"], "system": "cluster1"}],
+                },
             ],
             "utilities": [
-                {
-                    "name": "UTILITIES_MAX_FILE_SIZE",
-                    "unit": "MB",
-                    "value": "5"
-                },
-                {
-                    "name": "UTILITIES_TIMEOUT",
-                    "unit": "seconds",
-                    "value": "5"
-                }
-            ]
-        }
+                {"name": "UTILITIES_MAX_FILE_SIZE", "unit": "MB", "value": "5"},
+                {"name": "UTILITIES_TIMEOUT", "unit": "seconds", "value": "5"},
+            ],
+        },
     }
     return [200, response_headers, json.dumps(ret)]
 
@@ -239,7 +216,7 @@ def test_system(valid_client):
     assert valid_client.system("cluster1") == {
         "description": "System ready",
         "status": "available",
-        "system": "cluster1"
+        "system": "cluster1",
     }
 
 
@@ -256,46 +233,19 @@ def test_system_invalid(invalid_client):
 def test_parameters(valid_client):
     assert valid_client.parameters() == {
         "storage": [
-            {
-                "name": "OBJECT_STORAGE",
-                "unit": "",
-                "value": "swift"
-            },
-            {
-                "name": "STORAGE_TEMPURL_EXP_TIME",
-                "unit": "seconds",
-                "value": "2592000"
-            },
-            {
-                "name": "STORAGE_MAX_FILE_SIZE",
-                "unit": "MB",
-                "value": "512000"
-            },
+            {"name": "OBJECT_STORAGE", "unit": "", "value": "swift"},
+            {"name": "STORAGE_TEMPURL_EXP_TIME", "unit": "seconds", "value": "2592000"},
+            {"name": "STORAGE_MAX_FILE_SIZE", "unit": "MB", "value": "512000"},
             {
                 "name": "FILESYSTEMS",
                 "unit": "",
-                "value": [
-                    {
-                        "mounted": [
-                            "/fs1"
-                        ],
-                        "system": "cluster1"
-                    }
-                ]
-            }
+                "value": [{"mounted": ["/fs1"], "system": "cluster1"}],
+            },
         ],
         "utilities": [
-            {
-                "name": "UTILITIES_MAX_FILE_SIZE",
-                "unit": "MB",
-                "value": "5"
-            },
-            {
-                "name": "UTILITIES_TIMEOUT",
-                "unit": "seconds",
-                "value": "5"
-            }
-        ]
+            {"name": "UTILITIES_MAX_FILE_SIZE", "unit": "MB", "value": "5"},
+            {"name": "UTILITIES_TIMEOUT", "unit": "seconds", "value": "5"},
+        ],
     }
 
 
