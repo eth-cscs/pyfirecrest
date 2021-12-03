@@ -319,6 +319,33 @@ def simple_download_callback(request, uri, response_headers):
         return [status_code, response_headers, json.dumps(ret)]
 
 
+def simple_upload_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on download operation", "error": "Machine does not exist"}',
+        ]
+
+    # I couldn't find a better way to get the params from the request
+    if (
+        b'form-data; name="targetPath"\r\n\r\n/path/to/remote/destination'
+        in request.body
+    ):
+        ret = {"description": "File upload successful", "output": ""}
+        status_code = 201
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "Error on upload operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
 )
@@ -352,7 +379,15 @@ httpretty.register_uri(
 )
 
 httpretty.register_uri(
-    httpretty.GET, "http://firecrest.cscs.ch/utilities/download", body=simple_download_callback
+    httpretty.GET,
+    "http://firecrest.cscs.ch/utilities/download",
+    body=simple_download_callback,
+)
+
+httpretty.register_uri(
+    httpretty.POST,
+    "http://firecrest.cscs.ch/utilities/upload",
+    body=simple_upload_callback,
 )
 
 
@@ -621,16 +656,64 @@ def test_simple_download(valid_client, tmp_path):
         assert f.read() == "Hello!\n"
 
 
-def test_symlink_invalid_arguments(valid_client):
+def test_simple_download_invalid_arguments(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.symlink("cluster1", "/path/to/invalid/file", "/path/to/local/destination")
+        valid_client.simple_download(
+            "cluster1", "/path/to/invalid/file", "/path/to/local/destination"
+        )
 
 
-def test_symlink_invalid_machine(valid_client):
+def test_simple_download_invalid_machine(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.symlink("cluster2", "/path/to/source", "/path/to/destination")
+        valid_client.simple_download(
+            "cluster2", "/path/to/source", "/path/to/destination"
+        )
 
 
-def test_symlink_invalid_client(invalid_client):
+def test_simple_download_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.symlink("cluster1", "/path/to/source", "/path/to/destination")
+        invalid_client.simple_download(
+            "cluster1", "/path/to/source", "/path/to/destination"
+        )
+
+
+def test_simple_upload(valid_client, tmp_path):
+    tmp_dir = tmp_path / "download_dir"
+    tmp_dir.mkdir()
+    local_file = tmp_dir / "hello.txt"
+    local_file.write_text("hi")
+    # Make sure this doesn't raise an error
+    valid_client.simple_upload("cluster1", local_file, "/path/to/remote/destination")
+
+
+def test_simple_upload_invalid_arguments(valid_client, tmp_path):
+    tmp_dir = tmp_path / "download_dir"
+    tmp_dir.mkdir()
+    local_file = tmp_dir / "hello_invalid.txt"
+    local_file.write_text("hi")
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.simple_upload(
+            "cluster1", local_file, "/path/to/invalid/destination"
+        )
+
+
+def test_simple_upload_invalid_machine(valid_client, tmp_path):
+    tmp_dir = tmp_path / "download_dir"
+    tmp_dir.mkdir()
+    local_file = tmp_dir / "hello_invalid.txt"
+    local_file.write_text("hi")
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.simple_upload(
+            "cluster2", local_file, "/path/to/remote/destination"
+        )
+
+
+def test_simple_upload_invalid_client(invalid_client, tmp_path):
+    tmp_dir = tmp_path / "download_dir"
+    tmp_dir.mkdir()
+    local_file = tmp_dir / "hello_invalid.txt"
+    local_file.write_text("hi")
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.simple_upload(
+            "cluster1", local_file, "/path/to/remote/destination"
+        )
