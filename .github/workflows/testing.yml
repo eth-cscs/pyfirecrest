@@ -4,8 +4,7 @@
 name: Python application
 
 on:
-  push:
-    branches: [ unittest ]
+  workflow_dispatch
 
 jobs:
   unittest:
