@@ -346,6 +346,30 @@ def simple_upload_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def simple_delete_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on download operation", "error": "Machine does not exist"}',
+        ]
+
+    target_path = request.parsed_body["targetPath"][0]
+    if target_path == "/path/to/file":
+        ret = {"description": "File delete successful", "output": ""}
+        status_code = 204
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "Error on delete operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 httpretty.register_uri(
     httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
 )
@@ -388,6 +412,10 @@ httpretty.register_uri(
     httpretty.POST,
     "http://firecrest.cscs.ch/utilities/upload",
     body=simple_upload_callback,
+)
+
+httpretty.register_uri(
+    httpretty.DELETE, "http://firecrest.cscs.ch/utilities/rm", body=simple_delete_callback
 )
 
 
@@ -717,3 +745,23 @@ def test_simple_upload_invalid_client(invalid_client, tmp_path):
         invalid_client.simple_upload(
             "cluster1", local_file, "/path/to/remote/destination"
         )
+
+
+def test_simple_delete(valid_client, tmp_path):
+    # Make sure this doesn't raise an error
+    valid_client.simple_delete("cluster1", "/path/to/file")
+
+
+def test_simple_delete_invalid_arguments(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.simple_delete("cluster1", "/path/to/invalid/file")
+
+
+def test_simple_delete_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.simple_delete("cluster2", "/path/to/file")
+
+
+def test_simple_delete_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.simple_delete("cluster1", "/path/to/file")
