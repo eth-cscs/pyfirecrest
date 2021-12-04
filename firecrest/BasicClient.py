@@ -37,7 +37,7 @@ class ExternalStorage:
     """External storage object.
     """
 
-    def __init__(self, client, task_id, previous_responses=[]):
+    def __init__(self, client: 'Firecrest', task_id, previous_responses=[]):
         self._client = client
         self._task_id = task_id
         self._in_progress = True
@@ -48,10 +48,8 @@ class ExternalStorage:
         self._responses = previous_responses
 
     @property
-    def client(self):
+    def client(self) -> 'Firecrest':
         """Returns the client that will be used to get information for the task.
-
-        :rtype: Firecrest Object
         """
         return self._client
 
@@ -67,21 +65,19 @@ class ExternalStorage:
                     self._object_storage_data = task["data"]
 
     @property
-    def status(self):
+    def status(self) -> str:
         """Returns status of the task that is associated with this transfer.
 
         :calls: GET `/tasks/{taskid}`
-        :rtype: string
         """
         self._update()
         return self._status
 
     @property
-    def in_progress(self):
+    def in_progress(self) -> bool:
         """Returns `False` when the transfer has been completed (succesfully or with errors), otherwise `True`.
 
         :calls: GET `/tasks/{taskid}`
-        :rtype: boolean
         """
         self._update()
         return self._status not in self._final_states
@@ -147,13 +143,11 @@ class ExternalUpload(ExternalStorage):
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
 
-    def finish_upload(self):
+    def finish_upload(self) -> None:
         """Finish the upload process.
         This call will upload the file to the staging area.
         Check with the method `status` or `in_progress` to see the status of the transfer.
         The transfer from the staging area to the systems's filesystem can take several seconds to start to start.
-
-        :rtype: None
         """
         c = self.object_storage_data["command"]
         # LOCAL FIX FOR MAC
@@ -377,7 +371,6 @@ class Firecrest:
         """Returns a list of files in a directory.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :param showhidden: show hidden files
@@ -403,7 +396,6 @@ class Firecrest:
         """Creates a new directory.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :param p: no error if existing, make parent directories as needed
@@ -427,7 +419,6 @@ class Firecrest:
         """Rename/move a file, directory, or symlink at the `sourcePath` to the `targetPath` on `machine`'s filesystem.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param sourcePath: the absolute source path
         :type sourcePath: string
         :param targetPath: the absolute target path
@@ -448,7 +439,6 @@ class Firecrest:
         """Changes the file mod bits of a given file according to the specified mode.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :param mode: same as numeric mode of linux chmod tool
@@ -470,7 +460,6 @@ class Firecrest:
         If only owner or group information is passed, only that information will be updated.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :param owner: owner username for target
@@ -502,7 +491,6 @@ class Firecrest:
         """Copies file from `sourcePath` to `targetPath`.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param sourcePath: the absolute source path
         :type sourcePath: string
         :param targetPath: the absolute target path
@@ -523,7 +511,6 @@ class Firecrest:
         """Uses the `file` linux application to determine the type of a file.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :calls: GET `/utilities/file`
@@ -544,7 +531,6 @@ class Firecrest:
         """Creates a symbolic link.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute path that the symlink will point to
         :type targetPath: string
         :param symlink: the absolute path to the new symlink
@@ -566,7 +552,6 @@ class Firecrest:
         The maximun size of file that is allowed can be found from the parameters() call.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param sourcePath: the absolute source path
         :type sourcePath: string
         :param targetPath: the absolute target path
@@ -593,7 +578,6 @@ class Firecrest:
         The maximum size of file that is allowed can be found from the parameters() call.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param sourcePath: the absolute source path
         :type sourcePath: string
         :param targetPath: the absolute target path
@@ -620,7 +604,6 @@ class Firecrest:
         """Blocking call to delete a small file.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :calls: DELETE `/utilities/rm`
@@ -640,7 +623,6 @@ class Firecrest:
         """Calculate the SHA256 (256-bit) checksum of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :calls: GET `/utilities/checksum`
@@ -661,7 +643,6 @@ class Firecrest:
         """View the content of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string
         :calls: GET `/utilities/checksum`
@@ -768,7 +749,6 @@ class Firecrest:
         """Submits a batch script to SLURM on the target system
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
         :type job_script: string
         :param local_file: batch file can be local (default) or on the machine's filesystem
@@ -789,7 +769,6 @@ class Firecrest:
         This call uses the `sacct` command.
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param jobs: list of the IDs of the jobs (default [])
         :type jobs: list of strings/integers, optional
         :param starttime: Start time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
@@ -813,7 +792,6 @@ class Firecrest:
         This call uses the `scancel` command.
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param jobid: the absolute target path (default [])
         :type jobid: list of strings/integers, optional
         :calls: DELETE `/compute/jobs/{jobid}`
@@ -872,7 +850,7 @@ class Firecrest:
 
     def submit_move_job(
         self,
-        machine,
+        machine: str,
         sourcePath,
         targetPath,
         jobname=None,
@@ -886,7 +864,6 @@ class Firecrest:
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param sourcePath: the absolute source path
         :type sourcePath: string
         :param targetPath: the absolute target path
@@ -929,7 +906,6 @@ class Firecrest:
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param sourcePath: the absolute source path
         :type sourcePath: string
         :param targetPath: the absolute target path
@@ -972,7 +948,6 @@ class Firecrest:
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param sourcePath: the absolute source path
         :type sourcePath: string
         :param targetPath: the absolute target path
@@ -1014,7 +989,6 @@ class Firecrest:
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param targetPath: the absolute target path
         :type targetPath: string,
         :param jobname: job name
@@ -1043,7 +1017,6 @@ class Firecrest:
         """Non blocking call for the upload of larger files.
 
         :param machine: the machine where the filesystem belongs to
-        :type machine: string
         :param sourcePath: the source path in the local filesystem
         :type sourcePath: string
         :param targetPath: the target path in the machine's filesystem
@@ -1066,7 +1039,6 @@ class Firecrest:
         """Non blocking call for the download of larger files.
 
         :param machine: the machine where the filesystem belongs to
-        :type machine: string
         :param sourcePath: the source path in the local filesystem
         :type sourcePath: string
         :param targetPath: the target path in the machine's filesystem
@@ -1091,7 +1063,6 @@ class Firecrest:
         """List all active reservations and their status
 
         :param machine: the machine name
-        :type machine: string
         :calls: GET `/reservations`
         :rtype: list of dictionaries (one for each reservation)
         """
@@ -1109,7 +1080,6 @@ class Firecrest:
         """Creates a new reservation with {reservation} name for a given SLURM groupname
 
         :param machine: the machine name
-        :type machine: string
         :param reservation: the reservation name
         :type reservation: string
         :param account: the account in SLURM to which the reservation is made for
@@ -1148,7 +1118,6 @@ class Firecrest:
         """Updates an already created reservation named {reservation}
 
         :param machine: the machine name
-        :type machine: string
         :param reservation: the reservation name
         :type reservation: string
         :param account: the account in SLURM to which the reservation is made for
@@ -1183,7 +1152,6 @@ class Firecrest:
         """Deletes an already created reservation named {reservation}
 
         :param machine: the machine name
-        :type machine: string
         :param reservation: the reservation name
         :type reservation: string
         :calls: DELETE `/reservations/{reservation}`
