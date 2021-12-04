@@ -6,6 +6,8 @@
 #
 import itertools
 import json
+from typing import List
+
 import jwt
 import requests
 import shlex
@@ -15,6 +17,7 @@ import time
 import urllib.request
 
 import firecrest.FirecrestException as fe
+from firecrest.response_types import Utilities_Ls_Item
 
 
 # This function is temporarily here
@@ -370,7 +373,7 @@ class Firecrest:
         return self._json_response([resp], 200)["out"]
 
     # Utilities
-    def list_files(self, machine, targetPath, showhidden=None):
+    def list_files(self, machine: str, targetPath: str, showhidden: bool = False) -> List[Utilities_Ls_Item]:
         """Returns a list of files in a directory.
 
         :param machine: the machine name where the filesystem belongs to
@@ -388,7 +391,7 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": f"{targetPath}"}
-        if showhidden == True:
+        if showhidden is True:
             params["showhidden"] = showhidden
 
         resp = requests.get(
@@ -396,7 +399,7 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def mkdir(self, machine, targetPath, p=None):
+    def mkdir(self, machine: str, targetPath, p=None):
         """Creates a new directory.
 
         :param machine: the machine name where the filesystem belongs to
@@ -420,7 +423,7 @@ class Firecrest:
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
 
-    def mv(self, machine, sourcePath, targetPath):
+    def mv(self, machine: str, sourcePath, targetPath):
         """Rename/move a file, directory, or symlink at the `sourcePath` to the `targetPath` on `machine`'s filesystem.
 
         :param machine: the machine name where the filesystem belongs to
@@ -441,7 +444,7 @@ class Firecrest:
         resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
-    def chmod(self, machine, targetPath, mode):
+    def chmod(self, machine: str, targetPath, mode):
         """Changes the file mod bits of a given file according to the specified mode.
 
         :param machine: the machine name where the filesystem belongs to
@@ -462,7 +465,7 @@ class Firecrest:
         resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
-    def chown(self, machine, targetPath, owner=None, group=None):
+    def chown(self, machine: str, targetPath, owner=None, group=None):
         """Changes the user and/or group ownership of a given file.
         If only owner or group information is passed, only that information will be updated.
 
@@ -495,7 +498,7 @@ class Firecrest:
         resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
-    def copy(self, machine, sourcePath, targetPath):
+    def copy(self, machine: str, sourcePath, targetPath):
         """Copies file from `sourcePath` to `targetPath`.
 
         :param machine: the machine name where the filesystem belongs to
@@ -516,7 +519,7 @@ class Firecrest:
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
 
-    def file_type(self, machine, targetPath):
+    def file_type(self, machine: str, targetPath) -> str:
         """Uses the `file` linux application to determine the type of a file.
 
         :param machine: the machine name where the filesystem belongs to
@@ -537,7 +540,7 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def symlink(self, machine, targetPath, linkPath):
+    def symlink(self, machine: str, targetPath, linkPath):
         """Creates a symbolic link.
 
         :param machine: the machine name where the filesystem belongs to
@@ -558,7 +561,7 @@ class Firecrest:
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 201)
 
-    def simple_download(self, machine, sourcePath, targetPath):
+    def simple_download(self, machine: str, sourcePath, targetPath):
         """Blocking call to download a small file.
         The maximun size of file that is allowed can be found from the parameters() call.
 
@@ -585,7 +588,7 @@ class Firecrest:
         with open(targetPath, "wb") as f:
             f.write(resp.content)
 
-    def simple_upload(self, machine, sourcePath, targetPath):
+    def simple_upload(self, machine: str, sourcePath, targetPath):
         """Blocking call to upload a small file.
         The maximum size of file that is allowed can be found from the parameters() call.
 
@@ -613,7 +616,7 @@ class Firecrest:
 
         self._json_response([resp], 201)
 
-    def simple_delete(self, machine, targetPath):
+    def simple_delete(self, machine: str, targetPath):
         """Blocking call to delete a small file.
 
         :param machine: the machine name where the filesystem belongs to
@@ -633,7 +636,7 @@ class Firecrest:
         resp = requests.delete(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 204)
 
-    def checksum(self, machine, targetPath):
+    def checksum(self, machine: str, targetPath):
         """Calculate the SHA256 (256-bit) checksum of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
@@ -654,7 +657,7 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def view(self, machine, targetPath):
+    def view(self, machine: str, targetPath):
         """View the content of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
@@ -701,7 +704,7 @@ class Firecrest:
             return None
 
     # Compute
-    def _submit_request(self, machine, job_script, local_file):
+    def _submit_request(self, machine: str, job_script, local_file):
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
@@ -723,7 +726,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
-    def _squeue_request(self, machine, jobs=[]):
+    def _squeue_request(self, machine: str, jobs=[]):
         url = f"{self._firecrest_url}/compute/jobs"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
@@ -739,7 +742,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def _acct_request(self, machine, jobs=[], starttime=None, endtime=None):
+    def _acct_request(self, machine: str, jobs=[], starttime=None, endtime=None):
         url = f"{self._firecrest_url}/compute/acct"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
@@ -761,7 +764,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def submit(self, machine, job_script, local_file=True):
+    def submit(self, machine: str, job_script, local_file=True):
         """Submits a batch script to SLURM on the target system
 
         :param machine: the machine name where the scheduler belongs to
@@ -781,7 +784,7 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def poll(self, machine, jobs=[], starttime=None, endtime=None):
+    def poll(self, machine: str, jobs=[], starttime=None, endtime=None):
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
 
@@ -805,7 +808,7 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def cancel(self, machine, jobid):
+    def cancel(self, machine: str, jobid):
         """Retrieves information about submitted jobs.
         This call uses the `scancel` command.
 
@@ -1036,7 +1039,7 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def external_upload(self, machine, sourcePath, targetPath):
+    def external_upload(self, machine: str, sourcePath, targetPath):
         """Non blocking call for the upload of larger files.
 
         :param machine: the machine where the filesystem belongs to
@@ -1059,7 +1062,7 @@ class Firecrest:
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
 
-    def external_download(self, machine, sourcePath):
+    def external_download(self, machine: str, sourcePath):
         """Non blocking call for the download of larger files.
 
         :param machine: the machine where the filesystem belongs to
@@ -1101,7 +1104,7 @@ class Firecrest:
         return self._json_response([resp], 200)["success"]
 
     def create_reservation(
-        self, machine, reservation, account, numberOfNodes, nodeType, starttime, endtime
+        self, machine: str, reservation, account, numberOfNodes, nodeType, starttime, endtime
     ):
         """Creates a new reservation with {reservation} name for a given SLURM groupname
 
@@ -1140,7 +1143,7 @@ class Firecrest:
         self._json_response([resp], 201)
 
     def update_reservation(
-        self, machine, reservation, account, numberOfNodes, nodeType, starttime, endtime
+        self, machine: str, reservation, account, numberOfNodes, nodeType, starttime, endtime
     ):
         """Updates an already created reservation named {reservation}
 
@@ -1176,7 +1179,7 @@ class Firecrest:
         resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
         self._json_response([resp], 200)
 
-    def delete_reservation(self, machine, reservation):
+    def delete_reservation(self, machine: str, reservation):
         """Deletes an already created reservation named {reservation}
 
         :param machine: the machine name
