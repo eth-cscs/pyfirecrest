@@ -158,6 +158,44 @@ def sacct_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+
+def cancel_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Failed to delete job", "error": "Machine does not exist"}',
+        ]
+
+    jobid = uri.split("/")[-1]
+    if jobid == "35360071":
+        ret = {
+            "success": "Task created",
+            "task_id": "cancel_job_id",
+            "task_url": "https://148.187.97.214:8443/tasks/cancel_job_id",
+        }
+        status_code = 200
+    elif jobid == "35360072":
+        ret = {
+            "success": "Task created",
+            "task_id": "cancel_job_id_permission_fail",
+            "task_url": "https://148.187.97.214:8443/tasks/cancel_job_id_permission_fail",
+        }
+        status_code = 200
+    else:
+        ret = {
+            "success": "Task created",
+            "task_id": "cancel_job_id_fail",
+            "task_url": "https://148.187.97.214:8443/tasks/cancel_job_id_fail",
+        }
+        status_code = 200
+
+    return [status_code, response_headers, json.dumps(ret)]
+
 # Global variables for tasks
 submit_path_retry = 0
 submit_path_result = 1
@@ -165,6 +203,8 @@ submit_upload_retry = 0
 submit_upload_result = 1
 acct_retry = 0
 acct_result = 1
+cancel_retry = 0
+cancel_result = 1
 
 
 def tasks_callback(request, uri, response_headers):
@@ -174,6 +214,7 @@ def tasks_callback(request, uri, response_headers):
     global submit_path_retry
     global submit_upload_retry
     global acct_retry
+    global cancel_retry
 
     taskid = uri.split("/")[-1]
     if taskid == "tasks":
@@ -389,15 +430,73 @@ def tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
+    elif taskid == "cancel_job_id" or taskid == "cancel_job_id_fail" or taskid == "cancel_job_id_permission_fail":
+        if cancel_retry < cancel_result:
+            cancel_retry += 1
+            ret = {
+                "task": {
+                    "data": "Queued",
+                    "description": "Queued",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-04T11:52:10",
+                    "service": "compute",
+                    "status": "100",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        elif taskid == "cancel_job_id":
+            ret = {
+                "task": {
+                    "data": "",
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T10:42:06",
+                    "service": "compute",
+                    "status": "200",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username"
+                }
+            }
+            status_code = 200
+        elif taskid == "cancel_job_id_permission_fail":
+            ret = {
+                "task": {
+                    "data": "User does not have permission to cancel job",
+                    "description": "Finished with errors",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T10:32:26",
+                    "service": "compute",
+                    "status": "400",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username"
+                }
+            }
+            status_code = 200
+        else:
+            ret = {
+                "task": {
+                    "data": "scancel: error: Invalid job id tg",
+                    "description": "Finished with errors",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T10:39:47",
+                    "service": "compute",
+                    "status": "400",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username"
+                }
+            }
+            status_code = 200
 
     return [status_code, response_headers, json.dumps(ret)]
 
 
 # def squeue_callback(request, uri, response_headers):
-#     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-#         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
-
-# def cancel_callback(request, uri, response_headers):
 #     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
 #         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
 
@@ -418,6 +517,12 @@ httpretty.register_uri(
     httpretty.GET,
     "http://firecrest.cscs.ch/compute/acct",
     body=sacct_callback,
+)
+
+httpretty.register_uri(
+    httpretty.DELETE,
+    re.compile(r"http:\/\/firecrest\.cscs\.ch\/compute\/jobs.*"),
+    body=cancel_callback,
 )
 
 httpretty.register_uri(
@@ -570,3 +675,32 @@ def test_poll_invalid_machine(valid_client):
 def test_poll_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.poll(machine="cluster1", jobs=[])
+
+
+def test_cancel(valid_client):
+    global cancel_retry
+    cancel_retry = 0
+    # Make sure this doesn't raise an error
+    valid_client.cancel(machine="cluster1", jobid=35360071)
+
+
+def test_cancel_invalid_arguments(valid_client):
+    global cancel_retry
+    cancel_retry = 0
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.cancel(machine="cluster1", jobid='k')
+
+    cancel_retry = 0
+    with pytest.raises(firecrest.FirecrestException):
+        # Jobid 35360072 is from a different user
+        valid_client.cancel(machine="cluster1", jobid="35360072")
+
+
+def test_cancel_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.cancel(machine="cluster2", jobid=35360071)
+
+
+def test_cancel_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.cancel(machine="cluster1", jobid=35360071)
