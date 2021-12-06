@@ -120,11 +120,51 @@ def submit_upload_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def sacct_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Failed to retrieve account information", "error": "Machine does not exist"}',
+        ]
+
+    jobs = request.querystring.get("jobs", [""])[0].split(',')
+    if jobs == ['']:
+        ret = {
+            "success": "Task created",
+            "task_id": "acct_full_id",
+            "task_url": "https://148.187.97.214:8443/tasks/acct_full_id",
+        }
+        status_code = 200
+    elif jobs == ['352', '2', '334']:
+        ret = {
+            "success": "Task created",
+            "task_id": "acct_352_2_334_id",
+            "task_url": "https://148.187.97.214:8443/tasks/acct_352_2_334_id",
+        }
+        status_code = 200
+    elif jobs == ['l']:
+        ret = {
+            "success": "Task created",
+            "task_id": "acct_352_2_334_id_fail",
+            "task_url": "https://148.187.97.214:8443/tasks/acct_352_2_334_id_fail",
+        }
+        status_code = 200
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 # Global variables for tasks
 submit_path_retry = 0
 submit_path_result = 1
 submit_upload_retry = 0
 submit_upload_result = 1
+acct_retry = 0
+acct_result = 1
 
 
 def tasks_callback(request, uri, response_headers):
@@ -133,6 +173,7 @@ def tasks_callback(request, uri, response_headers):
 
     global submit_path_retry
     global submit_upload_retry
+    global acct_retry
 
     taskid = uri.split("/")[-1]
     if taskid == "tasks":
@@ -248,15 +289,111 @@ def tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
+    elif taskid == "acct_352_2_334_id" or taskid == "acct_352_2_334_id_fail" or taskid == "acct_full_id":
+        if acct_retry < acct_result:
+            acct_retry += 1
+            ret = {
+                "task": {
+                    "data": "Queued",
+                    "description": "Queued",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-04T11:52:10",
+                    "service": "compute",
+                    "status": "100",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        elif taskid == "acct_352_2_334_id":
+            ret = {
+                "task": {
+                    "data": [
+                        {
+                            "jobid": "352",
+                            "name": "firecrest_job_test",
+                            "nodelist": "nid0[6227-6229]",
+                            "nodes": "3",
+                            "partition": "normal",
+                            "start_time": "2021-11-29T16:31:07",
+                            "state": "COMPLETED",
+                            "time": "00:48:00",
+                            "time_left": "2021-11-29T16:31:47",
+                            "user": "username"
+                        },
+                        {
+                            "jobid": "334",
+                            "name": "firecrest_job_test2",
+                            "nodelist": "nid02401",
+                            "nodes": "1",
+                            "partition": "normal",
+                            "start_time": "2021-11-29T16:31:07",
+                            "state": "COMPLETED",
+                            "time": "00:17:12",
+                            "time_left": "2021-11-29T16:31:50",
+                            "user": "username"
+                        }
+                    ],
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:53:48",
+                    "service": "compute",
+                    "status": "200",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username"
+                }
+            }
+            status_code = 200
+        elif taskid == "acct_full_id":
+            ret = {
+                "task": {
+                    "data": [
+                        {
+                            "jobid": "352",
+                            "name": "firecrest_job_test",
+                            "nodelist": "nid0[6227-6229]",
+                            "nodes": "3",
+                            "partition": "normal",
+                            "start_time": "2021-11-29T16:31:07",
+                            "state": "COMPLETED",
+                            "time": "00:48:00",
+                            "time_left": "2021-11-29T16:31:47",
+                            "user": "username"
+                        }
+                    ],
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:53:48",
+                    "service": "compute",
+                    "status": "200",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username"
+                }
+            }
+            status_code = 200
+        else:
+            ret = {
+                "task": {
+                    "data": "sacct: fatal: Bad job/step specified: l",
+                    "description": "Finished with errors",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:47:22",
+                    "service": "compute",
+                    "status": "400",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username"
+                }
+            }
+            status_code = 200
 
     return [status_code, response_headers, json.dumps(ret)]
 
 
 # def squeue_callback(request, uri, response_headers):
-#     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-#         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
-
-# def sacct_callback(request, uri, response_headers):
 #     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
 #         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
 
@@ -275,6 +412,12 @@ httpretty.register_uri(
     httpretty.POST,
     "http://firecrest.cscs.ch/compute/jobs/upload",
     body=submit_upload_callback,
+)
+
+httpretty.register_uri(
+    httpretty.GET,
+    "http://firecrest.cscs.ch/compute/acct",
+    body=sacct_callback,
 )
 
 httpretty.register_uri(
@@ -364,3 +507,66 @@ def test_submit_invalid_client(invalid_client, slurm_script):
         invalid_client.submit(
             machine="cluster1", job_script=slurm_script, local_file=True
         )
+
+
+def test_poll(valid_client):
+    global acct_retry
+    acct_retry = 0
+    assert valid_client.poll(machine="cluster1", jobs=[352, 2, '334']) == [
+        {
+            "jobid": "352",
+            "name": "firecrest_job_test",
+            "nodelist": "nid0[6227-6229]",
+            "nodes": "3",
+            "partition": "normal",
+            "start_time": "2021-11-29T16:31:07",
+            "state": "COMPLETED",
+            "time": "00:48:00",
+            "time_left": "2021-11-29T16:31:47",
+            "user": "username"
+        },
+        {
+            "jobid": "334",
+            "name": "firecrest_job_test2",
+            "nodelist": "nid02401",
+            "nodes": "1",
+            "partition": "normal",
+            "start_time": "2021-11-29T16:31:07",
+            "state": "COMPLETED",
+            "time": "00:17:12",
+            "time_left": "2021-11-29T16:31:50",
+            "user": "username"
+        }
+    ]
+    assert valid_client.poll(machine="cluster1", jobs=[]) == [
+        {
+            "jobid": "352",
+            "name": "firecrest_job_test",
+            "nodelist": "nid0[6227-6229]",
+            "nodes": "3",
+            "partition": "normal",
+            "start_time": "2021-11-29T16:31:07",
+            "state": "COMPLETED",
+            "time": "00:48:00",
+            "time_left": "2021-11-29T16:31:47",
+            "user": "username"
+        }
+    ]
+
+
+def test_poll_invalid_arguments(valid_client):
+    global acct_retry
+    acct_retry = 0
+
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.poll(machine="cluster1", jobs=['l'])
+
+
+def test_poll_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.poll(machine="cluster2", jobs=[])
+
+
+def test_poll_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.poll(machine="cluster1", jobs=[])
