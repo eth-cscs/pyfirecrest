@@ -132,22 +132,22 @@ def sacct_callback(request, uri, response_headers):
             '{"description": "Failed to retrieve account information", "error": "Machine does not exist"}',
         ]
 
-    jobs = request.querystring.get("jobs", [""])[0].split(',')
-    if jobs == ['']:
+    jobs = request.querystring.get("jobs", [""])[0].split(",")
+    if jobs == [""]:
         ret = {
             "success": "Task created",
             "task_id": "acct_full_id",
             "task_url": "https://148.187.97.214:8443/tasks/acct_full_id",
         }
         status_code = 200
-    elif jobs == ['352', '2', '334']:
+    elif jobs == ["352", "2", "334"]:
         ret = {
             "success": "Task created",
             "task_id": "acct_352_2_334_id",
             "task_url": "https://148.187.97.214:8443/tasks/acct_352_2_334_id",
         }
         status_code = 200
-    elif jobs == ['l']:
+    elif jobs == ["l"]:
         ret = {
             "success": "Task created",
             "task_id": "acct_352_2_334_id_fail",
@@ -156,7 +156,6 @@ def sacct_callback(request, uri, response_headers):
         status_code = 200
 
     return [status_code, response_headers, json.dumps(ret)]
-
 
 
 def cancel_callback(request, uri, response_headers):
@@ -195,6 +194,7 @@ def cancel_callback(request, uri, response_headers):
         status_code = 200
 
     return [status_code, response_headers, json.dumps(ret)]
+
 
 # Global variables for tasks
 submit_path_retry = 0
@@ -330,7 +330,11 @@ def tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
-    elif taskid == "acct_352_2_334_id" or taskid == "acct_352_2_334_id_fail" or taskid == "acct_full_id":
+    elif (
+        taskid == "acct_352_2_334_id"
+        or taskid == "acct_352_2_334_id_fail"
+        or taskid == "acct_full_id"
+    ):
         if acct_retry < acct_result:
             acct_retry += 1
             ret = {
@@ -361,7 +365,7 @@ def tasks_callback(request, uri, response_headers):
                             "state": "COMPLETED",
                             "time": "00:48:00",
                             "time_left": "2021-11-29T16:31:47",
-                            "user": "username"
+                            "user": "username",
                         },
                         {
                             "jobid": "334",
@@ -373,8 +377,8 @@ def tasks_callback(request, uri, response_headers):
                             "state": "COMPLETED",
                             "time": "00:17:12",
                             "time_left": "2021-11-29T16:31:50",
-                            "user": "username"
-                        }
+                            "user": "username",
+                        },
                     ],
                     "description": "Finished successfully",
                     "hash_id": taskid,
@@ -383,7 +387,7 @@ def tasks_callback(request, uri, response_headers):
                     "status": "200",
                     "task_id": taskid,
                     "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
-                    "user": "username"
+                    "user": "username",
                 }
             }
             status_code = 200
@@ -401,7 +405,7 @@ def tasks_callback(request, uri, response_headers):
                             "state": "COMPLETED",
                             "time": "00:48:00",
                             "time_left": "2021-11-29T16:31:47",
-                            "user": "username"
+                            "user": "username",
                         }
                     ],
                     "description": "Finished successfully",
@@ -411,7 +415,7 @@ def tasks_callback(request, uri, response_headers):
                     "status": "200",
                     "task_id": taskid,
                     "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
-                    "user": "username"
+                    "user": "username",
                 }
             }
             status_code = 200
@@ -426,11 +430,15 @@ def tasks_callback(request, uri, response_headers):
                     "status": "400",
                     "task_id": taskid,
                     "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
-                    "user": "username"
+                    "user": "username",
                 }
             }
             status_code = 200
-    elif taskid == "cancel_job_id" or taskid == "cancel_job_id_fail" or taskid == "cancel_job_id_permission_fail":
+    elif (
+        taskid == "cancel_job_id"
+        or taskid == "cancel_job_id_fail"
+        or taskid == "cancel_job_id_permission_fail"
+    ):
         if cancel_retry < cancel_result:
             cancel_retry += 1
             ret = {
@@ -458,7 +466,7 @@ def tasks_callback(request, uri, response_headers):
                     "status": "200",
                     "task_id": taskid,
                     "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
-                    "user": "username"
+                    "user": "username",
                 }
             }
             status_code = 200
@@ -473,7 +481,7 @@ def tasks_callback(request, uri, response_headers):
                     "status": "400",
                     "task_id": taskid,
                     "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
-                    "user": "username"
+                    "user": "username",
                 }
             }
             status_code = 200
@@ -488,7 +496,7 @@ def tasks_callback(request, uri, response_headers):
                     "status": "400",
                     "task_id": taskid,
                     "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
-                    "user": "username"
+                    "user": "username",
                 }
             }
             status_code = 200
@@ -514,9 +522,7 @@ httpretty.register_uri(
 )
 
 httpretty.register_uri(
-    httpretty.GET,
-    "http://firecrest.cscs.ch/compute/acct",
-    body=sacct_callback,
+    httpretty.GET, "http://firecrest.cscs.ch/compute/acct", body=sacct_callback
 )
 
 httpretty.register_uri(
@@ -617,7 +623,7 @@ def test_submit_invalid_client(invalid_client, slurm_script):
 def test_poll(valid_client):
     global acct_retry
     acct_retry = 0
-    assert valid_client.poll(machine="cluster1", jobs=[352, 2, '334']) == [
+    assert valid_client.poll(machine="cluster1", jobs=[352, 2, "334"]) == [
         {
             "jobid": "352",
             "name": "firecrest_job_test",
@@ -628,7 +634,7 @@ def test_poll(valid_client):
             "state": "COMPLETED",
             "time": "00:48:00",
             "time_left": "2021-11-29T16:31:47",
-            "user": "username"
+            "user": "username",
         },
         {
             "jobid": "334",
@@ -640,8 +646,8 @@ def test_poll(valid_client):
             "state": "COMPLETED",
             "time": "00:17:12",
             "time_left": "2021-11-29T16:31:50",
-            "user": "username"
-        }
+            "user": "username",
+        },
     ]
     assert valid_client.poll(machine="cluster1", jobs=[]) == [
         {
@@ -654,7 +660,7 @@ def test_poll(valid_client):
             "state": "COMPLETED",
             "time": "00:48:00",
             "time_left": "2021-11-29T16:31:47",
-            "user": "username"
+            "user": "username",
         }
     ]
 
@@ -664,7 +670,7 @@ def test_poll_invalid_arguments(valid_client):
     acct_retry = 0
 
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.poll(machine="cluster1", jobs=['l'])
+        valid_client.poll(machine="cluster1", jobs=["l"])
 
 
 def test_poll_invalid_machine(valid_client):
@@ -688,7 +694,7 @@ def test_cancel_invalid_arguments(valid_client):
     global cancel_retry
     cancel_retry = 0
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.cancel(machine="cluster1", jobid='k')
+        valid_client.cancel(machine="cluster1", jobid="k")
 
     cancel_retry = 0
     with pytest.raises(firecrest.FirecrestException):
