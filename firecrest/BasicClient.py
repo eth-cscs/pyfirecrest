@@ -7,7 +7,6 @@
 import itertools
 import jwt
 import requests
-from requests.compat import json
 import shlex
 import shutil
 import subprocess
@@ -16,6 +15,8 @@ import urllib.request
 
 import firecrest.FirecrestException as fe
 
+from contextlib import nullcontext
+from requests.compat import json
 
 # This function is temporarily here
 def handle_response(response):
@@ -566,8 +567,8 @@ class Firecrest:
         :type machine: string
         :param source_path: the absolute source path
         :type source_path: string
-        :param target_path: the absolute target path
-        :type target_path: string
+        :param target_path: the target path in the local filesystem or binary stream
+        :type target_path: string or binary stream
         :calls: GET `/utilities/download`
         :rtype: None
         """
@@ -582,18 +583,24 @@ class Firecrest:
             url=url, headers=headers, params=params, verify=self._verify
         )
         self._json_response([resp], 200)
-        with open(target_path, "wb") as f:
+        context = (
+            open(target_path, "wb")
+            if isinstance(target_path, str)
+            else nullcontext(target_path)
+        )
+        with context as f:
             f.write(resp.content)
 
     def simple_upload(self, machine, source_path, target_path):
         """Blocking call to upload a small file.
+        The file that will be uploaded will have the same name as the source_path.
         The maximum size of file that is allowed can be found from the parameters() call.
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string
-        :param source_path: the absolute source path
-        :type source_path: string
-        :param target_path: the absolute target path
+        :param source_path: the source path of the file or binary stream
+        :type source_path: string or binary stream
+        :param target_path: the absolute target path of the directory where the file will be uploaded
         :type target_path: string
         :calls: POST `/utilities/upload`
         :rtype: None
@@ -604,7 +611,12 @@ class Firecrest:
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        with open(source_path, "rb") as f:
+        context = (
+            open(source_path, "rb")
+            if isinstance(source_path, str)
+            else nullcontext(source_path)
+        )
+        with context as f:
             data = {"targetPath": target_path}
             files = {"file": f}
             resp = requests.post(
