@@ -820,11 +820,13 @@ class Firecrest:
     def poll_active(self, machine, jobs=[]):
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
+
         :param machine: the machine name where the scheduler belongs to
         :type machine: string
         :param jobs: list of the IDs of the jobs (default [])
         :type jobs: list of strings/integers, optional
         :calls: GET `/compute/jobs`
+
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
