@@ -583,7 +583,11 @@ class Firecrest:
             url=url, headers=headers, params=params, verify=self._verify
         )
         self._json_response([resp], 200)
-        context = open(target_path, "wb") if isinstance(target_path, str) else nullcontext(target_path)
+        context = (
+            open(target_path, "wb")
+            if isinstance(target_path, str)
+            else nullcontext(target_path)
+        )
         with context as f:
             f.write(resp.content)
 
@@ -607,7 +611,11 @@ class Firecrest:
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        context = open(source_path, "rb") if isinstance(source_path, str) else nullcontext(source_path)
+        context = (
+            open(source_path, "rb")
+            if isinstance(source_path, str)
+            else nullcontext(source_path)
+        )
         with context as f:
             data = {"targetPath": target_path}
             files = {"file": f}
