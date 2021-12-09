@@ -26,14 +26,13 @@ setuptools.setup(
     # package_data={},
     include_package_data=True,
     classifiers=(
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'License :: OSI Approved :: BSD License',
         "Operating System :: OS Independent",
     ),
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     # FIXME PyJWT is only necessary until FirecREST has an appropriate endpoint
     install_requires=['requests>=2.14.0', 'PyJWT==1.7.1'],
 )
