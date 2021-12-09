@@ -590,13 +590,14 @@ class Firecrest:
 
     def simple_upload(self, machine, source_path, target_path):
         """Blocking call to upload a small file.
+        The file that will be uploaded will have the same name as the source_path.
         The maximum size of file that is allowed can be found from the parameters() call.
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string
         :param source_path: the source path of the file or an open file descriptor with mode="rb"
         :type source_path: string or file descriptor
-        :param target_path: the absolute target path
+        :param target_path: the absolute target path of the directory where the file will be uploaded
         :type target_path: string
         :calls: POST `/utilities/upload`
         :rtype: None
