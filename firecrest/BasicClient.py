@@ -923,7 +923,14 @@ class Firecrest:
         self._current_method_requests = []
         url = f"{self._firecrest_url}/storage/xfer-internal/mv"
         json_response = self._internal_transfer(
-            url, machine, source_path, target_path, job_name, time, stage_out_job_id, account
+            url,
+            machine,
+            source_path,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
         )
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -966,7 +973,14 @@ class Firecrest:
         self._current_method_requests = []
         url = f"{self._firecrest_url}/storage/xfer-internal/cp"
         json_response = self._internal_transfer(
-            url, machine, source_path, target_path, job_name, time, stage_out_job_id, account
+            url,
+            machine,
+            source_path,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
         )
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -1009,7 +1023,14 @@ class Firecrest:
         self._current_method_requests = []
         url = f"{self._firecrest_url}/storage/xfer-internal/rsync"
         json_response = self._internal_transfer(
-            url, machine, source_path, target_path, job_name, time, stage_out_job_id, account
+            url,
+            machine,
+            source_path,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
         )
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -1118,7 +1139,14 @@ class Firecrest:
         return self._json_response([resp], 200)["success"]
 
     def create_reservation(
-        self, machine, reservation, account, number_of_nodes, node_type, start_time, end_time
+        self,
+        machine,
+        reservation,
+        account,
+        number_of_nodes,
+        node_type,
+        start_time,
+        end_time,
     ):
         """Creates a new reservation with {reservation} name for a given SLURM groupname
 
@@ -1157,7 +1185,14 @@ class Firecrest:
         self._json_response([resp], 201)
 
     def update_reservation(
-        self, machine, reservation, account, number_of_nodes, node_type, start_time, end_time
+        self,
+        machine,
+        reservation,
+        account,
+        number_of_nodes,
+        node_type,
+        start_time,
+        end_time,
     ):
         """Updates an already created reservation named {reservation}
 
