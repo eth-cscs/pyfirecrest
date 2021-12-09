@@ -566,8 +566,8 @@ class Firecrest:
         :type machine: string
         :param source_path: the absolute source path
         :type source_path: string
-        :param target_path: the absolute target path
-        :type target_path: string
+        :param target_path: the target path in the local filesystem or open file descriptor with mode="wb"
+        :type target_path: string or file descriptor
         :calls: GET `/utilities/download`
         :rtype: None
         """
@@ -582,8 +582,11 @@ class Firecrest:
             url=url, headers=headers, params=params, verify=self._verify
         )
         self._json_response([resp], 200)
-        with open(target_path, "wb") as f:
-            f.write(resp.content)
+        if type(target_path) == str:
+            with open(target_path, "wb") as f:
+                f.write(resp.content)
+        else:
+            target_path.write(resp.content)
 
     def simple_upload(self, machine, source_path, target_path):
         """Blocking call to upload a small file.
@@ -591,8 +594,8 @@ class Firecrest:
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string
-        :param source_path: the absolute source path
-        :type source_path: string
+        :param source_path: the source path of the file or an open file descriptor with mode="rb"
+        :type source_path: string or file descriptor
         :param target_path: the absolute target path
         :type target_path: string
         :calls: POST `/utilities/upload`
@@ -604,9 +607,16 @@ class Firecrest:
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
             "X-Machine-Name": machine,
         }
-        with open(source_path, "rb") as f:
+        if type(source_path) == str:
+            with open(source_path, "rb") as f:
+                data = {"targetPath": target_path}
+                files = {"file": f}
+                resp = requests.post(
+                    url=url, headers=headers, data=data, files=files, verify=self._verify
+                )
+        else:
             data = {"targetPath": target_path}
-            files = {"file": f}
+            files = {"file": source_path}
             resp = requests.post(
                 url=url, headers=headers, data=data, files=files, verify=self._verify
             )
