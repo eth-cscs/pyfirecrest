@@ -5,9 +5,9 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #
 import itertools
-import json
 import jwt
 import requests
+from requests.compat import json
 import shlex
 import shutil
 import subprocess
