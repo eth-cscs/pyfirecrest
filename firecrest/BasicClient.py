@@ -6,6 +6,7 @@
 #
 import itertools
 import jwt
+import pathlib
 import requests
 import shlex
 import shutil
@@ -585,7 +586,7 @@ class Firecrest:
         self._json_response([resp], 200)
         context = (
             open(target_path, "wb")
-            if isinstance(target_path, str)
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.PosixPath)
             else nullcontext(target_path)
         )
         with context as f:
@@ -613,7 +614,7 @@ class Firecrest:
         }
         context = (
             open(source_path, "rb")
-            if isinstance(source_path, str)
+            if isinstance(source_path, str) or isinstance(source_path, pathlib.PosixPath)
             else nullcontext(source_path)
         )
         with context as f:
