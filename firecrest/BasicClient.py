@@ -924,7 +924,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
@@ -974,7 +974,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
@@ -1024,7 +1024,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
@@ -1071,7 +1071,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
