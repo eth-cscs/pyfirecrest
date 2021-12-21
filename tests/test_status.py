@@ -28,9 +28,6 @@ def invalid_client():
     )
 
 
-httpretty.enable(allow_net_connect=False, verbose=True)
-
-
 def services_callback(request, uri, response_headers):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
@@ -143,23 +140,32 @@ def parameters_callback(request, uri, response_headers):
     return [200, response_headers, json.dumps(ret)]
 
 
-httpretty.register_uri(
-    httpretty.GET,
-    re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/services.*"),
-    body=services_callback,
-)
+@pytest.fixture(autouse=True)
+def setup_callbacks():
+    httpretty.enable(allow_net_connect=False, verbose=True)
 
-httpretty.register_uri(
-    httpretty.GET,
-    re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/systems.*"),
-    body=systems_callback,
-)
+    httpretty.register_uri(
+        httpretty.GET,
+        re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/services.*"),
+        body=services_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.GET,
-    "http://firecrest.cscs.ch/status/parameters",
-    body=parameters_callback,
-)
+    httpretty.register_uri(
+        httpretty.GET,
+        re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/systems.*"),
+        body=systems_callback,
+    )
+
+    httpretty.register_uri(
+        httpretty.GET,
+        "http://firecrest.cscs.ch/status/parameters",
+        body=parameters_callback,
+    )
+
+    yield
+
+    httpretty.disable()
+    httpretty.reset()
 
 
 def test_all_services(valid_client):

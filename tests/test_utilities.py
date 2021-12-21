@@ -28,9 +28,6 @@ def invalid_client():
     )
 
 
-httpretty.enable(allow_net_connect=False, verbose=True)
-
-
 def ls_callback(request, uri, response_headers):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
@@ -421,63 +418,78 @@ def view_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
-httpretty.register_uri(
-    httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
-)
+@pytest.fixture(autouse=True)
+def setup_callbacks():
+    httpretty.enable(allow_net_connect=False, verbose=True)
 
-httpretty.register_uri(
-    httpretty.POST, "http://firecrest.cscs.ch/utilities/mkdir", body=mkdir_callback
-)
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
+    )
 
-httpretty.register_uri(
-    httpretty.PUT, "http://firecrest.cscs.ch/utilities/rename", body=mv_callback
-)
+    httpretty.register_uri(
+        httpretty.POST, "http://firecrest.cscs.ch/utilities/mkdir", body=mkdir_callback
+    )
 
-httpretty.register_uri(
-    httpretty.PUT, "http://firecrest.cscs.ch/utilities/chmod", body=chmod_callback
-)
+    httpretty.register_uri(
+        httpretty.PUT, "http://firecrest.cscs.ch/utilities/rename", body=mv_callback
+    )
 
-httpretty.register_uri(
-    httpretty.PUT, "http://firecrest.cscs.ch/utilities/chown", body=chown_callback
-)
+    httpretty.register_uri(
+        httpretty.PUT, "http://firecrest.cscs.ch/utilities/chmod", body=chmod_callback
+    )
 
-httpretty.register_uri(
-    httpretty.POST, "http://firecrest.cscs.ch/utilities/copy", body=copy_callback
-)
+    httpretty.register_uri(
+        httpretty.PUT, "http://firecrest.cscs.ch/utilities/chown", body=chown_callback
+    )
 
-httpretty.register_uri(
-    httpretty.GET, "http://firecrest.cscs.ch/utilities/file", body=file_type_callback
-)
+    httpretty.register_uri(
+        httpretty.POST, "http://firecrest.cscs.ch/utilities/copy", body=copy_callback
+    )
 
-httpretty.register_uri(
-    httpretty.POST, "http://firecrest.cscs.ch/utilities/symlink", body=symlink_callback
-)
+    httpretty.register_uri(
+        httpretty.GET,
+        "http://firecrest.cscs.ch/utilities/file",
+        body=file_type_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.GET,
-    "http://firecrest.cscs.ch/utilities/download",
-    body=simple_download_callback,
-)
+    httpretty.register_uri(
+        httpretty.POST,
+        "http://firecrest.cscs.ch/utilities/symlink",
+        body=symlink_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.POST,
-    "http://firecrest.cscs.ch/utilities/upload",
-    body=simple_upload_callback,
-)
+    httpretty.register_uri(
+        httpretty.GET,
+        "http://firecrest.cscs.ch/utilities/download",
+        body=simple_download_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.DELETE,
-    "http://firecrest.cscs.ch/utilities/rm",
-    body=simple_delete_callback,
-)
+    httpretty.register_uri(
+        httpretty.POST,
+        "http://firecrest.cscs.ch/utilities/upload",
+        body=simple_upload_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.GET, "http://firecrest.cscs.ch/utilities/checksum", body=checksum_callback
-)
+    httpretty.register_uri(
+        httpretty.DELETE,
+        "http://firecrest.cscs.ch/utilities/rm",
+        body=simple_delete_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.GET, "http://firecrest.cscs.ch/utilities/view", body=view_callback
-)
+    httpretty.register_uri(
+        httpretty.GET,
+        "http://firecrest.cscs.ch/utilities/checksum",
+        body=checksum_callback,
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/utilities/view", body=view_callback
+    )
+
+    yield
+
+    httpretty.disable()
+    httpretty.reset()
 
 
 def test_list_files(valid_client):
@@ -505,7 +517,7 @@ def test_list_files(valid_client):
     ]
 
     assert valid_client.list_files(
-        "cluster1", "/path/to/valid/dir", showhidden=True
+        "cluster1", "/path/to/valid/dir", show_hidden=True
     ) == [
         {
             "group": "group",

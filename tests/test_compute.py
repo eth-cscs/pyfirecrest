@@ -504,38 +504,42 @@ def tasks_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
-# def squeue_callback(request, uri, response_headers):
-#     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-#         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+@pytest.fixture(autouse=True)
+def setup_callbacks():
+    httpretty.enable(allow_net_connect=False, verbose=True)
 
+    httpretty.register_uri(
+        httpretty.POST,
+        "http://firecrest.cscs.ch/compute/jobs/path",
+        body=submit_path_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.POST,
-    "http://firecrest.cscs.ch/compute/jobs/path",
-    body=submit_path_callback,
-)
+    httpretty.register_uri(
+        httpretty.POST,
+        "http://firecrest.cscs.ch/compute/jobs/upload",
+        body=submit_upload_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.POST,
-    "http://firecrest.cscs.ch/compute/jobs/upload",
-    body=submit_upload_callback,
-)
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/compute/acct", body=sacct_callback
+    )
 
-httpretty.register_uri(
-    httpretty.GET, "http://firecrest.cscs.ch/compute/acct", body=sacct_callback
-)
+    httpretty.register_uri(
+        httpretty.DELETE,
+        re.compile(r"http:\/\/firecrest\.cscs\.ch\/compute\/jobs.*"),
+        body=cancel_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.DELETE,
-    re.compile(r"http:\/\/firecrest\.cscs\.ch\/compute\/jobs.*"),
-    body=cancel_callback,
-)
+    httpretty.register_uri(
+        httpretty.GET,
+        re.compile(r"http:\/\/firecrest\.cscs\.ch\/tasks.*"),
+        body=tasks_callback,
+    )
 
-httpretty.register_uri(
-    httpretty.GET,
-    re.compile(r"http:\/\/firecrest\.cscs\.ch\/tasks.*"),
-    body=tasks_callback,
-)
+    yield
+
+    httpretty.disable()
+    httpretty.reset()
 
 
 def test_submit(valid_client, slurm_script):
@@ -687,26 +691,26 @@ def test_cancel(valid_client):
     global cancel_retry
     cancel_retry = 0
     # Make sure this doesn't raise an error
-    valid_client.cancel(machine="cluster1", jobid=35360071)
+    valid_client.cancel(machine="cluster1", job_id=35360071)
 
 
 def test_cancel_invalid_arguments(valid_client):
     global cancel_retry
     cancel_retry = 0
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.cancel(machine="cluster1", jobid="k")
+        valid_client.cancel(machine="cluster1", job_id="k")
 
     cancel_retry = 0
     with pytest.raises(firecrest.FirecrestException):
         # Jobid 35360072 is from a different user
-        valid_client.cancel(machine="cluster1", jobid="35360072")
+        valid_client.cancel(machine="cluster1", job_id="35360072")
 
 
 def test_cancel_invalid_machine(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.cancel(machine="cluster2", jobid=35360071)
+        valid_client.cancel(machine="cluster2", job_id=35360071)
 
 
 def test_cancel_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.cancel(machine="cluster1", jobid=35360071)
+        invalid_client.cancel(machine="cluster1", job_id=35360071)
