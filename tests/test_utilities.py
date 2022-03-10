@@ -643,6 +643,10 @@ def test_chown(valid_client):
     valid_client.chown(
         "cluster1", "/path/to/file", owner="new_owner", group="new_group"
     )
+    # Call will immediately return if neither owner and nor group are set
+    valid_client.chown(
+        "cluster", "path"
+    )
 
 
 def test_chown_invalid_arguments(valid_client):
