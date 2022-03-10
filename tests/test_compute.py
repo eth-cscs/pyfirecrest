@@ -120,6 +120,50 @@ def submit_upload_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def queue_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{ "description": "Failed to retrieve jobs information", "error": "Machine does not exists"}',
+        ]
+
+    jobs = request.querystring.get("jobs", [""])[0].split(",")
+    if jobs == [""]:
+        ret = {
+            "success": "Task created",
+            "task_id": "queue_full_id",
+            "task_url": "https://148.187.97.214:8443/tasks/queue_full_id",
+        }
+        status_code = 200
+    elif jobs == ["352", "2", "334"]:
+        ret = {
+            "success": "Task created",
+            "task_id": "queue_352_2_334_id",
+            "task_url": "https://148.187.97.214:8443/tasks/queue_352_2_334_id",
+        }
+        status_code = 200
+    elif jobs == ["l"]:
+        ret = {
+            "description": "Failed to retrieve job information",
+            "error": "l is not a valid job ID"
+        }
+        status_code = 400
+    elif jobs == ["4"]:
+        ret = {
+            "success": "Task created",
+            "task_id": "queue_id_fail",
+            "task_url": "https://148.187.97.214:8443/tasks/queue_id_fail",
+        }
+        status_code = 200
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 def sacct_callback(request, uri, response_headers):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
@@ -203,6 +247,8 @@ submit_upload_retry = 0
 submit_upload_result = 1
 acct_retry = 0
 acct_result = 1
+queue_retry = 0
+queue_result = 1
 cancel_retry = 0
 cancel_result = 1
 
@@ -214,6 +260,7 @@ def tasks_callback(request, uri, response_headers):
     global submit_path_retry
     global submit_upload_retry
     global acct_retry
+    global queue_retry
     global cancel_retry
 
     taskid = uri.split("/")[-1]
@@ -435,6 +482,125 @@ def tasks_callback(request, uri, response_headers):
             }
             status_code = 200
     elif (
+        taskid == "queue_352_2_334_id"
+        or taskid == "queue_id_fail"
+        or taskid == "queue_full_id"
+    ):
+        if queue_retry < queue_result:
+            queue_retry += 1
+            ret = {
+                "task": {
+                    "data": "Queued",
+                    "description": "Queued",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-04T11:52:10",
+                    "service": "compute",
+                    "status": "100",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        elif taskid == "queue_352_2_334_id":
+            ret = {
+                "task": {
+                    "data": {
+                        '0': {
+                            'job_data_err': '',
+                            'job_data_out': '',
+                            'job_file': '(null)',
+                            'job_file_err': 'stderr-file-not-found',
+                            'job_file_out': 'stdout-file-not-found',
+                            'jobid': '352',
+                            'name': 'interactive',
+                            'nodelist': 'nid02357',
+                            'nodes': '1',
+                            'partition': 'debug',
+                            'start_time': '6:38',
+                            'state': 'RUNNING',
+                            'time': '2022-03-10T10:11:34',
+                            'time_left': '23:22',
+                            'user': 'username'
+                        }
+                    },
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:53:48",
+                    "service": "compute",
+                    "status": "200",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        elif taskid == "queue_full_id":
+            ret = {
+                "task": {
+                    "data": {
+                        '0': {
+                            'job_data_err': '',
+                            'job_data_out': '',
+                            'job_file': '(null)',
+                            'job_file_err': 'stderr-file-not-found',
+                            'job_file_out': 'stdout-file-not-found',
+                            'jobid': '352',
+                            'name': 'interactive',
+                            'nodelist': 'nid02357',
+                            'nodes': '1',
+                            'partition': 'debug',
+                            'start_time': '6:38',
+                            'state': 'RUNNING',
+                            'time': '2022-03-10T10:11:34',
+                            'time_left': '23:22',
+                            'user': 'username'
+                        },
+                        '1': {
+                            'job_data_err': '',
+                            'job_data_out': '',
+                            'job_file': '(null)',
+                            'job_file_err': 'stderr-file-not-found',
+                            'job_file_out': 'stdout-file-not-found',
+                            'jobid': '356',
+                            'name': 'interactive',
+                            'nodelist': 'nid02351',
+                            'nodes': '1',
+                            'partition': 'debug',
+                            'start_time': '6:38',
+                            'state': 'RUNNING',
+                            'time': '2022-03-10T10:11:34',
+                            'time_left': '23:22',
+                            'user': 'username'
+                        }
+                    },
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:53:48",
+                    "service": "compute",
+                    "status": "200",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        else:
+            ret = {
+                "task": {
+                    "data": "slurm_load_jobs error: Invalid job id specified",
+                    "description": "Finished with errors",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:47:22",
+                    "service": "compute",
+                    "status": "400",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+    elif (
         taskid == "cancel_job_id"
         or taskid == "cancel_job_id_fail"
         or taskid == "cancel_job_id_permission_fail"
@@ -522,6 +688,10 @@ def setup_callbacks():
 
     httpretty.register_uri(
         httpretty.GET, "http://firecrest.cscs.ch/compute/acct", body=sacct_callback
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/compute/jobs", body=queue_callback
     )
 
     httpretty.register_uri(
@@ -627,7 +797,7 @@ def test_submit_invalid_client(invalid_client, slurm_script):
 def test_poll(valid_client):
     global acct_retry
     acct_retry = 0
-    assert valid_client.poll(machine="cluster1", jobs=[352, 2, "334"]) == [
+    assert valid_client.poll(machine="cluster1", jobs=[352, 2, "334"], start_time='starttime', end_time='endtime') == [
         {
             "jobid": "352",
             "name": "firecrest_job_test",
@@ -685,6 +855,88 @@ def test_poll_invalid_machine(valid_client):
 def test_poll_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.poll(machine="cluster1", jobs=[])
+
+def test_poll_active(valid_client):
+    global queue_retry
+    queue_retry = 0
+    assert valid_client.poll_active(machine="cluster1", jobs=[352, 2, "334"]) == [
+        {
+            'job_data_err': '',
+            'job_data_out': '',
+            'job_file': '(null)',
+            'job_file_err': 'stderr-file-not-found',
+            'job_file_out': 'stdout-file-not-found',
+            'jobid': '352',
+            'name': 'interactive',
+            'nodelist': 'nid02357',
+            'nodes': '1',
+            'partition': 'debug',
+            'start_time': '6:38',
+            'state': 'RUNNING',
+            'time': '2022-03-10T10:11:34',
+            'time_left': '23:22',
+            'user': 'username'
+        }
+    ]
+    queue_retry = 0
+    assert valid_client.poll_active(machine="cluster1", jobs=[]) == [
+        {
+            'job_data_err': '',
+            'job_data_out': '',
+            'job_file': '(null)',
+            'job_file_err': 'stderr-file-not-found',
+            'job_file_out': 'stdout-file-not-found',
+            'jobid': '352',
+            'name': 'interactive',
+            'nodelist': 'nid02357',
+            'nodes': '1',
+            'partition': 'debug',
+            'start_time': '6:38',
+            'state': 'RUNNING',
+            'time': '2022-03-10T10:11:34',
+            'time_left': '23:22',
+            'user': 'username'
+        },
+        {
+            'job_data_err': '',
+            'job_data_out': '',
+            'job_file': '(null)',
+            'job_file_err': 'stderr-file-not-found',
+            'job_file_out': 'stdout-file-not-found',
+            'jobid': '356',
+            'name': 'interactive',
+            'nodelist': 'nid02351',
+            'nodes': '1',
+            'partition': 'debug',
+            'start_time': '6:38',
+            'state': 'RUNNING',
+            'time': '2022-03-10T10:11:34',
+            'time_left': '23:22',
+            'user': 'username'
+        }
+    ]
+
+def test_poll_active_invalid_arguments(valid_client):
+    global queue_retry
+    queue_retry = 0
+
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.poll_active(machine="cluster1", jobs=["l"])
+
+    queue_retry = 0
+    with pytest.raises(firecrest.FirecrestException):
+        # We assume that jobid is too old and is rejected by squeue
+        valid_client.poll_active(machine="cluster1", jobs=["4"])
+
+
+def test_poll_active_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.poll_active(machine="cluster2", jobs=[])
+
+
+def test_poll_active_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.poll_active(machine="cluster1", jobs=[])
 
 
 def test_cancel(valid_client):
