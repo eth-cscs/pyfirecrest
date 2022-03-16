@@ -201,19 +201,22 @@ class ExternalDownload(ExternalStorage):
         """
         self._client._invalidate(self._task_id)
 
-    def finish_download(self, target_name):
+    def finish_download(self, target_path):
         """Finish the download process.
 
-        :param target_name: the local path to save the file
-        :type target_name: string
+        :param target_path: the local path to save the file
+        :type target_path: string or binary stream
         :rtype: None
         """
         url = self.object_storage_data
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")
-        with urllib.request.urlopen(url) as response, open(
-            target_name, "wb"
-        ) as out_file:
+        context = (
+            open(target_path, "wb")
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.PosixPath)
+            else nullcontext(target_path)
+        )
+        with urllib.request.urlopen(url) as response, context as out_file:
             shutil.copyfileobj(response, out_file)
 
 
