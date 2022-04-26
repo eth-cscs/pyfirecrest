@@ -1103,8 +1103,8 @@ class Firecrest:
         :type source_path: string
         :param target_path: the target path in the machine's filesystem
         :type target_path: string
-        :returns: an ExternalDownload object
-        :rtype: ExternalDownload
+        :returns: an ExternalUpload object
+        :rtype: ExternalUpload
         """
         self._current_method_requests = []
         url = f"{self._firecrest_url}/storage/xfer-external/upload"
