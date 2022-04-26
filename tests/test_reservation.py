@@ -32,9 +32,7 @@ def all_reservations_callback(request, uri, response_headers):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
 
-    ret = {
-        'success': []
-    }
+    ret = {"success": []}
     return [200, response_headers, json.dumps(ret)]
 
 
@@ -69,19 +67,19 @@ def setup_callbacks():
     httpretty.register_uri(
         httpretty.GET,
         "http://firecrest.cscs.ch/reservations",
-        body=all_reservations_callback
+        body=all_reservations_callback,
     )
 
     httpretty.register_uri(
         httpretty.POST,
         "http://firecrest.cscs.ch/reservations",
-        body=create_reservation_callback
+        body=create_reservation_callback,
     )
 
     httpretty.register_uri(
         httpretty.PUT,
         re.compile(r"http:\/\/firecrest\.cscs\.ch\/reservations\/.*"),
-        body=update_reservation_callback
+        body=update_reservation_callback,
     )
 
     httpretty.register_uri(
@@ -113,21 +111,21 @@ def test_create_reservation(valid_client):
         "number_of_nodes",
         "node_type",
         "start_time",
-        "end_time"
+        "end_time",
     )
 
 
 def test_create_reservation_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.create_reservation(
-        "cluster1",
-        "reservation",
-        "account",
-        "number_of_nodes",
-        "node_type",
-        "start_time",
-        "end_time"
-    )
+            "cluster1",
+            "reservation",
+            "account",
+            "number_of_nodes",
+            "node_type",
+            "start_time",
+            "end_time",
+        )
 
 
 def test_update_reservation(valid_client):
@@ -138,27 +136,27 @@ def test_update_reservation(valid_client):
         "number_of_nodes",
         "node_type",
         "start_time",
-        "end_time"
+        "end_time",
     )
 
 
 def test_update_reservation_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.update_reservation(
-        "cluster1",
-        "reservation",
-        "account",
-        "number_of_nodes",
-        "node_type",
-        "start_time",
-        "end_time"
-    )
+            "cluster1",
+            "reservation",
+            "account",
+            "number_of_nodes",
+            "node_type",
+            "start_time",
+            "end_time",
+        )
 
 
 def test_delete_reservation(valid_client):
-    valid_client.delete_reservation("cluster1", 'reservation')
+    valid_client.delete_reservation("cluster1", "reservation")
 
 
 def test_delete_reservation_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.delete_reservation("cluster1", 'reservation')
+        invalid_client.delete_reservation("cluster1", "reservation")

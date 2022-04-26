@@ -30,6 +30,7 @@ def client1():
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
     )
 
+
 @pytest.fixture
 def client2():
     class ValidAuthorization:
@@ -64,6 +65,7 @@ def client3():
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
     )
 
+
 @pytest.fixture
 def invalid_client():
     class ValidAuthorization:
@@ -76,13 +78,16 @@ def invalid_client():
 
 
 def test_whoami(client1):
-    assert client1.whoami() == 'bob'
+    assert client1.whoami() == "bob"
+
 
 def test_whoami_2(client2):
-    assert client2.whoami() == 'alice'
+    assert client2.whoami() == "alice"
+
 
 def test_whoami_3(client3):
-    assert client3.whoami() == 'eve'
+    assert client3.whoami() == "eve"
+
 
 def test_whoami_invalid_client(invalid_client):
     assert invalid_client.whoami() == None

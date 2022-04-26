@@ -150,7 +150,7 @@ def queue_callback(request, uri, response_headers):
     elif jobs == ["l"]:
         ret = {
             "description": "Failed to retrieve job information",
-            "error": "l is not a valid job ID"
+            "error": "l is not a valid job ID",
         }
         status_code = 400
     elif jobs == ["4"]:
@@ -506,22 +506,22 @@ def tasks_callback(request, uri, response_headers):
             ret = {
                 "task": {
                     "data": {
-                        '0': {
-                            'job_data_err': '',
-                            'job_data_out': '',
-                            'job_file': '(null)',
-                            'job_file_err': 'stderr-file-not-found',
-                            'job_file_out': 'stdout-file-not-found',
-                            'jobid': '352',
-                            'name': 'interactive',
-                            'nodelist': 'nid02357',
-                            'nodes': '1',
-                            'partition': 'debug',
-                            'start_time': '6:38',
-                            'state': 'RUNNING',
-                            'time': '2022-03-10T10:11:34',
-                            'time_left': '23:22',
-                            'user': 'username'
+                        "0": {
+                            "job_data_err": "",
+                            "job_data_out": "",
+                            "job_file": "(null)",
+                            "job_file_err": "stderr-file-not-found",
+                            "job_file_out": "stdout-file-not-found",
+                            "jobid": "352",
+                            "name": "interactive",
+                            "nodelist": "nid02357",
+                            "nodes": "1",
+                            "partition": "debug",
+                            "start_time": "6:38",
+                            "state": "RUNNING",
+                            "time": "2022-03-10T10:11:34",
+                            "time_left": "23:22",
+                            "user": "username",
                         }
                     },
                     "description": "Finished successfully",
@@ -539,40 +539,40 @@ def tasks_callback(request, uri, response_headers):
             ret = {
                 "task": {
                     "data": {
-                        '0': {
-                            'job_data_err': '',
-                            'job_data_out': '',
-                            'job_file': '(null)',
-                            'job_file_err': 'stderr-file-not-found',
-                            'job_file_out': 'stdout-file-not-found',
-                            'jobid': '352',
-                            'name': 'interactive',
-                            'nodelist': 'nid02357',
-                            'nodes': '1',
-                            'partition': 'debug',
-                            'start_time': '6:38',
-                            'state': 'RUNNING',
-                            'time': '2022-03-10T10:11:34',
-                            'time_left': '23:22',
-                            'user': 'username'
+                        "0": {
+                            "job_data_err": "",
+                            "job_data_out": "",
+                            "job_file": "(null)",
+                            "job_file_err": "stderr-file-not-found",
+                            "job_file_out": "stdout-file-not-found",
+                            "jobid": "352",
+                            "name": "interactive",
+                            "nodelist": "nid02357",
+                            "nodes": "1",
+                            "partition": "debug",
+                            "start_time": "6:38",
+                            "state": "RUNNING",
+                            "time": "2022-03-10T10:11:34",
+                            "time_left": "23:22",
+                            "user": "username",
                         },
-                        '1': {
-                            'job_data_err': '',
-                            'job_data_out': '',
-                            'job_file': '(null)',
-                            'job_file_err': 'stderr-file-not-found',
-                            'job_file_out': 'stdout-file-not-found',
-                            'jobid': '356',
-                            'name': 'interactive',
-                            'nodelist': 'nid02351',
-                            'nodes': '1',
-                            'partition': 'debug',
-                            'start_time': '6:38',
-                            'state': 'RUNNING',
-                            'time': '2022-03-10T10:11:34',
-                            'time_left': '23:22',
-                            'user': 'username'
-                        }
+                        "1": {
+                            "job_data_err": "",
+                            "job_data_out": "",
+                            "job_file": "(null)",
+                            "job_file_err": "stderr-file-not-found",
+                            "job_file_out": "stdout-file-not-found",
+                            "jobid": "356",
+                            "name": "interactive",
+                            "nodelist": "nid02351",
+                            "nodes": "1",
+                            "partition": "debug",
+                            "start_time": "6:38",
+                            "state": "RUNNING",
+                            "time": "2022-03-10T10:11:34",
+                            "time_left": "23:22",
+                            "user": "username",
+                        },
                     },
                     "description": "Finished successfully",
                     "hash_id": taskid,
@@ -797,7 +797,12 @@ def test_submit_invalid_client(invalid_client, slurm_script):
 def test_poll(valid_client):
     global acct_retry
     acct_retry = 0
-    assert valid_client.poll(machine="cluster1", jobs=[352, 2, "334"], start_time='starttime', end_time='endtime') == [
+    assert valid_client.poll(
+        machine="cluster1",
+        jobs=[352, 2, "334"],
+        start_time="starttime",
+        end_time="endtime",
+    ) == [
         {
             "jobid": "352",
             "name": "firecrest_job_test",
@@ -856,65 +861,67 @@ def test_poll_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.poll(machine="cluster1", jobs=[])
 
+
 def test_poll_active(valid_client):
     global queue_retry
     queue_retry = 0
     assert valid_client.poll_active(machine="cluster1", jobs=[352, 2, "334"]) == [
         {
-            'job_data_err': '',
-            'job_data_out': '',
-            'job_file': '(null)',
-            'job_file_err': 'stderr-file-not-found',
-            'job_file_out': 'stdout-file-not-found',
-            'jobid': '352',
-            'name': 'interactive',
-            'nodelist': 'nid02357',
-            'nodes': '1',
-            'partition': 'debug',
-            'start_time': '6:38',
-            'state': 'RUNNING',
-            'time': '2022-03-10T10:11:34',
-            'time_left': '23:22',
-            'user': 'username'
+            "job_data_err": "",
+            "job_data_out": "",
+            "job_file": "(null)",
+            "job_file_err": "stderr-file-not-found",
+            "job_file_out": "stdout-file-not-found",
+            "jobid": "352",
+            "name": "interactive",
+            "nodelist": "nid02357",
+            "nodes": "1",
+            "partition": "debug",
+            "start_time": "6:38",
+            "state": "RUNNING",
+            "time": "2022-03-10T10:11:34",
+            "time_left": "23:22",
+            "user": "username",
         }
     ]
     queue_retry = 0
     assert valid_client.poll_active(machine="cluster1", jobs=[]) == [
         {
-            'job_data_err': '',
-            'job_data_out': '',
-            'job_file': '(null)',
-            'job_file_err': 'stderr-file-not-found',
-            'job_file_out': 'stdout-file-not-found',
-            'jobid': '352',
-            'name': 'interactive',
-            'nodelist': 'nid02357',
-            'nodes': '1',
-            'partition': 'debug',
-            'start_time': '6:38',
-            'state': 'RUNNING',
-            'time': '2022-03-10T10:11:34',
-            'time_left': '23:22',
-            'user': 'username'
+            "job_data_err": "",
+            "job_data_out": "",
+            "job_file": "(null)",
+            "job_file_err": "stderr-file-not-found",
+            "job_file_out": "stdout-file-not-found",
+            "jobid": "352",
+            "name": "interactive",
+            "nodelist": "nid02357",
+            "nodes": "1",
+            "partition": "debug",
+            "start_time": "6:38",
+            "state": "RUNNING",
+            "time": "2022-03-10T10:11:34",
+            "time_left": "23:22",
+            "user": "username",
         },
         {
-            'job_data_err': '',
-            'job_data_out': '',
-            'job_file': '(null)',
-            'job_file_err': 'stderr-file-not-found',
-            'job_file_out': 'stdout-file-not-found',
-            'jobid': '356',
-            'name': 'interactive',
-            'nodelist': 'nid02351',
-            'nodes': '1',
-            'partition': 'debug',
-            'start_time': '6:38',
-            'state': 'RUNNING',
-            'time': '2022-03-10T10:11:34',
-            'time_left': '23:22',
-            'user': 'username'
-        }
+            "job_data_err": "",
+            "job_data_out": "",
+            "job_file": "(null)",
+            "job_file_err": "stderr-file-not-found",
+            "job_file_out": "stdout-file-not-found",
+            "jobid": "356",
+            "name": "interactive",
+            "nodelist": "nid02351",
+            "nodes": "1",
+            "partition": "debug",
+            "start_time": "6:38",
+            "state": "RUNNING",
+            "time": "2022-03-10T10:11:34",
+            "time_left": "23:22",
+            "user": "username",
+        },
     ]
+
 
 def test_poll_active_invalid_arguments(valid_client):
     global queue_retry
