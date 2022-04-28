@@ -4,6 +4,7 @@ import pytest
 import re
 
 from context import firecrest
+from firecrest.BasicClient import ExternalUpload, ExternalDownload
 
 
 @pytest.fixture
@@ -47,6 +48,66 @@ def internal_transfer_callback(request, uri, response_headers):
     }
     status_code = 201
     return [status_code, response_headers, json.dumps(ret)]
+
+
+def external_download_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    # TODO Machine is ignored at this point
+    # if request.headers["X-Machine-Name"] != "cluster1":
+    #     response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+    #     return [
+    #         400,
+    #         response_headers,
+    #         '{"description": "Failed to submit job", "error": "Machine does not exist"}',
+    #     ]
+
+    # I couldn't find a better way to get the params from the request
+    if b"sourcePath=%2Fpath%2Fto%2Fremote%2Fsource" in request.body:
+        ret = {
+            "success": "Task created",
+            "task_id": "external_download_id",
+            "task_url": "https://148.187.97.214:8443/tasks/external_download_id",
+        }
+        status_code = 201
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "sourcePath error"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
+def external_upload_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    # TODO Machine is ignored at this point
+    # if request.headers["X-Machine-Name"] != "cluster1":
+    #     response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+    #     return [
+    #         400,
+    #         response_headers,
+    #         '{"description": "Failed to submit job", "error": "Machine does not exist"}',
+    #     ]
+
+    # I couldn't find a better way to get the params from the request
+    if (b"sourcePath=%2Fpath%2Fto%2Flocal%2Fsource" in request.body and
+        b"targetPath=%2Fpath%2Fto%2Fremote%2Fdestination" in request.body):
+        ret = {
+            "success": "Task created",
+            "task_id": "external_upload_id",
+            "task_url": "https://148.187.97.214:8443/tasks/external_upload_id",
+        }
+        status_code = 201
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "sourcePath error"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
 
 # Global variables for tasks
 internal_transfer_retry = 0
@@ -175,6 +236,18 @@ def setup_callbacks():
         httpretty.GET,
         re.compile(r"http:\/\/firecrest\.cscs\.ch\/tasks.*"),
         body=storage_tasks_callback,
+    )
+
+    httpretty.register_uri(
+        httpretty.POST,
+        "http://firecrest.cscs.ch/storage/xfer-external/download",
+        body=external_download_callback,
+    )
+
+    httpretty.register_uri(
+        httpretty.POST,
+        "http://firecrest.cscs.ch/storage/xfer-external/upload",
+        body=external_upload_callback,
     )
 
     yield
@@ -362,3 +435,17 @@ def test_internal_transfer_invalid_client(invalid_client):
             stage_out_job_id="35363851",
             account="project",
         )
+
+
+def test_external_download(valid_client):
+    obj = valid_client.external_download("cluster1", "/path/to/remote/source")
+    assert isinstance(obj, ExternalDownload)
+    assert obj._task_id == "external_download_id"
+    assert obj.client == valid_client
+
+
+def test_external_upload(valid_client):
+    obj = valid_client.external_upload("cluster1", "/path/to/local/source", "/path/to/remote/destination")
+    assert isinstance(obj, ExternalUpload)
+    assert obj._task_id == "external_upload_id"
+    assert obj.client == valid_client
