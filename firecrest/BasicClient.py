@@ -6,6 +6,7 @@
 #
 import itertools
 import jwt
+import pathlib
 import requests
 import shlex
 import shutil
@@ -200,19 +201,22 @@ class ExternalDownload(ExternalStorage):
         """
         self._client._invalidate(self._task_id)
 
-    def finish_download(self, target_name):
+    def finish_download(self, target_path):
         """Finish the download process.
 
-        :param target_name: the local path to save the file
-        :type target_name: string
+        :param target_path: the local path to save the file
+        :type target_path: string or binary stream
         :rtype: None
         """
         url = self.object_storage_data
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")
-        with urllib.request.urlopen(url) as response, open(
-            target_name, "wb"
-        ) as out_file:
+        context = (
+            open(target_path, "wb")
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.PosixPath)
+            else nullcontext(target_path)
+        )
+        with urllib.request.urlopen(url) as response, context as out_file:
             shutil.copyfileobj(response, out_file)
 
 
@@ -585,7 +589,7 @@ class Firecrest:
         self._json_response([resp], 200)
         context = (
             open(target_path, "wb")
-            if isinstance(target_path, str)
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.PosixPath)
             else nullcontext(target_path)
         )
         with context as f:
@@ -613,7 +617,7 @@ class Firecrest:
         }
         context = (
             open(source_path, "rb")
-            if isinstance(source_path, str)
+            if isinstance(source_path, str) or isinstance(source_path, pathlib.PosixPath)
             else nullcontext(source_path)
         )
         with context as f:
@@ -923,7 +927,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
@@ -973,7 +977,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
@@ -1023,7 +1027,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
@@ -1070,7 +1074,7 @@ class Firecrest:
         :type target_path: string,
         :param job_name: job name
         :type job_name: string, optional
-        :param time: limit on the total run time of the rename. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'. Note: for stage-in queue a slurm xfer job.
+        :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
         :type stage_out_job_id: string, optional
@@ -1099,14 +1103,14 @@ class Firecrest:
         :type source_path: string
         :param target_path: the target path in the machine's filesystem
         :type target_path: string
-        :returns: an ExternalDownload object
-        :rtype: ExternalDownload
+        :returns: an ExternalUpload object
+        :rtype: ExternalUpload
         """
         self._current_method_requests = []
         url = f"{self._firecrest_url}/storage/xfer-external/upload"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,  # will not be taken into account yet
+            "X-Machine-Name": machine,
         }
         data = {"targetPath": target_path, "sourcePath": source_path}
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
@@ -1127,7 +1131,7 @@ class Firecrest:
         url = f"{self._firecrest_url}/storage/xfer-external/download"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,  # will not be taken into account yet
+            "X-Machine-Name": machine,
         }
         data = {"sourcePath": source_path}
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
