@@ -93,8 +93,10 @@ def external_upload_callback(request, uri, response_headers):
     #     ]
 
     # I couldn't find a better way to get the params from the request
-    if (b"sourcePath=%2Fpath%2Fto%2Flocal%2Fsource" in request.body and
-        b"targetPath=%2Fpath%2Fto%2Fremote%2Fdestination" in request.body):
+    if (
+        b"sourcePath=%2Fpath%2Fto%2Flocal%2Fsource" in request.body
+        and b"targetPath=%2Fpath%2Fto%2Fremote%2Fdestination" in request.body
+    ):
         ret = {
             "success": "Task created",
             "task_id": "external_upload_id",
@@ -445,7 +447,9 @@ def test_external_download(valid_client):
 
 
 def test_external_upload(valid_client):
-    obj = valid_client.external_upload("cluster1", "/path/to/local/source", "/path/to/remote/destination")
+    obj = valid_client.external_upload(
+        "cluster1", "/path/to/local/source", "/path/to/remote/destination"
+    )
     assert isinstance(obj, ExternalUpload)
     assert obj._task_id == "external_upload_id"
     assert obj.client == valid_client

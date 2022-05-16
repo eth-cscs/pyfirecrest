@@ -1110,7 +1110,7 @@ class Firecrest:
         url = f"{self._firecrest_url}/storage/xfer-external/upload"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,  # will not be taken into account yet
+            "X-Machine-Name": machine,
         }
         data = {"targetPath": target_path, "sourcePath": source_path}
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
@@ -1131,7 +1131,7 @@ class Firecrest:
         url = f"{self._firecrest_url}/storage/xfer-external/download"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,  # will not be taken into account yet
+            "X-Machine-Name": machine,
         }
         data = {"sourcePath": source_path}
         resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
