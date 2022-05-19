@@ -19,7 +19,7 @@ setuptools.setup(
     description='pyFirecrest is a python wrapper for FirecREST',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/ekouts/pyfirecrest',
+    url='https://github.com/eth-cscs/pyfirecrest',
     license='BSD 3-Clause',
     # packages=setuptools.find_packages(),
     packages=["firecrest"],
