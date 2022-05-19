@@ -24,8 +24,12 @@ from firecrest.BasicClient import (
     ExternalUpload,
     ExternalStorage,
 )
-from firecrest.Keycloak import ClientCredentialsAuthorization
+from firecrest.Authorization import ClientCredentialsAuth
 from firecrest.FirecrestException import (
-    FirecrestException, UnauthorizedException, HeaderException,
-    UnexpectedStatusException, StorageDownloadException, StorageUploadException
+    FirecrestException,
+    UnauthorizedException,
+    HeaderException,
+    UnexpectedStatusException,
+    StorageDownloadException,
+    StorageUploadException,
 )

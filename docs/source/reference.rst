@@ -29,9 +29,9 @@ The ``ExternalDownload`` class
     :undoc-members:
     :show-inheritance:
 
-The ``ClientCredentialsAuthorization`` class
+The ``ClientCredentialsAuth`` class
 *********************************************
-.. autoclass:: firecrest.ClientCredentialsAuthorization
+.. autoclass:: firecrest.ClientCredentialsAuth
     :members:
     :undoc-members:
     :show-inheritance:
