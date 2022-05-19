@@ -4,17 +4,21 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-
+import os
 import setuptools
+
+
+version_py = os.path.join(os.path.dirname(__file__), 'firecrest', 'version.py')
+version = {}
+with open(version_py) as fp:
+    exec(fp.read(), version)
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-version = '1.0.0'
-
 setuptools.setup(
     name='pyfirecrest',
-    version=version,
+    version=version['VERSION'],
     author='CSCS Swiss National Supercomputing Center',
     description='pyFirecrest is a python wrapper for FirecREST',
     long_description=long_description,

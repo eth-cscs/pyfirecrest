@@ -4,11 +4,12 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-
 import sys
+from firecrest.version import VERSION
 
 
-MIN_PYTHON_VERSION = (3, 6, 0)
+__version__ = VERSION
+MIN_PYTHON_VERSION = (3, 7, 0)
 
 # Check python version
 if sys.version_info[:3] < MIN_PYTHON_VERSION:
