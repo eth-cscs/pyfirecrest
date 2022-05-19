@@ -4,4 +4,4 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-VERSION = "1.0.0"
+VERSION = "1.1.0"
