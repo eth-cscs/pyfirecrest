@@ -22,24 +22,14 @@ client_id = "firecrest-sample"
 client_secret = "b391e177-fa50-4987-beaf-e6d33ca93571"
 token_uri = "http://localhost:8080/auth/realms/kcrealm/protocol/openid-connect/token"
 
-# Create an authorization account object with Client Credentials authorization grant
-keycloak = f7t.ClientCredentialsAuthorization(
-    client_id, client_secret, token_uri, debug=False
+# Create an authorization object with Client Credentials authorization grant
+keycloak = f7t.ClientCredentialsAuth(
+    client_id, client_secret, token_uri
 )
-
-
-class MyKeycloakCCAccount:
-    def __init__(self):
-        pass
-
-    @keycloak.account_login
-    def get_access_token(self):
-        return keycloak.get_access_token()
-
 
 # Setup the client for the specific account
 client = f7t.Firecrest(
-    firecrest_url="http://localhost:8000", authorization=MyKeycloakCCAccount()
+    firecrest_url="http://localhost:8000", authorization=keycloak
 )
 
 try:
