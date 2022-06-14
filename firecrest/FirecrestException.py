@@ -8,14 +8,15 @@ import json
 
 
 ERROR_HEADERS = {
-    "X-Permission-Denied",
+    "X-A-Directory",
+    "X-Error",
     "X-Invalid-Path",
     "X-Machine-Does-Not-Exist",
     "X-Machine-Not-Available",
-    "X-Timeout",
     "X-Not-A-Directory",
-    "X-A-Directory",
-    "X-Error",
+    "X-Not-Found"
+    "X-Permission-Denied",
+    "X-Timeout",
 }
 
 
@@ -38,6 +39,14 @@ class FirecrestException(Exception):
             last_json_response = None
 
         return f"last request: {self._responses[-1].status_code} {last_json_response}"
+
+
+class NotFound(FirecrestException):
+    """Exception raised by an invalid path
+    """
+
+    def __str__(self):
+        return f"{super().__str__()}: FirecREST endpoint not found"
 
 
 class UnauthorizedException(FirecrestException):

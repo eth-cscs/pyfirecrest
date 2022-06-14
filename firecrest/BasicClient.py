@@ -259,6 +259,8 @@ class Firecrest:
 
         if status_code == 401:
             raise fe.UnauthorizedException(responses)
+        elif status_code == 404:
+            raise fe.NotFound(responses)
         elif status_code >= 400:
             raise fe.FirecrestException(responses)
         elif status_code != expected_status_code:
@@ -538,6 +540,32 @@ class Firecrest:
             "X-Machine-Name": machine,
         }
         params = {"targetPath": target_path}
+        resp = requests.get(
+            url=url, headers=headers, params=params, verify=self._verify
+        )
+        return self._json_response([resp], 200)["output"]
+
+    def stat(self, machine, target_path, dereference=False):
+        """Uses the stat linux application to determine the status of a file on the machine's filesystem.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param target_path: the absolute target path
+        :type target_path: string
+        :param dereference: follow link (default False)
+        :type dereference: boolean, optional
+        :calls: GET `/utilities/stat`
+        :rtype: string
+        """
+        url = f"{self._firecrest_url}/utilities/stat"
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}",
+            "X-Machine-Name": machine,
+        }
+        params = {"targetPath": target_path}
+        if dereference:
+            params['dereference'] = dereference
+
         resp = requests.get(
             url=url, headers=headers, params=params, verify=self._verify
         )
