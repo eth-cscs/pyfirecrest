@@ -294,8 +294,8 @@ def stat_callback(request, uri, response_headers):
                     "mtime": 1653660606,
                     "nlink": 1,
                     "size": 0,
-                    "uid": 25948
-                }
+                    "uid": 25948,
+                },
             }
             status_code = 200
         else:
@@ -311,13 +311,13 @@ def stat_callback(request, uri, response_headers):
                     "mtime": 1655197211,
                     "nlink": 1,
                     "size": 8,
-                    "uid": 25948
-                }
+                    "uid": 25948,
+                },
             }
             status_code = 200
     else:
         response_headers["X-Not-Found"] = "sourcePath not found"
-        ret = {'description': 'Error on stat operation'}
+        ret = {"description": "Error on stat operation"}
         status_code = 400
 
     return [status_code, response_headers, json.dumps(ret)]
@@ -510,9 +510,7 @@ def setup_callbacks():
     )
 
     httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/utilities/stat",
-        body=stat_callback,
+        httpretty.GET, "http://firecrest.cscs.ch/utilities/stat", body=stat_callback
     )
 
     httpretty.register_uri(
@@ -799,7 +797,7 @@ def test_stat(valid_client):
         "mtime": 1655197211,
         "nlink": 1,
         "size": 8,
-        "uid": 25948
+        "uid": 25948,
     }
     assert valid_client.stat("cluster1", "/path/to/link", dereference=False) == {
         "atime": 1655197211,
@@ -811,7 +809,7 @@ def test_stat(valid_client):
         "mtime": 1655197211,
         "nlink": 1,
         "size": 8,
-        "uid": 25948
+        "uid": 25948,
     }
     assert valid_client.stat("cluster1", "/path/to/link", dereference=True) == {
         "atime": 1653660606,
@@ -823,7 +821,7 @@ def test_stat(valid_client):
         "mtime": 1653660606,
         "nlink": 1,
         "size": 0,
-        "uid": 25948
+        "uid": 25948,
     }
 
 

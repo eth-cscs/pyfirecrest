@@ -564,7 +564,7 @@ class Firecrest:
         }
         params = {"targetPath": target_path}
         if dereference:
-            params['dereference'] = dereference
+            params["dereference"] = dereference
 
         resp = requests.get(
             url=url, headers=headers, params=params, verify=self._verify

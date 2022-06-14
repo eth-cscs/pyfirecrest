@@ -14,7 +14,7 @@ ERROR_HEADERS = {
     "X-Machine-Does-Not-Exist",
     "X-Machine-Not-Available",
     "X-Not-A-Directory",
-    "X-Not-Found"
+    "X-Not-Found",
     "X-Permission-Denied",
     "X-Timeout",
 }
