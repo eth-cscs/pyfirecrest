@@ -266,6 +266,63 @@ def file_type_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def stat_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on file operation", "error": "Machine does not exist"}',
+        ]
+
+    targetPath = request.querystring.get("targetPath", [None])[0]
+    deref = request.querystring.get("dereference", [False])[0]
+    if targetPath == "/path/to/link":
+        if deref:
+            ret = {
+                "description": "Success to stat file or directory.",
+                "output": {
+                    "atime": 1653660606,
+                    "ctime": 1653660606,
+                    "dev": 2418024346,
+                    "gid": 1000,
+                    "ino": 648577914584968738,
+                    "mode": 644,
+                    "mtime": 1653660606,
+                    "nlink": 1,
+                    "size": 0,
+                    "uid": 25948,
+                },
+            }
+            status_code = 200
+        else:
+            ret = {
+                "description": "Success to stat file or directory.",
+                "output": {
+                    "atime": 1655197211,
+                    "ctime": 1655197211,
+                    "dev": 2418024346,
+                    "gid": 1000,
+                    "ino": 648577971375854279,
+                    "mode": 777,
+                    "mtime": 1655197211,
+                    "nlink": 1,
+                    "size": 8,
+                    "uid": 25948,
+                },
+            }
+            status_code = 200
+    else:
+        response_headers["X-Not-Found"] = "sourcePath not found"
+        ret = {"description": "Error on stat operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 def symlink_callback(request, uri, response_headers):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
@@ -450,6 +507,10 @@ def setup_callbacks():
         httpretty.GET,
         "http://firecrest.cscs.ch/utilities/file",
         body=file_type_callback,
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/utilities/stat", body=stat_callback
     )
 
     httpretty.register_uri(
@@ -723,6 +784,60 @@ def test_file_type_invalid_machine(valid_client):
 def test_file_type_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.file_type("cluster1", "/path/to/file")
+
+
+def test_stat(valid_client):
+    assert valid_client.stat("cluster1", "/path/to/link") == {
+        "atime": 1655197211,
+        "ctime": 1655197211,
+        "dev": 2418024346,
+        "gid": 1000,
+        "ino": 648577971375854279,
+        "mode": 777,
+        "mtime": 1655197211,
+        "nlink": 1,
+        "size": 8,
+        "uid": 25948,
+    }
+    assert valid_client.stat("cluster1", "/path/to/link", dereference=False) == {
+        "atime": 1655197211,
+        "ctime": 1655197211,
+        "dev": 2418024346,
+        "gid": 1000,
+        "ino": 648577971375854279,
+        "mode": 777,
+        "mtime": 1655197211,
+        "nlink": 1,
+        "size": 8,
+        "uid": 25948,
+    }
+    assert valid_client.stat("cluster1", "/path/to/link", dereference=True) == {
+        "atime": 1653660606,
+        "ctime": 1653660606,
+        "dev": 2418024346,
+        "gid": 1000,
+        "ino": 648577914584968738,
+        "mode": 644,
+        "mtime": 1653660606,
+        "nlink": 1,
+        "size": 0,
+        "uid": 25948,
+    }
+
+
+def test_stat_invalid_arguments(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.stat("cluster1", "/path/to/invalid/file")
+
+
+def test_stat_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.stat("cluster2", "/path/to/file")
+
+
+def test_stat_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.stat("cluster1", "/path/to/file")
 
 
 def test_symlink(valid_client):
