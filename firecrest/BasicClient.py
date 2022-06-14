@@ -732,7 +732,10 @@ class Firecrest:
         # FIXME This needs to be added as an endpoint in FirecREST,
         # now it's making a guess and it could be wrong.
         try:
-            decoded = jwt.decode(self._authorization.get_access_token(), verify=False)
+            decoded = jwt.decode(
+                self._authorization.get_access_token(),
+                options={"verify_signature": False},
+            )
             try:
                 if self._sa_role in decoded["realm_access"]["roles"]:
                     clientId = decoded["clientId"]
