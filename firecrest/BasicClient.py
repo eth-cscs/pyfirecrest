@@ -851,9 +851,14 @@ class Firecrest:
         self._current_method_requests = []
         jobids = [str(j) for j in jobs]
         json_response = self._acct_request(machine, jobids, start_time, end_time)
-        return self._poll_tasks(
+        res = self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
+        # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
+        if isinstance(res, dict):
+            return list(res.values())
+        else:
+            return res
 
     def poll_active(self, machine, jobs=[]):
         """Retrieves information about active jobs.
