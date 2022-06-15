@@ -184,6 +184,13 @@ def sacct_callback(request, uri, response_headers):
             "task_url": "https://148.187.97.214:8443/tasks/acct_full_id",
         }
         status_code = 200
+    elif jobs == ['empty']:
+        ret = {
+            "success": "Task created",
+            "task_id": "acct_empty_id",
+            "task_url": "https://148.187.97.214:8443/tasks/acct_empty_id",
+        }
+        status_code = 200
     elif jobs == ["352", "2", "334"]:
         ret = {
             "success": "Task created",
@@ -381,6 +388,7 @@ def tasks_callback(request, uri, response_headers):
         taskid == "acct_352_2_334_id"
         or taskid == "acct_352_2_334_id_fail"
         or taskid == "acct_full_id"
+        or taskid == "acct_empty_id"
     ):
         if acct_retry < acct_result:
             acct_retry += 1
@@ -455,6 +463,21 @@ def tasks_callback(request, uri, response_headers):
                             "user": "username",
                         }
                     ],
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:53:48",
+                    "service": "compute",
+                    "status": "200",
+                    "task_id": taskid,
+                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        elif taskid == "acct_empty_id":
+            ret = {
+                "task": {
+                    "data": {},
                     "description": "Finished successfully",
                     "hash_id": taskid,
                     "last_modify": "2021-12-06T09:53:48",
@@ -842,6 +865,7 @@ def test_poll(valid_client):
             "user": "username",
         }
     ]
+    assert valid_client.poll(machine="cluster1", jobs=['empty']) == []
 
 
 def test_poll_invalid_arguments(valid_client):
