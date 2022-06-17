@@ -44,7 +44,7 @@ def internal_transfer_callback(request, uri, response_headers):
     ret = {
         "success": "Task created",
         "task_id": "internal_transfer_id",
-        "task_url": "https://148.187.97.214:8443/tasks/internal_transfer_id",
+        "task_url": "TASK_IP/tasks/internal_transfer_id",
     }
     status_code = 201
     return [status_code, response_headers, json.dumps(ret)]
@@ -68,7 +68,7 @@ def external_download_callback(request, uri, response_headers):
         ret = {
             "success": "Task created",
             "task_id": "external_download_id",
-            "task_url": "https://148.187.97.214:8443/tasks/external_download_id",
+            "task_url": "TASK_IP/tasks/external_download_id",
         }
         status_code = 201
     else:
@@ -100,7 +100,7 @@ def external_upload_callback(request, uri, response_headers):
         ret = {
             "success": "Task created",
             "task_id": "external_upload_id",
-            "task_url": "https://148.187.97.214:8443/tasks/external_upload_id",
+            "task_url": "TASK_IP/tasks/external_upload_id",
         }
         status_code = 201
     else:
@@ -143,7 +143,7 @@ def storage_tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "100",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -166,7 +166,7 @@ def storage_tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": "6f514b060ca036917f4194964b6e949c",
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -183,7 +183,7 @@ def storage_tasks_callback(request, uri, response_headers):
                     "service": "storage",
                     "status": "100",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -199,7 +199,7 @@ def storage_tasks_callback(request, uri, response_headers):
                     "service": "storage",
                     "status": "116",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -215,7 +215,7 @@ def storage_tasks_callback(request, uri, response_headers):
                     "service": "storage",
                     "status": "117",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
