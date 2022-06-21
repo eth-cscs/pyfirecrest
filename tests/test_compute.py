@@ -66,14 +66,14 @@ def submit_path_callback(request, uri, response_headers):
         ret = {
             "success": "Task created",
             "task_id": "submit_path_job_id",
-            "task_url": "https://148.187.97.214:8443/tasks/submit_path_job_id",
+            "task_url": "TASK_IP/tasks/submit_path_job_id",
         }
         status_code = 201
     elif target_path == "/path/to/non/slurm/file.sh":
         ret = {
             "success": "Task created",
             "task_id": "submit_path_job_id_fail",
-            "task_url": "https://148.187.97.214:8443/tasks/submit_path_job_id_fail",
+            "task_url": "TASK_IP/tasks/submit_path_job_id_fail",
         }
         status_code = 201
     else:
@@ -102,14 +102,14 @@ def submit_upload_callback(request, uri, response_headers):
             ret = {
                 "success": "Task created",
                 "task_id": "submit_upload_job_id",
-                "task_url": "https://148.187.97.214:8443/tasks/submit_upload_job_id",
+                "task_url": "TASK_IP/tasks/submit_upload_job_id",
             }
             status_code = 201
         else:
             ret = {
                 "success": "Task created",
                 "task_id": "submit_upload_job_id_fail",
-                "task_url": "https://148.187.97.214:8443/tasks/submit_upload_job_id_fail",
+                "task_url": "TASK_IP/tasks/submit_upload_job_id_fail",
             }
             status_code = 201
     else:
@@ -137,14 +137,14 @@ def queue_callback(request, uri, response_headers):
         ret = {
             "success": "Task created",
             "task_id": "queue_full_id",
-            "task_url": "https://148.187.97.214:8443/tasks/queue_full_id",
+            "task_url": "TASK_IP/tasks/queue_full_id",
         }
         status_code = 200
     elif jobs == ["352", "2", "334"]:
         ret = {
             "success": "Task created",
             "task_id": "queue_352_2_334_id",
-            "task_url": "https://148.187.97.214:8443/tasks/queue_352_2_334_id",
+            "task_url": "TASK_IP/tasks/queue_352_2_334_id",
         }
         status_code = 200
     elif jobs == ["l"]:
@@ -157,7 +157,7 @@ def queue_callback(request, uri, response_headers):
         ret = {
             "success": "Task created",
             "task_id": "queue_id_fail",
-            "task_url": "https://148.187.97.214:8443/tasks/queue_id_fail",
+            "task_url": "TASK_IP/tasks/queue_id_fail",
         }
         status_code = 200
 
@@ -181,21 +181,28 @@ def sacct_callback(request, uri, response_headers):
         ret = {
             "success": "Task created",
             "task_id": "acct_full_id",
-            "task_url": "https://148.187.97.214:8443/tasks/acct_full_id",
+            "task_url": "TASK_IP/tasks/acct_full_id",
+        }
+        status_code = 200
+    elif jobs == ['empty']:
+        ret = {
+            "success": "Task created",
+            "task_id": "acct_empty_id",
+            "task_url": "TASK_IP/tasks/acct_empty_id",
         }
         status_code = 200
     elif jobs == ["352", "2", "334"]:
         ret = {
             "success": "Task created",
             "task_id": "acct_352_2_334_id",
-            "task_url": "https://148.187.97.214:8443/tasks/acct_352_2_334_id",
+            "task_url": "TASK_IP/tasks/acct_352_2_334_id",
         }
         status_code = 200
     elif jobs == ["l"]:
         ret = {
             "success": "Task created",
             "task_id": "acct_352_2_334_id_fail",
-            "task_url": "https://148.187.97.214:8443/tasks/acct_352_2_334_id_fail",
+            "task_url": "TASK_IP/tasks/acct_352_2_334_id_fail",
         }
         status_code = 200
 
@@ -219,21 +226,21 @@ def cancel_callback(request, uri, response_headers):
         ret = {
             "success": "Task created",
             "task_id": "cancel_job_id",
-            "task_url": "https://148.187.97.214:8443/tasks/cancel_job_id",
+            "task_url": "TASK_IP/tasks/cancel_job_id",
         }
         status_code = 200
     elif jobid == "35360072":
         ret = {
             "success": "Task created",
             "task_id": "cancel_job_id_permission_fail",
-            "task_url": "https://148.187.97.214:8443/tasks/cancel_job_id_permission_fail",
+            "task_url": "TASK_IP/tasks/cancel_job_id_permission_fail",
         }
         status_code = 200
     else:
         ret = {
             "success": "Task created",
             "task_id": "cancel_job_id_fail",
-            "task_url": "https://148.187.97.214:8443/tasks/cancel_job_id_fail",
+            "task_url": "TASK_IP/tasks/cancel_job_id_fail",
         }
         status_code = 200
 
@@ -279,7 +286,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "100",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -302,7 +309,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": "submit_path_job_id",
-                    "task_url": "https://148.187.97.214:8443/tasks/submit_path_job_id",
+                    "task_url": "TASK_IP/tasks/submit_path_job_id",
                     "user": "username",
                 }
             }
@@ -317,7 +324,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "400",
                     "task_id": "taskid",
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -334,7 +341,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "100",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -357,7 +364,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -372,7 +379,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "400",
                     "task_id": "taskid",
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -381,6 +388,7 @@ def tasks_callback(request, uri, response_headers):
         taskid == "acct_352_2_334_id"
         or taskid == "acct_352_2_334_id_fail"
         or taskid == "acct_full_id"
+        or taskid == "acct_empty_id"
     ):
         if acct_retry < acct_result:
             acct_retry += 1
@@ -393,7 +401,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "100",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -433,7 +441,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -461,7 +469,22 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        elif taskid == "acct_empty_id":
+            ret = {
+                "task": {
+                    "data": {},
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-06T09:53:48",
+                    "service": "compute",
+                    "status": "200",
+                    "task_id": taskid,
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -476,7 +499,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "400",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -497,7 +520,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "100",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -530,7 +553,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -580,7 +603,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -595,7 +618,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "400",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -616,7 +639,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "100",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -631,7 +654,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "200",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -646,7 +669,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "400",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -661,7 +684,7 @@ def tasks_callback(request, uri, response_headers):
                     "service": "compute",
                     "status": "400",
                     "task_id": taskid,
-                    "task_url": f"https://148.187.97.214:8443/tasks/{taskid}",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -842,6 +865,7 @@ def test_poll(valid_client):
             "user": "username",
         }
     ]
+    assert valid_client.poll(machine="cluster1", jobs=['empty']) == []
 
 
 def test_poll_invalid_arguments(valid_client):
