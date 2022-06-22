@@ -184,7 +184,7 @@ def sacct_callback(request, uri, response_headers):
             "task_url": "TASK_IP/tasks/acct_full_id",
         }
         status_code = 200
-    elif jobs == ['empty']:
+    elif jobs == ["empty"]:
         ret = {
             "success": "Task created",
             "task_id": "acct_empty_id",
@@ -865,7 +865,7 @@ def test_poll(valid_client):
             "user": "username",
         }
     ]
-    assert valid_client.poll(machine="cluster1", jobs=['empty']) == []
+    assert valid_client.poll(machine="cluster1", jobs=["empty"]) == []
 
 
 def test_poll_invalid_arguments(valid_client):
