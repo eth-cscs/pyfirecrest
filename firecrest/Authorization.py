@@ -18,14 +18,17 @@ class ClientCredentialsAuth:
     :type client_secret: string
     :param token_uri: URI of the token request in the authorization server (e.g. https://auth.your-server.com/auth/realms/cscs/protocol/openid-connect/token)
     :type token_uri: string
+    :param min_token_validity: reuse OIDC token until {min_token_validity} sec before the expiration time (by default 10). Since the token will be checked by different microservices, setting more time in min_token_validity will ensure that the token doesn't expire in the middle of the request.
+    :type min_token_validity: float
     """
 
-    def __init__(self, client_id, client_secret, token_uri):
+    def __init__(self, client_id, client_secret, token_uri, min_token_validity=10):
         self._client_id = client_id
         self._client_secret = client_secret
         self._token_uri = token_uri
         self._access_token = None
         self._token_expiration_ts = None
+        self._min_token_validity = min_token_validity
 
     def get_access_token(self):
         """Returns an access token to be used for accessing resources.
@@ -34,12 +37,12 @@ class ClientCredentialsAuth:
         :rtype: string
         """
 
-        # Make sure that the access token has at least 10s left before
+        # Make sure that the access token has at least {min_token_validity} sec left before
         # it expires, otherwise make a new request
         if (
             self._access_token
             and self._token_expiration_ts
-            and time.time() <= (self._token_expiration_ts - 10)
+            and time.time() <= (self._token_expiration_ts - self._min_token_validity)
         ):
             return self._access_token
 
