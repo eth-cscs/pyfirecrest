@@ -208,8 +208,8 @@ The simplest way to do the uploading through pyFirecREST is as follows:
     # This call will only create the link to Object Storage
     up_obj = client.external_upload("cluster", "/path/to/local/file", "/remote/path/to/filesystem")
 
-    # As soon as down_obj.status is 111 we can proceed with the upload of local file to the staging area
-    down_obj.finish_upload()
+    # As soon as up_obj.status is 111 we can proceed with the upload of local file to the staging area
+    up_obj.finish_upload()
 
     # You can follow the progress of the transfer through the status property
     print(up_obj.status)
