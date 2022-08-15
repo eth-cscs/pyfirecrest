@@ -625,7 +625,7 @@ class Firecrest:
         with context as f:
             f.write(resp.content)
 
-    def simple_upload(self, machine, source_path, target_path):
+    def simple_upload(self, machine, source_path, target_path, filename):
         """Blocking call to upload a small file.
         The file that will be uploaded will have the same name as the source_path.
         The maximum size of file that is allowed can be found from the parameters() call.
@@ -636,6 +636,8 @@ class Firecrest:
         :type source_path: string or binary stream
         :param target_path: the absolute target path of the directory where the file will be uploaded
         :type target_path: string
+        :param filename: naming target file to filename
+        :type filename: string
         :calls: POST `/utilities/upload`
         :rtype: None
         """
@@ -652,6 +654,9 @@ class Firecrest:
             else nullcontext(source_path)
         )
         with context as f:
+            # Set filename
+            if filename is not None:
+                f = (filename, f)
             data = {"targetPath": target_path}
             files = {"file": f}
             resp = requests.post(
