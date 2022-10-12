@@ -56,7 +56,7 @@ class ExternalStorage:
 
     def _update(self):
         if self._status not in self._final_states:
-            task = self._client._tasks(self._task_id, self._responses)
+            task = self._client._task_safe(self._task_id, self._responses)
             self._status = task["status"]
             self._data = task["data"]
             if not self._object_storage_data:
@@ -275,7 +275,7 @@ class Firecrest:
 
         return ret
 
-    def _tasks(self, task_id=None, responses=None):
+    def _task_safe(self, task_id, responses=None):
         if responses is None:
             responses = self._current_method_requests
 
@@ -310,10 +310,10 @@ class Firecrest:
         return self._json_response(responses, 201)
 
     def _poll_tasks(self, task_id, final_status, sleep_time):
-        resp = self._tasks(task_id)
+        resp = self._task_safe(task_id)
         while resp["status"] < final_status:
             time.sleep(next(sleep_time))
-            resp = self._tasks(task_id)
+            resp = self._task_safe(task_id)
 
         return resp["data"]
 
