@@ -244,6 +244,8 @@ class Firecrest:
     ):
         self._firecrest_url = firecrest_url
         self._authorization = authorization
+        # This should be used only for blocking operations that require multiple requests,
+        # not for external upload/download
         self._current_method_requests = []
         self._verify = verify
         self._sa_role = sa_role
@@ -1150,7 +1152,6 @@ class Firecrest:
         :returns: an ExternalUpload object
         :rtype: ExternalUpload
         """
-        self._current_method_requests = []
         url = f"{self._firecrest_url}/storage/xfer-external/upload"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
@@ -1171,7 +1172,6 @@ class Firecrest:
         :returns: an ExternalDownload object
         :rtype: ExternalDownload
         """
-        self._current_method_requests = []
         url = f"{self._firecrest_url}/storage/xfer-external/download"
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}",
