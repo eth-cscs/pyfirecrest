@@ -275,19 +275,39 @@ class Firecrest:
 
         return ret
 
-    def _task_safe(self, task_id, responses=None):
-        if responses is None:
-            responses = self._current_method_requests
+    def _tasks(self, task_ids=None, responses=None):
+        """Return a dictionary of FirecREST tasks and their last update.
 
+        :param task_ids: list of task IDs. When empty all tasks are returned.
+        :type task_ids: list
+        :param responses: list of responses that are associated with these tasks (only relevant for error)
+        :type responses: list
+        :calls: GET `/utilities/tasks` or `/utilities/tasks/{taskid}`
+        :rtype: dictionary
+        """
+        task_ids = [] if not task_ids else task_ids
+        responses = [] if not responses else responses
         url = f"{self._firecrest_url}/tasks/"
-        if task_id:
-            url += task_id
+        if len(task_ids) == 1:
+            url += task_ids[0]
 
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         resp = requests.get(url=url, headers=headers, verify=self._verify)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
-        status = int(taskinfo["task"]["status"])
+        if len(task_ids) == 0:
+            return taskinfo["tasks"]
+        elif len(task_ids) == 1:
+            return taskinfo["task"]
+        else:
+            return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
+
+    def _task_safe(self, task_id, responses=None):
+        if responses is None:
+            responses = self._current_method_requests
+
+        task = self._tasks([task_id], responses)
+        status = int(task["status"])
         if status == 115:
             raise fe.StorageUploadException(responses)
 
@@ -297,7 +317,7 @@ class Firecrest:
         if status >= 400:
             raise fe.FirecrestException(responses)
 
-        return taskinfo["task"]
+        return task
 
     def _invalidate(self, task_id, responses=[]):
         url = f"{self._firecrest_url}/storage/xfer-external/invalidate"
