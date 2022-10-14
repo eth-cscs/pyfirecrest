@@ -7,6 +7,8 @@
 import requests
 import time
 
+from requests.compat import json
+
 
 class ClientCredentialsAuth:
     """
@@ -53,7 +55,11 @@ class ClientCredentialsAuth:
             "client_secret": self._client_secret,
         }
         resp = requests.post(self._token_uri, headers=headers, data=data)
-        resp_json = resp.json()
+        try:
+            resp_json = resp.json()
+        except json.JSONDecodeError:
+            resp_json = ""
+
         if not resp.ok:
             raise Exception(
                 f"Request to {self._token_uri} failed with "
