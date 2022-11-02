@@ -9,6 +9,7 @@ from firecrest.version import VERSION
 
 
 __version__ = VERSION
+__app_name__ = "firecrest_cli"
 MIN_PYTHON_VERSION = (3, 7, 0)
 
 # Check python version
@@ -27,6 +28,7 @@ from firecrest.BasicClient import (
 )
 from firecrest.Authorization import ClientCredentialsAuth
 from firecrest.FirecrestException import (
+    ClientsCredentialsException,
     FirecrestException,
     UnauthorizedException,
     HeaderException,

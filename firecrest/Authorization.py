@@ -7,6 +7,8 @@
 import requests
 import time
 
+import firecrest.FirecrestException as fe
+
 from requests.compat import json
 
 
@@ -61,10 +63,7 @@ class ClientCredentialsAuth:
             resp_json = ""
 
         if not resp.ok:
-            raise Exception(
-                f"Request to {self._token_uri} failed with "
-                f"status code {resp.status_code}: {resp_json}"
-            )
+            raise fe.ClientsCredentialsException([resp])
 
         self._access_token = resp_json["access_token"]
         self._token_expiration_ts = time.time() + resp_json["expires_in"]
