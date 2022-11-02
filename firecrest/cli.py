@@ -244,7 +244,3 @@ def main(
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
     client = fc.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
-
-
-if __name__ == "__main__":
-    app()
