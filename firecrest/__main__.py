@@ -5,15 +5,6 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-
-import os
-import sys
-
-prefix = os.path.normpath(
-    os.path.join(os.path.abspath(os.path.dirname(__file__)), '..')
-)
-sys.path = [prefix] + sys.path
-
 from firecrest import cli, __app_name__
 
 def main():
