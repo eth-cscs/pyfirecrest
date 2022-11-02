@@ -62,21 +62,25 @@ def services(
 ):
     """Provides information for the services of FirecREST
     """
-    if name:
-        result = [client.service(name)]
-        title = f"Status of FirecREST service `{name}`"
-    else:
-        result = client.all_services()
-        title = "Status of FirecREST services"
+    try:
+        if name:
+            result = [client.service(name)]
+            title = f"Status of FirecREST service `{name}`"
+        else:
+            result = client.all_services()
+            title = "Status of FirecREST services"
 
-    table = Table(title=title)
-    table.add_column("Service")
-    table.add_column("Status")
-    table.add_column("Description")
-    for i in result:
-        table.add_row(i["service"], i["status"], i["description"])
+        table = Table(title=title)
+        table.add_column("Service")
+        table.add_column("Status")
+        table.add_column("Description")
+        for i in result:
+            table.add_row(i["service"], i["status"], i["description"])
 
-    console.print(table)
+        console.print(table)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
 
 
 @app.command(rich_help_panel="Status commands")
@@ -87,45 +91,53 @@ def systems(
 ):
     """Provides information for the available systems in FirecREST
     """
-    if name:
-        result = [client.system(name)]
-        title = f"Status of FirecREST system `{name}`"
-    else:
-        result = client.all_systems()
-        title = "Status of FirecREST systems"
+    try:
+        if name:
+            result = [client.system(name)]
+            title = f"Status of FirecREST system `{name}`"
+        else:
+            result = client.all_systems()
+            title = "Status of FirecREST systems"
 
-    table = Table(title=title)
-    table.add_column("System")
-    table.add_column("Status")
-    table.add_column("Description")
-    for i in result:
-        table.add_row(i["system"], i["status"], i["description"])
+        table = Table(title=title)
+        table.add_column("System")
+        table.add_column("Status")
+        table.add_column("Description")
+        for i in result:
+            table.add_row(i["system"], i["status"], i["description"])
 
-    console.print(table)
+        console.print(table)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
 
 
 @app.command(rich_help_panel="Status commands")
 def parameters():
     """Configurable parameters of FirecREST
     """
-    all_results = client.parameters()
-    title = "Storage parameters"
-    table1 = Table(title=title)
-    table1.add_column("Name")
-    table1.add_column("Value")
-    table1.add_column("Unit")
-    for i in all_results["storage"]:
-        table1.add_row(i["name"], str(i["value"]), i["unit"])
+    try:
+        all_results = client.parameters()
+        title = "Storage parameters"
+        table1 = Table(title=title)
+        table1.add_column("Name")
+        table1.add_column("Value")
+        table1.add_column("Unit")
+        for i in all_results["storage"]:
+            table1.add_row(i["name"], str(i["value"]), i["unit"])
 
-    title = "Utilities parameters"
-    table2 = Table(title=title)
-    table2.add_column("Name")
-    table2.add_column("Value")
-    table2.add_column("Unit")
-    for i in all_results["utilities"]:
-        table2.add_row(i["name"], str(i["value"]), i["unit"])
+        title = "Utilities parameters"
+        table2 = Table(title=title)
+        table2.add_column("Name")
+        table2.add_column("Value")
+        table2.add_column("Unit")
+        for i in all_results["utilities"]:
+            table2.add_row(i["name"], str(i["value"]), i["unit"])
 
-    console.print(table1, table2)
+        console.print(table1, table2)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
 
 
 @app.command(rich_help_panel="Utilities commands")
@@ -143,29 +155,33 @@ def ls(
 ):
     """List directory contents
     """
-    result = client.list_files(machine, path, show_hidden)
-    table = Table(title=f"Files in machine `{machine}` and path `{path}`")
-    table.add_column("filename")
-    table.add_column("type")
-    table.add_column("group")
-    table.add_column("permissions")
-    table.add_column("size")
-    table.add_column("user")
-    table.add_column("last_modified")
-    table.add_column("link_target")
-    for i in result:
-        table.add_row(
-            i["name"],
-            i["type"],
-            i["group"],
-            i["permissions"],
-            i["size"],
-            i["user"],
-            i["last_modified"],
-            i["link_target"],
-        )
+    try:
+        result = client.list_files(machine, path, show_hidden)
+        table = Table(title=f"Files in machine `{machine}` and path `{path}`")
+        table.add_column("filename")
+        table.add_column("type")
+        table.add_column("group")
+        table.add_column("permissions")
+        table.add_column("size")
+        table.add_column("user")
+        table.add_column("last_modified")
+        table.add_column("link_target")
+        for i in result:
+            table.add_row(
+                i["name"],
+                i["type"],
+                i["group"],
+                i["permissions"],
+                i["size"],
+                i["user"],
+                i["last_modified"],
+                i["link_target"],
+            )
 
-    console.print(table)
+        console.print(table)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
 
 
 @app.command(rich_help_panel="Utilities commands")
