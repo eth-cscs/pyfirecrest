@@ -20,7 +20,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     # Disable printing locals to avoid printing the value of local
     # variables in order to hide secrets/password etc
-    pretty_exceptions_show_locals=False
+    pretty_exceptions_show_locals=False,
 )
 
 console = Console()
@@ -29,7 +29,9 @@ client = None
 
 def examine_exeption(e):
     if isinstance(e, fc.ClientsCredentialsException):
-        console.print(f'[red]{__app_name__}: Operation failed: could not fetch token[/red]')
+        console.print(
+            f"[red]{__app_name__}: Operation failed: could not fetch token[/red]"
+        )
 
     console.print(e)
 
@@ -195,8 +197,8 @@ def rm(
     ),
     # TODO (?) add option to not display error to emulate `-f` from the rm command
 ):
-    '''Remove directory entries
-    '''
+    """Remove directory entries
+    """
     try:
         if force:
             client.simple_delete(machine, path)
