@@ -236,7 +236,7 @@ def chmod(
     path: str = typer.Argument(..., help="The absolute target path."),
     mode: str = typer.Argument(..., help="Same as numeric mode of linux chmod tool."),
 ):
-    """Changes the file mod bits of a given file according to the specified mode
+    """Change the file mod bits of a given file according to the specified mode
     """
     try:
         client.chmod(machine, path, mode)
@@ -254,7 +254,7 @@ def chown(
     owner: Optional[str] = typer.Argument(None, help="Owner ID for target."),
     group: Optional[str] = typer.Argument(None, help="Group ID for target."),
 ):
-    """Changes the user and/or group ownership of a given file.
+    """Change the user and/or group ownership of a given file.
 
     If only owner or group information is passed, only that information will be updated.
     """
@@ -307,7 +307,7 @@ def stat(
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
     js: bool = typer.Option(False, "--json", help="Print in JSON format."),
 ):
-    """Uses the stat linux application to determine the status of a file on the machine's filesystem
+    """Use the stat linux application to determine the status of a file on the machine's filesystem
     """
     try:
         result = client.stat(machine, path, deref)
