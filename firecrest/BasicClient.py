@@ -478,9 +478,9 @@ class Firecrest:
         :type machine: string
         :param target_path: the absolute target path
         :type target_path: string
-        :param owner: owner username for target
+        :param owner: owner ID for target
         :type owner: string, optional
-        :param group: group username for target
+        :param group: group ID for target
         :type group: string, optional
         :calls: PUT `/utilities/chown`
         :rtype: None
