@@ -154,33 +154,37 @@ def ls(
         "--show-hidden",
         help="Include directory entries whose names begin with a dot (‘.’).",
     ),
+    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
 ):
     """List directory contents
     """
     try:
         result = client.list_files(machine, path, show_hidden)
-        table = Table(title=f"Files in machine `{machine}` and path `{path}`")
-        table.add_column("filename")
-        table.add_column("type")
-        table.add_column("group")
-        table.add_column("permissions")
-        table.add_column("size")
-        table.add_column("user")
-        table.add_column("last_modified")
-        table.add_column("link_target")
-        for i in result:
-            table.add_row(
-                i["name"],
-                i["type"],
-                i["group"],
-                i["permissions"],
-                i["size"],
-                i["user"],
-                i["last_modified"],
-                i["link_target"],
-            )
+        if js:
+            console.print(result)
+        else:
+            table = Table(title=f"Files in machine `{machine}` and path `{path}`")
+            table.add_column("filename")
+            table.add_column("type")
+            table.add_column("group")
+            table.add_column("permissions")
+            table.add_column("size")
+            table.add_column("user")
+            table.add_column("last_modified")
+            table.add_column("link_target")
+            for i in result:
+                table.add_row(
+                    i["name"],
+                    i["type"],
+                    i["group"],
+                    i["permissions"],
+                    i["size"],
+                    i["user"],
+                    i["last_modified"],
+                    i["link_target"],
+                )
 
-        console.print(table)
+            console.print(table)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -342,6 +346,23 @@ def stat(
             )
 
             console.print(table)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
+def symlink(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    target: str = typer.Argument(..., help="The path of the original file."),
+    link_name: str = typer.Argument(..., help="The name of the link to the TARGET."),
+):
+    """Create a symbolic link
+    """
+    try:
+        client.symlink(machine, target, link_name)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
