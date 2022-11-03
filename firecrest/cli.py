@@ -208,6 +208,28 @@ def mkdir(
 
 
 @app.command(rich_help_panel="Utilities commands")
+def mv(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to"
+    ),
+    source_path: str = typer.Argument(..., help="The absolute source path"),
+    target_path: str = typer.Argument(..., help="The absolute target path"),
+    p: bool = typer.Option(
+        False,
+        "-p",
+        help="Create intermediate directories as required, equivalent to `-p` of the unix command.",
+    ),
+):
+    """Rename/move a file, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem.
+    """
+    try:
+        client.mv(machine, source_path, target_path)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
 def rm(
     machine: str,
     path: str,
