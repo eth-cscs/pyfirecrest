@@ -59,7 +59,7 @@ def logout():
 @app.command(rich_help_panel="Status commands")
 def services(
     name: Optional[str] = typer.Option(
-        None, "-n", "--name", help="Get information for only one service"
+        None, "-n", "--name", help="Get information for only one service."
     )
 ):
     """Provides information for the services of FirecREST
@@ -88,7 +88,7 @@ def services(
 @app.command(rich_help_panel="Status commands")
 def systems(
     name: Optional[str] = typer.Option(
-        None, "-n", "--name", help="Get information for only one system"
+        None, "-n", "--name", help="Get information for only one system."
     )
 ):
     """Provides information for the available systems in FirecREST
@@ -147,7 +147,7 @@ def ls(
     machine: str = typer.Argument(
         ..., help="The machine name where the filesystem belongs to"
     ),
-    path: str = typer.Argument(..., help="The absolute target path"),
+    path: str = typer.Argument(..., help="The absolute target path."),
     show_hidden: bool = typer.Option(
         False,
         "-a",
@@ -189,9 +189,9 @@ def ls(
 @app.command(rich_help_panel="Utilities commands")
 def mkdir(
     machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to"
+        ..., help="The machine name where the filesystem belongs to."
     ),
-    path: str = typer.Argument(..., help="The absolute target path"),
+    path: str = typer.Argument(..., help="The absolute target path."),
     p: bool = typer.Option(
         False,
         "-p",
@@ -212,18 +212,30 @@ def mv(
     machine: str = typer.Argument(
         ..., help="The machine name where the filesystem belongs to"
     ),
-    source_path: str = typer.Argument(..., help="The absolute source path"),
-    target_path: str = typer.Argument(..., help="The absolute target path"),
-    p: bool = typer.Option(
-        False,
-        "-p",
-        help="Create intermediate directories as required, equivalent to `-p` of the unix command.",
-    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
 ):
-    """Rename/move a file, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem.
+    """Rename/move files, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem
     """
     try:
-        client.mv(machine, source_path, target_path)
+        client.mv(machine, source, destination)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
+def chmod(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to"
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+    mode: str = typer.Argument(..., help="Same as numeric mode of linux chmod tool."),
+):
+    """Changes the file mod bits of a given file according to the specified mode
+    """
+    try:
+        client.chmod(machine, path, mode)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
