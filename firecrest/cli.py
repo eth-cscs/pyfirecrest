@@ -408,6 +408,22 @@ def checksum(
         raise typer.Exit(code=1)
 
 
+@app.command(rich_help_panel="Utilities commands")
+def head(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+):
+    """View the content of a specified file
+    """
+    try:
+        console.print(client.view(machine, path))
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
 @app.command(rich_help_panel="Storage commands")
 def download(
     machine: str = typer.Argument(
