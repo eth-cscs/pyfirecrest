@@ -547,6 +547,7 @@ class Firecrest:
 
     def stat(self, machine, target_path, dereference=False):
         """Uses the stat linux application to determine the status of a file on the machine's filesystem.
+        The result follows: https://docs.python.org/3/library/os.html#os.stat_result.
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string

@@ -295,6 +295,59 @@ def file(
 
 
 @app.command(rich_help_panel="Utilities commands")
+def stat(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+    deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
+    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
+):
+    """Uses the stat linux application to determine the status of a file on the machine's filesystem
+    """
+    try:
+        result = client.stat(machine, path, deref)
+        if js:
+            console.print(result)
+        else:
+            title = f"Status of file {path}"
+            if deref:
+                title += ' (dereferenced)'
+            table = Table(title=title)
+            table.add_column("Attribute")
+            table.add_column("Value")
+            table.add_column("Description")
+
+            table.add_row("mode", str(result["mode"]), "access rights in octal")
+            table.add_row("ino", str(result["ino"]), "inode number")
+            table.add_row("dev", str(result["dev"]), "device number in decimal")
+            table.add_row("nlink", str(result["nlink"]), "number of hard links")
+            table.add_row("uid", str(result["uid"]), "user ID of owner")
+            table.add_row("gid", str(result["gid"]), "group ID of owner")
+            table.add_row("size", str(result["size"]), "total size, in bytes")
+            table.add_row(
+                "atime",
+                str(result["atime"]),
+                "time of last access, seconds since Epoch",
+            )
+            table.add_row(
+                "mtime",
+                str(result["mtime"]),
+                "time of last data modification, seconds since Epoch",
+            )
+            table.add_row(
+                "ctime",
+                str(result["ctime"]),
+                "time of last status change, seconds since Epoch",
+            )
+
+            console.print(table)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
 def rm(
     machine: str,
     path: str,
