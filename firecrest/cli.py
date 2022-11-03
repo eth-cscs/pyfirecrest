@@ -392,6 +392,22 @@ def rm(
         raise typer.Exit(code=1)
 
 
+@app.command(rich_help_panel="Utilities commands")
+def checksum(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+):
+    """Calculate the SHA256 (256-bit) checksum
+    """
+    try:
+        console.print(client.checksum(machine, path))
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
 @app.command(rich_help_panel="Storage commands")
 def download(
     machine: str = typer.Argument(
