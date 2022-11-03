@@ -187,6 +187,27 @@ def ls(
 
 
 @app.command(rich_help_panel="Utilities commands")
+def mkdir(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to"
+    ),
+    path: str = typer.Argument(..., help="The absolute target path"),
+    p: bool = typer.Option(
+        False,
+        "-p",
+        help="Create intermediate directories as required, equivalent to `-p` of the unix command.",
+    ),
+):
+    """Create new directories
+    """
+    try:
+        client.mkdir(machine, path, p)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
 def rm(
     machine: str,
     path: str,
