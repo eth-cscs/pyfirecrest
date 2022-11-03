@@ -251,10 +251,28 @@ def chown(
     group: Optional[str] = typer.Argument(None, help="Group ID for target."),
 ):
     """Changes the user and/or group ownership of a given file.
+
     If only owner or group information is passed, only that information will be updated.
     """
     try:
         client.chown(machine, path, owner, group)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
+def cp(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+):
+    """Copy files
+    """
+    try:
+        client.copy(machine, source, destination)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
