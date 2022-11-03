@@ -391,6 +391,23 @@ def rm(
         raise typer.Exit(code=1)
 
 
+@app.command(rich_help_panel="Storage commands")
+def download(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The destination path (can be relative)."),
+):
+    """Download a file
+    """
+    try:
+        client.simple_download(machine, source, destination)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
 @app.callback()
 def main(
     version: Optional[bool] = typer.Option(
