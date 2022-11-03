@@ -416,6 +416,9 @@ def head(
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
     """View the content of a specified file
+
+    You view only files smaller than UTILITIES_MAX_FILE_SIZE bytes.
+    This variable is available in the parameters command.
     """
     try:
         console.print(client.view(machine, path))
