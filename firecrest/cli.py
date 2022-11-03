@@ -427,6 +427,17 @@ def head(
         raise typer.Exit(code=1)
 
 
+@app.command(rich_help_panel="Utilities commands")
+def whoami():
+    """Return the username that FirecREST will be using to perform the other calls
+    """
+    try:
+        console.print(client.whoami())
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
 @app.command(rich_help_panel="Storage commands")
 def download(
     machine: str = typer.Argument(
