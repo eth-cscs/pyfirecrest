@@ -242,6 +242,25 @@ def chmod(
 
 
 @app.command(rich_help_panel="Utilities commands")
+def chown(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+    owner: Optional[str] = typer.Argument(None, help="Owner ID for target."),
+    group: Optional[str] = typer.Argument(None, help="Group ID for target."),
+):
+    """Changes the user and/or group ownership of a given file.
+    If only owner or group information is passed, only that information will be updated.
+    """
+    try:
+        client.chown(machine, path, owner, group)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
 def rm(
     machine: str,
     path: str,
