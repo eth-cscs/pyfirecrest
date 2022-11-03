@@ -316,7 +316,8 @@ def stat(
         else:
             title = f"Status of file {path}"
             if deref:
-                title += ' (dereferenced)'
+                title += " (dereferenced)"
+
             table = Table(title=title)
             table.add_column("Attribute")
             table.add_column("Value")
@@ -397,12 +398,37 @@ def download(
         ..., help="The machine name where the source filesystem belongs to."
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
-    destination: str = typer.Argument(..., help="The destination path (can be relative)."),
+    destination: str = typer.Argument(
+        ..., help="The destination path (can be relative)."
+    ),
 ):
     """Download a file
     """
     try:
         client.simple_download(machine, source, destination)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Storage commands")
+def upload(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    source: str = typer.Argument(..., help="The source path (can be relative)."),
+    destination_directory: str = typer.Argument(
+        ..., help="The absolute destination path."
+    ),
+    filename: Optional[str] = typer.Argument(
+        None,
+        help="The name of the file in the machine (by default it will be same as the local file).",
+    ),
+):
+    """Upload a file
+    """
+    try:
+        client.simple_upload(machine, source, destination_directory, filename)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

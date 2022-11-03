@@ -637,7 +637,7 @@ class Firecrest:
         :type source_path: string or binary stream
         :param target_path: the absolute target path of the directory where the file will be uploaded
         :type target_path: string
-        :param filename: naming target file to filename (default None)
+        :param filename: naming target file to filename (default is same as the local one)
         :type filename: string
         :calls: POST `/utilities/upload`
         :rtype: None
