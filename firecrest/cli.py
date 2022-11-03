@@ -145,7 +145,7 @@ def parameters():
 @app.command(rich_help_panel="Utilities commands")
 def ls(
     machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to"
+        ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     show_hidden: bool = typer.Option(
@@ -210,7 +210,7 @@ def mkdir(
 @app.command(rich_help_panel="Utilities commands")
 def mv(
     machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to"
+        ..., help="The machine name where the filesystem belongs to."
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -227,7 +227,7 @@ def mv(
 @app.command(rich_help_panel="Utilities commands")
 def chmod(
     machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to"
+        ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     mode: str = typer.Argument(..., help="Same as numeric mode of linux chmod tool."),
