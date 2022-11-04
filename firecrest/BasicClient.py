@@ -890,7 +890,7 @@ class Firecrest:
         return list(dict_result.values())
 
     def cancel(self, machine, job_id):
-        """Retrieves information about submitted jobs.
+        """Cancels running job.
         This call uses the `scancel` command.
 
         :param machine: the machine name where the scheduler belongs to

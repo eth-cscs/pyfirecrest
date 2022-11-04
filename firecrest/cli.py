@@ -154,13 +154,13 @@ def ls(
         "--show-hidden",
         help="Include directory entries whose names begin with a dot (‘.’).",
     ),
-    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
+    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
     """List directory contents
     """
     try:
         result = client.list_files(machine, path, show_hidden)
-        if js:
+        if raw:
             console.print(result)
         else:
             table = Table(title=f"Files in machine `{machine}` and path `{path}`")
@@ -305,13 +305,13 @@ def stat(
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
-    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
+    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
     """Use the stat linux application to determine the status of a file on the machine's filesystem
     """
     try:
         result = client.stat(machine, path, deref)
-        if js:
+        if raw:
             console.print(result)
         else:
             title = f"Status of file {path}"
@@ -520,14 +520,14 @@ def poll(
         None,
         help="End time (and/or date) of job's query. Allowed formats are `HH:MM\[:SS] \[AM|PM]` or `MMDD\[YY]` or `MM/DD\[/YY]` or `MM.DD\[.YY]` or `MM/DD\[/YY]-HH:MM\[:SS]` or `YYYY-MM-DD\[THH:MM\[:SS]]`.",
     ),
-    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
+    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
     """Retrieve information about submitted jobs.
     This call uses the `sacct` command
     """
     try:
         result = client.poll(machine, jobs, start_time, end_time)
-        if js:
+        if raw:
             console.print(result)
         else:
             title = "Accounting data for jobs"
@@ -571,14 +571,14 @@ def poll_active(
         None,
         help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
     ),
-    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
+    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
     """Retrieves information about active jobs.
     This call uses the `squeue -u <username>` command
     """
     try:
         result = client.poll_active(machine, jobs)
-        if js:
+        if raw:
             console.print(result)
         else:
             title = "Information about jobs in the queue"
@@ -608,6 +608,25 @@ def poll_active(
                 )
 
             console.print(table)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Compute commands")
+def cancel(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    job: str = typer.Argument(
+        ...,
+        help="The ID of the job that will be cancelled.",
+    )
+):
+    """Cancel job
+    """
+    try:
+        client.cancel(machine, job)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
