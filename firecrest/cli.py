@@ -10,7 +10,7 @@ import typer
 import firecrest as fc
 
 from firecrest import __app_name__, __version__
-from typing import Optional
+from typing import List, Optional
 
 from rich.console import Console
 from rich.table import Table
@@ -485,15 +485,128 @@ def submit(
     machine: str = typer.Argument(
         ..., help="The machine name where the source filesystem belongs to."
     ),
-    job_script: str = typer.Argument(..., help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)"),
+    job_script: str = typer.Argument(
+        ...,
+        help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
+    ),
     local: Optional[bool] = typer.Option(
-        True, help="The batch file can be local (default) or on the machine's filesystem."
+        True,
+        help="The batch file can be local (default) or on the machine's filesystem.",
     ),
 ):
-    """Submits a batch script to the workload manger of the target system
+    """Submit a batch script to the workload manger of the target system
     """
     try:
         console.print(client.submit(machine, job_script, local))
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Compute commands")
+def poll(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    jobs: Optional[List[str]] = typer.Argument(
+        None,
+        help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
+    ),
+    start_time: Optional[str] = typer.Option(
+        None,
+        help="Start time (and/or date) of job's query. Allowed formats are `HH:MM\[:SS] \[AM|PM]` or `MMDD\[YY]` or `MM/DD\[/YY]` or `MM.DD\[.YY]` or `MM/DD\[/YY]-HH:MM\[:SS]` or `YYYY-MM-DD\[THH:MM\[:SS]]`.",
+    ),
+    end_time: Optional[str] = typer.Option(
+        None,
+        help="End time (and/or date) of job's query. Allowed formats are `HH:MM\[:SS] \[AM|PM]` or `MMDD\[YY]` or `MM/DD\[/YY]` or `MM.DD\[.YY]` or `MM/DD\[/YY]-HH:MM\[:SS]` or `YYYY-MM-DD\[THH:MM\[:SS]]`.",
+    ),
+    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
+):
+    """Retrieve information about submitted jobs.
+    This call uses the `sacct` command
+    """
+    try:
+        result = client.poll(machine, jobs, start_time, end_time)
+        if js:
+            console.print(result)
+        else:
+            title = "Accounting data for jobs"
+            table = Table(title=title)
+            table.add_column("Job ID")
+            table.add_column("Name")
+            table.add_column("Nonelist")
+            table.add_column("Nodes")
+            table.add_column("Partition")
+            table.add_column("Start time")
+            table.add_column("State")
+            table.add_column("Time")
+            table.add_column("Time left")
+            table.add_column("User")
+            for i in result:
+                table.add_row(
+                    i["jobid"],
+                    i["name"],
+                    i["nodelist"],
+                    i["nodes"],
+                    i["partition"],
+                    i["start_time"],
+                    i["state"],
+                    i["time"],
+                    i["time_left"],
+                    i["user"],
+                )
+
+            console.print(table)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Compute commands")
+def poll_active(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    jobs: Optional[List[str]] = typer.Argument(
+        None,
+        help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
+    ),
+    js: bool = typer.Option(False, "--json", help="Print in JSON format."),
+):
+    """Retrieves information about active jobs.
+    This call uses the `squeue -u <username>` command
+    """
+    try:
+        result = client.poll_active(machine, jobs)
+        if js:
+            console.print(result)
+        else:
+            title = "Information about jobs in the queue"
+            table = Table(title=title)
+            table.add_column("Job ID")
+            table.add_column("Name")
+            table.add_column("Nonelist")
+            table.add_column("Nodes")
+            table.add_column("Partition")
+            table.add_column("Start time")
+            table.add_column("State")
+            table.add_column("Time")
+            table.add_column("Time left")
+            table.add_column("User")
+            for i in result:
+                table.add_row(
+                    i["jobid"],
+                    i["name"],
+                    i["nodelist"],
+                    i["nodes"],
+                    i["partition"],
+                    i["start_time"],
+                    i["state"],
+                    i["time"],
+                    i["time_left"],
+                )
+
+            console.print(table)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

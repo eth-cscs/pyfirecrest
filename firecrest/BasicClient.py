@@ -837,13 +837,13 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def poll(self, machine, jobs=[], start_time=None, end_time=None):
+    def poll(self, machine, jobs=None, start_time=None, end_time=None):
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
 
         :param machine: the machine name where the scheduler belongs to
         :type machine: string
-        :param jobs: list of the IDs of the jobs (default [])
+        :param jobs: list of the IDs of the jobs
         :type jobs: list of strings/integers, optional
         :param start_time: Start time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
         :type start_time: string, optional
@@ -855,6 +855,7 @@ class Firecrest:
         :rtype: dictionary
         """
         self._current_method_requests = []
+        jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._acct_request(machine, jobids, start_time, end_time)
         res = self._poll_tasks(
@@ -866,13 +867,13 @@ class Firecrest:
         else:
             return res
 
-    def poll_active(self, machine, jobs=[]):
+    def poll_active(self, machine, jobs=None):
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
 
         :param machine: the machine name where the scheduler belongs to
         :type machine: string
-        :param jobs: list of the IDs of the jobs (default [])
+        :param jobs: list of the IDs of the jobs
         :type jobs: list of strings/integers, optional
         :calls: GET `/compute/jobs`
 
@@ -880,6 +881,7 @@ class Firecrest:
         :rtype: dictionary
         """
         self._current_method_requests = []
+        jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._squeue_request(machine, jobids)
         dict_result = self._poll_tasks(
