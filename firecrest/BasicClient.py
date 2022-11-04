@@ -355,12 +355,7 @@ class Firecrest:
         """
         url = f"{self._firecrest_url}/status/systems"
         headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        try:
-            resp = requests.get(url=url, headers=headers, verify=self._verify, timeout=self.timeout)
-        except requests.exceptions.ConnectTimeout as e:
-            print('timeout', e)
-            raise
-
+        resp = requests.get(url=url, headers=headers, verify=self._verify, timeout=self.timeout)
         return self._json_response([resp], 200)["out"]
 
     def system(self, system_name):
