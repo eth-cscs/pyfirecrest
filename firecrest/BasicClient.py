@@ -254,9 +254,6 @@ class Firecrest:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
         self.timeout = None
 
-    def _get_request(self, url, headers, verify, timeout, params):
-        requests.get(url=url, headers=headers, verify=self._verify, timeout=self.timeout)
-
     def _json_response(self, responses, expected_status_code):
         # Will examine only the last response
         response = responses[-1]
