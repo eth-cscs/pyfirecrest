@@ -604,6 +604,7 @@ def poll_active(
                     i["state"],
                     i["time"],
                     i["time_left"],
+                    i["user"],
                 )
 
             console.print(table)
