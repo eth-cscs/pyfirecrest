@@ -4,6 +4,7 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+from lib2to3.pytree import Node
 import os
 import typer
 
@@ -38,6 +39,18 @@ app.add_typer(
     Possible to stage-out jobs providing the SLURM ID of a production job.
     More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
     """,
+)
+reservation_app = typer.Typer(
+    rich_markup_mode="rich",
+    # Disable printing locals to avoid printing the value of local
+    # variables in order to hide secrets/password etc
+    pretty_exceptions_show_locals=False,
+)
+app.add_typer(
+    reservation_app,
+    name="reservation",
+    rich_help_panel="Compute commands",
+    help="Create, list, update and delete reservations",
 )
 
 console = Console()
@@ -798,6 +811,105 @@ def cancel(
     """
     try:
         client.cancel(machine, job)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@reservation_app.command(rich_help_panel="Reservation commands")
+def list(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    )
+):
+    """List all active reservations and their status
+    """
+    try:
+        client.all_reservations(machine)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@reservation_app.command(rich_help_panel="Reservation commands")
+def create(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    name: str = typer.Argument(
+        ..., help="The reservation name."
+    ),
+    account: str = typer.Argument(
+        ..., help="The account in SLURM to which the reservation is made for."
+    ),
+    num_nodes: str = typer.Argument(
+        ..., help="The number of nodes needed for the reservation."
+    ),
+    node_type: str = typer.Argument(
+        ..., help="The node type."
+    ),
+    start_time: str = typer.Argument(
+        ..., help="The start time for reservation (YYYY-MM-DDTHH:MM:SS)."
+    ),
+    end_time: str = typer.Argument(
+        ..., help="The end time for reservation (YYYY-MM-DDTHH:MM:SS)."
+    ),
+):
+    """Create a reservation
+    """
+    try:
+        client.create_reservation(machine, name, account, num_nodes, node_type, start_time, end_time)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@reservation_app.command(rich_help_panel="Reservation commands")
+def update(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    name: str = typer.Argument(
+        ..., help="The reservation name."
+    ),
+    account: str = typer.Argument(
+        ..., help="The account in SLURM to which the reservation is made for."
+    ),
+    num_nodes: str = typer.Argument(
+        ..., help="The number of nodes needed for the reservation."
+    ),
+    node_type: str = typer.Argument(
+        ..., help="The node type."
+    ),
+    start_time: str = typer.Argument(
+        ..., help="The start time for reservation (YYYY-MM-DDTHH:MM:SS)."
+    ),
+    end_time: str = typer.Argument(
+        ..., help="The end time for reservation (YYYY-MM-DDTHH:MM:SS)."
+    ),
+):
+    """Update a reservation
+    """
+    try:
+        client.update_reservation(machine, name, account, num_nodes, node_type, start_time, end_time)
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@reservation_app.command(rich_help_panel="Reservation commands")
+def delete(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    name: str = typer.Argument(
+        ..., help="The reservation name."
+    )
+):
+    """Delete a reservation
+    """
+    try:
+        client.delete_reservation(machine, name)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
