@@ -92,10 +92,7 @@ def test_client_credentials_invalid_id():
     with pytest.raises(Exception) as exc_info:
         auth_obj.get_access_token()
 
-    assert (
-        str(exc_info.value)
-        == "Request to https://myauth.com/auth/realms/cscs/protocol/openid-connect/token failed with status code 400: {'error': 'invalid_client', 'error_description': 'Invalid client credentials'}"
-    )
+    assert "Client credentials error" in str(exc_info.value)
 
 
 def test_client_credentials_invalid_secret():
@@ -107,7 +104,4 @@ def test_client_credentials_invalid_secret():
     with pytest.raises(Exception) as exc_info:
         auth_obj.get_access_token()
 
-    assert (
-        str(exc_info.value)
-        == "Request to https://myauth.com/auth/realms/cscs/protocol/openid-connect/token failed with status code 400: {'error': 'unauthorized_client', 'error_description': 'Invalid client secret'}"
-    )
+    assert "Client credentials error" in str(exc_info.value)
