@@ -22,6 +22,23 @@ app = typer.Typer(
     # variables in order to hide secrets/password etc
     pretty_exceptions_show_locals=False,
 )
+submit_template_app = typer.Typer(
+    rich_markup_mode="rich",
+    # Disable printing locals to avoid printing the value of local
+    # variables in order to hide secrets/password etc
+    pretty_exceptions_show_locals=False,
+)
+app.add_typer(
+    submit_template_app,
+    name="submit-template",
+    rich_help_panel="Compute commands",
+    help="""
+    Create and submit a job for internal transfers
+
+    Possible to stage-out jobs providing the SLURM ID of a production job.
+    More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
+    """,
+)
 
 console = Console()
 client = None
@@ -503,6 +520,163 @@ def submit(
         raise typer.Exit(code=1)
 
 
+@submit_template_app.command("mv")
+def submit_mv(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+    job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
+    time: Optional[str] = typer.Option(
+        None,
+        help="""
+        Limit on the total run time of the job.
+
+        Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
+        """,
+    ),
+    jobid: Optional[str] = typer.Option(
+        None, help="Transfer data after job with ID JOBID is completed."
+    ),
+    account: Optional[str] = typer.Option(
+        None,
+        help="""
+        Name of the project account to be used in SLURM script.
+        If not set, system default is taken.
+        """,
+    ),
+):
+    """Move/rename file
+    """
+    try:
+        console.print(
+            client.submit_move_job(
+                machine, source, destination, job_name, time, jobid, account
+            )
+        )
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@submit_template_app.command("cp")
+def submit_cp(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+    job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
+    time: Optional[str] = typer.Option(
+        None,
+        help="""
+        Limit on the total run time of the job.
+
+        Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
+        """,
+    ),
+    jobid: Optional[str] = typer.Option(
+        None, help="Transfer data after job with ID JOBID is completed."
+    ),
+    account: Optional[str] = typer.Option(
+        None,
+        help="""
+        Name of the project account to be used in SLURM script.
+        If not set, system default is taken.
+        """,
+    ),
+):
+    """Copy file
+    """
+    try:
+        console.print(
+            client.submit_copy_job(
+                machine, source, destination, job_name, time, jobid, account
+            )
+        )
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@submit_template_app.command("rsync")
+def submit_rsync(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+    job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
+    time: Optional[str] = typer.Option(
+        None,
+        help="""
+        Limit on the total run time of the job.
+
+        Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
+        """,
+    ),
+    jobid: Optional[str] = typer.Option(
+        None, help="Transfer data after job with ID JOBID is completed."
+    ),
+    account: Optional[str] = typer.Option(
+        None,
+        help="""
+        Name of the project account to be used in SLURM script.
+        If not set, system default is taken.
+        """,
+    ),
+):
+    """Transfer/synchronize files or directories efficiently between filesystems
+    """
+    try:
+        console.print(
+            client.submit_rsync_job(
+                machine, source, destination, job_name, time, jobid, account
+            )
+        )
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@submit_template_app.command("rm")
+def submit_rm(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the source filesystem belongs to."
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+    job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
+    time: Optional[str] = typer.Option(
+        None,
+        help="""
+        Limit on the total run time of the job.
+
+        Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
+        """,
+    ),
+    jobid: Optional[str] = typer.Option(
+        None, help="Transfer data after job with ID JOBID is completed."
+    ),
+    account: Optional[str] = typer.Option(
+        None,
+        help="""
+        Name of the project account to be used in SLURM script.
+        If not set, system default is taken.
+        """,
+    ),
+):
+    """Remove files
+    """
+    try:
+        console.print(
+            client.submit_delete_job(machine, path, job_name, time, jobid, account)
+        )
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
 @app.command(rich_help_panel="Compute commands")
 def poll(
     machine: str = typer.Argument(
@@ -618,10 +792,7 @@ def cancel(
     machine: str = typer.Argument(
         ..., help="The machine name where the source filesystem belongs to."
     ),
-    job: str = typer.Argument(
-        ...,
-        help="The ID of the job that will be cancelled.",
-    )
+    job: str = typer.Argument(..., help="The ID of the job that will be cancelled."),
 ):
     """Cancel job
     """
