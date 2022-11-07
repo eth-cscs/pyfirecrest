@@ -4,8 +4,6 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-from lib2to3.pytree import Node
-import os
 import typer
 
 import firecrest as fc
