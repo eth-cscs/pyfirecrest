@@ -54,6 +54,14 @@ class ExternalStorage:
         """
         return self._client
 
+    @property
+    def task_id(self):
+        """Returns the FirecREST task ID that is associated with this transfer.
+
+        :rtype: string
+        """
+        return self._task_id
+
     def _update(self):
         if self._status not in self._final_states:
             task = self._client._tasks(self._task_id, self._responses)

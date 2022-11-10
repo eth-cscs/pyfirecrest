@@ -10,6 +10,7 @@ import firecrest as fc
 
 from firecrest import __app_name__, __version__
 from typing import List, Optional
+from enum import Enum
 
 from rich.console import Console
 from rich.table import Table
@@ -466,20 +467,55 @@ def whoami():
         raise typer.Exit(code=1)
 
 
+class TransferType(str, Enum):
+    direct = "direct"
+    external = "external"
+    smart = "smart"
+
+
 @app.command(rich_help_panel="Storage commands")
 def download(
     machine: str = typer.Argument(
         ..., help="The machine name where the source filesystem belongs to."
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
-    destination: str = typer.Argument(
-        ..., help="The destination path (can be relative)."
+    destination: Optional[str] = typer.Argument(
+        None,
+        help="The destination path (can be relative). It is required only when the download is `direct`.",
+    ),
+    transfer_type: TransferType = typer.Option(
+        TransferType.direct,
+        "--type",
+        case_sensitive=False,
+        help=f"Select type of transfer (run `{__app_name__} download --help` for details).",
     ),
 ):
     """Download a file
+
+    Direct download will download the file to the DESTINATION but it will work only for small files. You can find the maximum size by running the `parameters` command.
+
+    External download will return with a link in case of success. The file can be downloaded locally from there without any authentication.
     """
     try:
-        client.simple_download(machine, source, destination)
+        if transfer_type == NeuralNetwork.direct:
+            if destination:
+                client.simple_download(machine, source, destination)
+            else:
+                console.print("`destination` is required when the ")
+                raise typer.Exit(code=1)
+        elif transfer_type == NeuralNetwork.external:
+            down_obj = client.external_download(machine, source)
+            console.print(
+                f"Follow the status of the transfer asynchronously with that task ID: [green]{down_obj.task_id}[/green]"
+            )
+            with console.status(
+                "Moving file to the staging area... It is safe to "
+                "cancel the command and follow up through the task."
+            ):
+                console.print(f"Download the file from: {down_obj.object_storage_data}")
+        else:
+            console.print("ERROR: smart option is not implemented yet.")
+            raise typer.Exit(code=1)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -834,18 +870,14 @@ def create(
     machine: str = typer.Argument(
         ..., help="The machine name where the source filesystem belongs to."
     ),
-    name: str = typer.Argument(
-        ..., help="The reservation name."
-    ),
+    name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
         ..., help="The account in SLURM to which the reservation is made for."
     ),
     num_nodes: str = typer.Argument(
         ..., help="The number of nodes needed for the reservation."
     ),
-    node_type: str = typer.Argument(
-        ..., help="The node type."
-    ),
+    node_type: str = typer.Argument(..., help="The node type."),
     start_time: str = typer.Argument(
         ..., help="The start time for reservation (YYYY-MM-DDTHH:MM:SS)."
     ),
@@ -856,7 +888,9 @@ def create(
     """Create a reservation
     """
     try:
-        client.create_reservation(machine, name, account, num_nodes, node_type, start_time, end_time)
+        client.create_reservation(
+            machine, name, account, num_nodes, node_type, start_time, end_time
+        )
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -867,18 +901,14 @@ def update(
     machine: str = typer.Argument(
         ..., help="The machine name where the source filesystem belongs to."
     ),
-    name: str = typer.Argument(
-        ..., help="The reservation name."
-    ),
+    name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
         ..., help="The account in SLURM to which the reservation is made for."
     ),
     num_nodes: str = typer.Argument(
         ..., help="The number of nodes needed for the reservation."
     ),
-    node_type: str = typer.Argument(
-        ..., help="The node type."
-    ),
+    node_type: str = typer.Argument(..., help="The node type."),
     start_time: str = typer.Argument(
         ..., help="The start time for reservation (YYYY-MM-DDTHH:MM:SS)."
     ),
@@ -889,7 +919,9 @@ def update(
     """Update a reservation
     """
     try:
-        client.update_reservation(machine, name, account, num_nodes, node_type, start_time, end_time)
+        client.update_reservation(
+            machine, name, account, num_nodes, node_type, start_time, end_time
+        )
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -900,9 +932,7 @@ def delete(
     machine: str = typer.Argument(
         ..., help="The machine name where the source filesystem belongs to."
     ),
-    name: str = typer.Argument(
-        ..., help="The reservation name."
-    )
+    name: str = typer.Argument(..., help="The reservation name."),
 ):
     """Delete a reservation
     """
