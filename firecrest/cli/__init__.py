@@ -497,13 +497,13 @@ def download(
     External download will return with a link in case of success. The file can be downloaded locally from there without any authentication.
     """
     try:
-        if transfer_type == NeuralNetwork.direct:
+        if transfer_type == TransferType.direct:
             if destination:
                 client.simple_download(machine, source, destination)
             else:
                 console.print("`destination` is required when the ")
                 raise typer.Exit(code=1)
-        elif transfer_type == NeuralNetwork.external:
+        elif transfer_type == TransferType.external:
             down_obj = client.external_download(machine, source)
             console.print(
                 f"Follow the status of the transfer asynchronously with that task ID: [green]{down_obj.task_id}[/green]"
