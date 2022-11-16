@@ -534,11 +534,39 @@ def upload(
         None,
         help="The name of the file in the machine (by default it will be same as the local file).",
     ),
+    transfer_type: TransferType = typer.Option(
+        TransferType.direct,
+        "--type",
+        case_sensitive=False,
+        help=f"Select type of transfer (run `{__app_name__} upload --help` for details).",
+    ),
 ):
     """Upload a file
     """
     try:
-        client.simple_upload(machine, source, destination_directory, filename)
+        if transfer_type == TransferType.direct:
+            client.simple_upload(machine, source, destination_directory, filename)
+        elif transfer_type == TransferType.external:
+            up_obj = client.external_upload(machine, source, destination_directory)
+            console.print(
+                f"Follow the status of the transfer asynchronously with that task ID: [green]{up_obj.task_id}[/green]"
+            )
+            with console.status(
+                "Waiting for Presigned URL to upload file to staging "
+                "area... It is safe to cancel the command and follow "
+                "up through the task."
+            ):
+                data = up_obj.object_storage_data
+                if 'command' in data:
+                    console.print("\nRun the following the following command to finish the upload:")
+                    console.print(f"[green]{data['command']}[/green]")
+                    console.print('\nYou can also use a different software to upload the file:')
+                    console.print(f"[yellow]{data['parameters']}[/yellow]")
+                else:
+                    console.print(data)
+        else:
+            console.print("ERROR: smart option is not implemented yet.")
+            raise typer.Exit(code=1)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
