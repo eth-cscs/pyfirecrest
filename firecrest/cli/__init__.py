@@ -557,10 +557,14 @@ def upload(
                 "up through the task."
             ):
                 data = up_obj.object_storage_data
-                if 'command' in data:
-                    console.print("\nRun the following the following command to finish the upload:")
+                if "command" in data:
+                    console.print(
+                        "\nRun the following the following command to finish the upload:"
+                    )
                     console.print(f"[green]{data['command']}[/green]")
-                    console.print('\nYou can also use a different software to upload the file:')
+                    console.print(
+                        "\nYou can also use a different software to upload the file:"
+                    )
                     console.print(f"[yellow]{data['parameters']}[/yellow]")
                 else:
                     console.print(data)

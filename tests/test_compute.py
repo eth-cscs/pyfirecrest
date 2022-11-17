@@ -2,8 +2,14 @@ import httpretty
 import json
 import pytest
 import re
+import test_authoriation as auth
 
+from typer.testing import CliRunner
+
+from firecrest import __app_name__, __version__, cli
 from context import firecrest
+
+runner = CliRunner()
 
 
 @pytest.fixture
@@ -14,7 +20,21 @@ def valid_client():
 
     return firecrest.Firecrest(
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
-    )
+
+
+@pytest.fixture
+def valid_credentials():
+    return [
+        "--firecrest-url=http://firecrest.cscs.ch",
+        "--client-id=valid_id",
+        "--client-secret=valid_secret",
+        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+    ]
+
+
+def clean_stdout(input):
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", input)
 
 
 @pytest.fixture
@@ -729,15 +749,20 @@ def setup_callbacks():
         body=tasks_callback,
     )
 
+    httpretty.register_uri(
+        httpretty.POST,
+        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        body=auth.auth_callback,
+    )
+
     yield
 
     httpretty.disable()
     httpretty.reset()
 
 
-def test_submit(valid_client, slurm_script):
+def test_submit_remote(valid_client):
     global submit_path_retry
-    # Test submission for remote script
     submit_path_retry = 0
     assert valid_client.submit(
         machine="cluster1", job_script="/path/to/workdir/script.sh", local_file=False
@@ -751,6 +776,24 @@ def test_submit(valid_client, slurm_script):
         "result": "Job submitted",
     }
 
+
+def test_cli_submit_remote(valid_credentials):
+    global submit_path_retry
+    submit_path_retry = 0
+    args = valid_credentials + [
+        "submit",
+        "cluster1",
+        "/path/to/workdir/script.sh",
+        "--no-local",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "'jobid': 35335405" in stdout
+    assert "'result': 'Job submitted'" in stdout
+
+
+def test_submit_local(valid_client, slurm_script):
     # Test submission for local script
     global submit_upload_retry
     submit_upload_retry = 0
@@ -765,6 +808,17 @@ def test_submit(valid_client, slurm_script):
         "jobid": 35342667,
         "result": "Job submitted",
     }
+
+
+def test_cli_submit_local(valid_credentials, slurm_script):
+    global submit_upload_retry
+    submit_upload_retry = 0
+    args = valid_credentials + ["submit", "cluster1", str(slurm_script)]
+    result = runner.invoke(cli.app, args=args)
+    stdout = clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "'jobid': 35342667" in stdout
+    assert "'result': 'Job submitted'" in stdout
 
 
 def test_submit_invalid_arguments(valid_client, non_slurm_script):
@@ -851,6 +905,7 @@ def test_poll(valid_client):
             "user": "username",
         },
     ]
+    acct_retry = 0
     assert valid_client.poll(machine="cluster1", jobs=[]) == [
         {
             "jobid": "352",
@@ -866,6 +921,34 @@ def test_poll(valid_client):
         }
     ]
     assert valid_client.poll(machine="cluster1", jobs=["empty"]) == []
+
+
+def test_cli_poll(valid_credentials):
+    global acct_retry
+    acct_retry = 0
+    args = valid_credentials + [
+        "poll",
+        "cluster1",
+        "352",
+        "2",
+        "334",
+        "--start-time=starttime",
+        "--end-time=endtime",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Accounting data for jobs" in stdout
+    assert "│ 352    │ firecrest_job_test" in stdout
+    assert "│ 334    │ firecrest_job_test2" in stdout
+
+    acct_retry = 0
+    args = valid_credentials + ["poll", "cluster1"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Accounting data for jobs" in stdout
+    assert "│ 352    │ firecrest_job_test" in stdout
 
 
 def test_poll_invalid_arguments(valid_client):
@@ -947,6 +1030,26 @@ def test_poll_active(valid_client):
     ]
 
 
+def test_cli_poll_active(valid_credentials):
+    global queue_retry
+    queue_retry = 0
+    args = valid_credentials + ["poll-active", "cluster1", "352", "2", "334"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Information about jobs in the queue" in stdout
+    assert "│ 352    │ interactive" in stdout
+
+    queue_retry = 0
+    args = valid_credentials + ["poll-active", "cluster1"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Information about jobs in the queue" in stdout
+    assert "│ 352    │ interactive │" in stdout
+    assert "│ 356    │ interactive │" in stdout
+
+
 def test_poll_active_invalid_arguments(valid_client):
     global queue_retry
     queue_retry = 0
@@ -975,6 +1078,14 @@ def test_cancel(valid_client):
     cancel_retry = 0
     # Make sure this doesn't raise an error
     valid_client.cancel(machine="cluster1", job_id=35360071)
+
+
+def test_cli_cancel(valid_credentials):
+    global queue_retry
+    queue_retry = 0
+    args = valid_credentials + ["cancel", "cluster1", "35360071"]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
 
 
 def test_cancel_invalid_arguments(valid_client):

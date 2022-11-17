@@ -11,7 +11,7 @@ def auth_callback(request, uri, response_headers):
     if client_id == "valid_id":
         if client_secret == "valid_secret":
             ret = {
-                "access_token": "token_1",
+                "access_token": "VALID_TOKEN",
                 "expires_in": 15,
                 "refresh_expires_in": 0,
                 "token_type": "Bearer",
@@ -66,10 +66,10 @@ def test_client_credentials_valid():
         "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
     )
     assert auth_obj._min_token_validity == 10
-    assert auth_obj.get_access_token() == "token_1"
+    assert auth_obj.get_access_token() == "VALID_TOKEN"
     # Change the secret differentiate between first and second request
     auth_obj._client_secret = "valid_secret_2"
-    assert auth_obj.get_access_token() == "token_1"
+    assert auth_obj.get_access_token() == "VALID_TOKEN"
 
     auth_obj = firecrest.ClientCredentialsAuth(
         "valid_id",
@@ -77,7 +77,7 @@ def test_client_credentials_valid():
         "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
         min_token_validity=20,
     )
-    assert auth_obj.get_access_token() == "token_1"
+    assert auth_obj.get_access_token() == "VALID_TOKEN"
     # Change the secret differentiate between first and second request
     auth_obj._client_secret = "valid_secret_2"
     assert auth_obj.get_access_token() == "token_2"
