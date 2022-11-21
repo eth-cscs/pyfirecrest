@@ -1,13 +1,14 @@
+import common
 import httpretty
 import json
 import pytest
 import re
 import test_authoriation as auth
 
-from typer.testing import CliRunner
-
 from firecrest import __app_name__, __version__, cli
 from context import firecrest
+from typer.testing import CliRunner
+
 
 runner = CliRunner()
 
@@ -20,6 +21,7 @@ def valid_client():
 
     return firecrest.Firecrest(
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+    )
 
 
 @pytest.fixture
@@ -30,11 +32,6 @@ def valid_credentials():
         "--client-secret=valid_secret",
         "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
     ]
-
-
-def clean_stdout(input):
-    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-    return ansi_escape.sub("", input)
 
 
 @pytest.fixture
@@ -787,7 +784,7 @@ def test_cli_submit_remote(valid_credentials):
         "--no-local",
     ]
     result = runner.invoke(cli.app, args=args)
-    stdout = clean_stdout(result.stdout)
+    stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "'jobid': 35335405" in stdout
     assert "'result': 'Job submitted'" in stdout
@@ -815,7 +812,7 @@ def test_cli_submit_local(valid_credentials, slurm_script):
     submit_upload_retry = 0
     args = valid_credentials + ["submit", "cluster1", str(slurm_script)]
     result = runner.invoke(cli.app, args=args)
-    stdout = clean_stdout(result.stdout)
+    stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "'jobid': 35342667" in stdout
     assert "'result': 'Job submitted'" in stdout
@@ -936,7 +933,7 @@ def test_cli_poll(valid_credentials):
         "--end-time=endtime",
     ]
     result = runner.invoke(cli.app, args=args)
-    stdout = clean_stdout(result.stdout)
+    stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Accounting data for jobs" in stdout
     assert "│ 352    │ firecrest_job_test" in stdout
@@ -945,7 +942,7 @@ def test_cli_poll(valid_credentials):
     acct_retry = 0
     args = valid_credentials + ["poll", "cluster1"]
     result = runner.invoke(cli.app, args=args)
-    stdout = clean_stdout(result.stdout)
+    stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Accounting data for jobs" in stdout
     assert "│ 352    │ firecrest_job_test" in stdout
@@ -1035,7 +1032,7 @@ def test_cli_poll_active(valid_credentials):
     queue_retry = 0
     args = valid_credentials + ["poll-active", "cluster1", "352", "2", "334"]
     result = runner.invoke(cli.app, args=args)
-    stdout = clean_stdout(result.stdout)
+    stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Information about jobs in the queue" in stdout
     assert "│ 352    │ interactive" in stdout
@@ -1043,7 +1040,7 @@ def test_cli_poll_active(valid_credentials):
     queue_retry = 0
     args = valid_credentials + ["poll-active", "cluster1"]
     result = runner.invoke(cli.app, args=args)
-    stdout = clean_stdout(result.stdout)
+    stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Information about jobs in the queue" in stdout
     assert "│ 352    │ interactive │" in stdout

@@ -891,7 +891,8 @@ def list(
     """List all active reservations and their status
     """
     try:
-        client.all_reservations(machine)
+        res = client.all_reservations(machine)
+        console.print(res)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
