@@ -280,8 +280,8 @@ def chown(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    owner: Optional[str] = typer.Argument(None, help="Owner ID for target."),
-    group: Optional[str] = typer.Argument(None, help="Group ID for target."),
+    owner: Optional[str] = typer.Option(None, help="Owner ID for target."),
+    group: Optional[str] = typer.Option(None, help="Group ID for target."),
 ):
     """Change the user and/or group ownership of a given file.
 
