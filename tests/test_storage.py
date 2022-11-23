@@ -1,10 +1,18 @@
+import common
 import httpretty
 import json
 import pytest
 import re
+import test_authoriation as auth
 
 from context import firecrest
+
+from firecrest import __app_name__, __version__, cli
 from firecrest.BasicClient import ExternalUpload, ExternalDownload
+from typer.testing import CliRunner
+
+
+runner = CliRunner()
 
 
 @pytest.fixture
@@ -16,6 +24,16 @@ def valid_client():
     return firecrest.Firecrest(
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
     )
+
+
+@pytest.fixture
+def valid_credentials():
+    return [
+        "--firecrest-url=http://firecrest.cscs.ch",
+        "--client-id=valid_id",
+        "--client-secret=valid_secret",
+        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+    ]
 
 
 @pytest.fixture
@@ -126,6 +144,7 @@ def storage_tasks_callback(request, uri, response_headers):
 
     global internal_transfer_retry
     global external_download_retry
+    global external_upload_retry
 
     taskid = uri.split("/")[-1]
     if taskid == "tasks":
@@ -204,8 +223,7 @@ def storage_tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
-        elif external_download_retry < 2:
-            external_download_retry += 1
+        else:
             ret = {
                 "task": {
                     "data": "https://object_storage_link.com",
@@ -216,6 +234,95 @@ def storage_tasks_callback(request, uri, response_headers):
                     "status": "117",
                     "task_id": taskid,
                     "task_url": f"TASK_IP/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+    elif taskid == "external_upload_id":
+        if external_upload_retry < 1:
+            external_upload_retry += 1
+            ret = {
+                "task": {
+                    "data": "Queued",
+                    "description": "Queued",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-04T11:52:10",
+                    "service": "storage",
+                    "status": "100",
+                    "task_id": taskid,
+                    "task_url": f"TASK_IP/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        elif external_upload_retry < 2:
+            external_upload_retry += 1
+            ret = {
+                "task": {
+                    "created_at": "2022-11-23T09:07:50",
+                    "data": {
+                        "hash_id": taskid,
+                        "msg": "Waiting for Presigned URL to upload file to staging area (OpenStack Swift)",
+                        "source": "/path/to/local/source",
+                        "status": "110",
+                        "system_addr": "machine_addr",
+                        "system_name": "cluster1",
+                        "target": "/path/to/remote/destination",
+                        "trace_id": "trace",
+                        "user": "username",
+                    },
+                    "description": "Waiting for Form URL from Object Storage to be retrieved",
+                    "hash_id": taskid,
+                    "last_modify": "2022-11-23T09:07:50",
+                    "service": "storage",
+                    "status": "110",
+                    "task_id": "taskid",
+                    "task_url": f"TASK_IP/tasks/{taskid}",
+                    "updated_at": "2022-11-23T09:07:50",
+                    "user": "username",
+                }
+            }
+            status_code = 200
+        else:
+            ret = {
+                "task": {
+                    "created_at": "2022-11-23T09:18:43",
+                    "data": {
+                        "hash_id": taskid,
+                        "msg": {
+                            "command": f"curl --show-error -s -ihttps://object.com/v1/AUTH_auth/username/{taskid}/ -X POST -F max_file_size=536870912000 -F max_file_count=1 -F expires=1671787123 -F signature=sign -F redirect= -F file=@/path/to/local/source ",
+                            "parameters": {
+                                "data": {
+                                    "expires": 1671787123,
+                                    "max_file_count": 1,
+                                    "max_file_size": 536870912000,
+                                    "redirect": "",
+                                    "signature": "sign",
+                                },
+                                "files": "/path/to/local/source",
+                                "headers": {},
+                                "json": {},
+                                "method": "POST",
+                                "params": {},
+                                "url": f"https://object.com/v1/AUTH_auth/username/{taskid}/",
+                            },
+                        },
+                        "source": "/path/to/local/source",
+                        "status": "111",
+                        "system_addr": "machine_addr",
+                        "system_name": "cluster1",
+                        "target": "/path/to/remote/destination",
+                        "trace_id": "trace",
+                        "user": "username",
+                    },
+                    "description": "Form URL from Object Storage received",
+                    "hash_id": taskid,
+                    "last_modify": "2022-11-23T09:18:43",
+                    "service": "storage",
+                    "status": "111",
+                    "task_id": taskid,
+                    "task_url": f"TASK_IP/tasks/{taskid}",
+                    "updated_at": "2022-11-23T09:18:43",
                     "user": "username",
                 }
             }
@@ -250,6 +357,12 @@ def setup_callbacks():
         httpretty.POST,
         "http://firecrest.cscs.ch/storage/xfer-external/upload",
         body=external_upload_callback,
+    )
+
+    httpretty.register_uri(
+        httpretty.POST,
+        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        body=auth.auth_callback,
     )
 
     yield
@@ -440,16 +553,60 @@ def test_internal_transfer_invalid_client(invalid_client):
 
 
 def test_external_download(valid_client):
+    global external_download_retry
+    external_download_retry = 0
     obj = valid_client.external_download("cluster1", "/path/to/remote/source")
     assert isinstance(obj, ExternalDownload)
     assert obj._task_id == "external_download_id"
     assert obj.client == valid_client
 
 
+def test_cli_external_download(valid_credentials):
+    global external_download_retry
+    external_download_retry = 0
+    args = valid_credentials + [
+        "download",
+        "cluster1",
+        "/path/to/remote/source",
+        "--type=external",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert (
+        "Follow the status of the transfer asynchronously with that task ID: external_download_id"
+        in stdout
+    )
+    assert "Download the file from: https://object_storage_link.com" in stdout
+
+
 def test_external_upload(valid_client):
+    global external_upload_retry
+    external_upload_retry = 0
     obj = valid_client.external_upload(
         "cluster1", "/path/to/local/source", "/path/to/remote/destination"
     )
     assert isinstance(obj, ExternalUpload)
     assert obj._task_id == "external_upload_id"
     assert obj.client == valid_client
+
+
+def test_cli_external_upload(valid_credentials):
+    global external_upload_retry
+    external_upload_retry = 0
+    args = valid_credentials + [
+        "upload",
+        "cluster1",
+        "/path/to/local/source",
+        "/path/to/remote/destination",
+        "--type=external",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert (
+        "Follow the status of the transfer asynchronously with that task ID: external_upload_id"
+        in stdout
+    )
+    assert "Run the following the following command to finish the upload:" in stdout
+    assert "You can also use a different software to upload the file:" in stdout
