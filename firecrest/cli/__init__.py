@@ -53,8 +53,6 @@ app.add_typer(
 )
 
 console = Console()
-# console.options = console.options.update(no_wrap=True)
-print(console.options)
 client = None
 
 
