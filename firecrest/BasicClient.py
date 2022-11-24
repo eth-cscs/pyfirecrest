@@ -279,9 +279,39 @@ class Firecrest:
             url=url,
             headers=headers,
             data=data,
+            files=files,
+            verify=self._verify,
+            timeout=self.timeout
+        )
+        return resp
+
+    def _put_request(self, endpoint, additional_headers=None, data=None):
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        resp = requests.put(
+            url=url,
+            headers=headers,
+            data=data,
             verify=self._verify,
             timeout=self.timeout,
-            files=files
+        )
+        return resp
+
+    def _delete_request(self, endpoint, additional_headers=None, data=None):
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        resp = requests.delete(
+            url=url,
+            headers=headers,
+            data=data,
+            verify=self._verify,
+            timeout=self.timeout,
         )
         return resp
 
@@ -460,18 +490,10 @@ class Firecrest:
         :calls: PUT `/utilities/rename`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/utilities/rename"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path, "sourcePath": source_path}
-        resp = requests.put(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
+        resp = self._put_request(
+            endpoint="/utilities/rename",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "sourcePath": source_path}
         )
         self._json_response([resp], 200)
 
@@ -487,18 +509,10 @@ class Firecrest:
         :calls: PUT `/utilities/chmod`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/utilities/chmod"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path, "mode": mode}
-        resp = requests.put(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
+        resp = self._put_request(
+            endpoint="/utilities/chmod",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "mode": mode}
         )
         self._json_response([resp], 200)
 
@@ -520,11 +534,6 @@ class Firecrest:
         if owner is None and group is None:
             return
 
-        url = f"{self._firecrest_url}/utilities/chown"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         data = {"targetPath": target_path}
         if owner:
             data["owner"] = owner
@@ -532,12 +541,10 @@ class Firecrest:
         if group:
             data["group"] = group
 
-        resp = requests.put(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
+        resp = self._put_request(
+            endpoint="/utilities/chown",
+            additional_headers={"X-Machine-Name": machine},
+            data=data
         )
         self._json_response([resp], 200)
 
@@ -693,19 +700,10 @@ class Firecrest:
         :calls: DELETE `/utilities/rm`
         :rtype: None
         """
-
-        url = f"{self._firecrest_url}/utilities/rm"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path}
-        resp = requests.delete(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
+        resp = self._delete_request(
+            endpoint="/utilities/rm",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path}
         )
         self._json_response([resp], 204)
 
@@ -906,12 +904,10 @@ class Firecrest:
         :rtype: dictionary
         """
         self._current_method_requests = []
-        url = f"{self._firecrest_url}/compute/jobs/{job_id}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        resp = requests.delete(url=url, headers=headers)
+        resp = self._delete_request(
+            endpoint=f"/compute/jobs/{job_id}",
+            additional_headers={"X-Machine-Name": machine},
+        )
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
         return self._poll_tasks(
@@ -1272,11 +1268,6 @@ class Firecrest:
         :calls: PUT `/reservations/{reservation}`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/reservations/{reservation}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         data = {
             "account": account,
             "numberOfNodes": number_of_nodes,
@@ -1284,12 +1275,10 @@ class Firecrest:
             "starttime": start_time,
             "endtime": end_time,
         }
-        resp = requests.put(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
+        resp = self._put_request(
+            endpoint=f"/reservations/{reservation}",
+            additional_headers={"X-Machine-Name": machine},
+            data=data
         )
         self._json_response([resp], 200)
 
@@ -1303,13 +1292,8 @@ class Firecrest:
         :calls: DELETE `/reservations/{reservation}`
         :rtype: None
         """
-
-        url = f"{self._firecrest_url}/reservations/{reservation}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        resp = requests.delete(
-            url=url, headers=headers, verify=self._verify, timeout=self.timeout
+        resp = self._delete_request(
+            endpoint=f"/reservations/{reservation}",
+            additional_headers={"X-Machine-Name": machine,}
         )
         self._json_response([resp], 204)
