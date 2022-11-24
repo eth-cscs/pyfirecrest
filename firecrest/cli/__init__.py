@@ -787,16 +787,16 @@ def poll(
         else:
             title = "Accounting data for jobs"
             table = Table(title=title)
-            table.add_column("Job ID")
-            table.add_column("Name")
-            table.add_column("Nonelist")
-            table.add_column("Nodes")
-            table.add_column("Partition")
-            table.add_column("Start time")
-            table.add_column("State")
-            table.add_column("Time")
-            table.add_column("Time left")
-            table.add_column("User")
+            table.add_column("Job ID", overflow="fold")
+            table.add_column("Name", overflow="fold")
+            table.add_column("Nonelist", overflow="fold")
+            table.add_column("Nodes", overflow="fold")
+            table.add_column("Partition", overflow="fold")
+            table.add_column("Start time", overflow="fold")
+            table.add_column("State", overflow="fold")
+            table.add_column("Time", overflow="fold")
+            table.add_column("Time left", overflow="fold")
+            table.add_column("User", overflow="fold")
             for i in result:
                 table.add_row(
                     i["jobid"],
@@ -811,7 +811,7 @@ def poll(
                     i["user"],
                 )
 
-            console.print(table, overflow="fold")
+            console.print(table)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
