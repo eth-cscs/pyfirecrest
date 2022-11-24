@@ -643,7 +643,7 @@ def test_cli_list_files(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "file.txt" in stdout
-    assert "projectdir" in stdout
+    assert "projectd" in stdout
     assert ".hiddenfile" not in stdout
 
     args = valid_credentials + ["ls", "cluster1", "/path/to/valid/dir", "--show-hidden"]
@@ -651,7 +651,7 @@ def test_cli_list_files(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "file.txt" in stdout
-    assert "projectdir" in stdout
+    assert "projectd" in stdout
     assert ".hiddenfile" in stdout
 
 

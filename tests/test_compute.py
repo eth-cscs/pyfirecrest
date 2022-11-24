@@ -936,8 +936,8 @@ def test_cli_poll(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Accounting data for jobs" in stdout
-    assert "│ 352    │ firecrest_job_test" in stdout
-    assert "│ 334    │ firecrest_job_test2" in stdout
+    assert "352" in stdout
+    assert "334" in stdout
 
     acct_retry = 0
     args = valid_credentials + ["poll", "cluster1"]
@@ -945,7 +945,7 @@ def test_cli_poll(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Accounting data for jobs" in stdout
-    assert "│ 352    │ firecrest_job_test" in stdout
+    assert "352" in stdout
 
 
 def test_poll_invalid_arguments(valid_client):
@@ -1035,7 +1035,7 @@ def test_cli_poll_active(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Information about jobs in the queue" in stdout
-    assert "│ 352    │ interactive" in stdout
+    assert "352" in stdout
 
     queue_retry = 0
     args = valid_credentials + ["poll-active", "cluster1"]
@@ -1043,8 +1043,8 @@ def test_cli_poll_active(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Information about jobs in the queue" in stdout
-    assert "│ 352    │ interactive │" in stdout
-    assert "│ 356    │ interactive │" in stdout
+    assert "352" in stdout
+    assert "356" in stdout
 
 
 def test_poll_active_invalid_arguments(valid_client):

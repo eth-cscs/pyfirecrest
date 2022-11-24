@@ -574,9 +574,10 @@ def test_cli_external_download(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert (
-        "Follow the status of the transfer asynchronously with that task ID: external_download_id"
+        "Follow the status of the transfer asynchronously with that task ID:"
         in stdout
     )
+    assert "external_download_id" in stdout
     assert "Download the file from: https://object_storage_link.com" in stdout
 
 
@@ -605,8 +606,9 @@ def test_cli_external_upload(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert (
-        "Follow the status of the transfer asynchronously with that task ID: external_upload_id"
+        "Follow the status of the transfer asynchronously with that task ID:"
         in stdout
     )
+    assert "external_upload_id" in stdout
     assert "Run the following the following command to finish the upload:" in stdout
     assert "You can also use a different software to upload the file:" in stdout
