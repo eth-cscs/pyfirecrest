@@ -53,6 +53,8 @@ app.add_typer(
 )
 
 console = Console()
+# console.options = console.options.update(no_wrap=True)
+print(console.options)
 client = None
 
 
@@ -108,7 +110,7 @@ def services(
         for i in result:
             table.add_row(i["service"], i["status"], i["description"])
 
-        console.print(table)
+        console.print(table, overflow="fold")
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -809,7 +811,7 @@ def poll(
                     i["user"],
                 )
 
-            console.print(table)
+            console.print(table, overflow="fold")
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

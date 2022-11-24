@@ -932,7 +932,7 @@ def test_cli_poll(valid_credentials):
         "--start-time=starttime",
         "--end-time=endtime",
     ]
-    result = runner.invoke(cli.app, args=args, terminal_width=160)
+    result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Accounting data for jobs" in stdout
