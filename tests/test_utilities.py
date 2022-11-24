@@ -644,7 +644,7 @@ def test_cli_list_files(valid_credentials):
     assert result.exit_code == 0
     assert "file.txt" in stdout
     assert "projectd" in stdout
-    assert ".hiddenfile" not in stdout
+    assert ".hiddenf" not in stdout
 
     args = valid_credentials + ["ls", "cluster1", "/path/to/valid/dir", "--show-hidden"]
     result = runner.invoke(cli.app, args=args)
@@ -652,7 +652,7 @@ def test_cli_list_files(valid_credentials):
     assert result.exit_code == 0
     assert "file.txt" in stdout
     assert "projectd" in stdout
-    assert ".hiddenfile" in stdout
+    assert ".hiddenf" in stdout
 
 
 def test_list_files_invalid_path(valid_client):
