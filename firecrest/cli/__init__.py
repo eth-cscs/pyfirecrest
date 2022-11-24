@@ -73,20 +73,6 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
-@app.command(rich_help_panel="Setup commands")
-def login():
-    """Does nothing but maybe it can setup the env vars(?)
-    """
-    pass
-
-
-@app.command(rich_help_panel="Setup commands")
-def logout():
-    """Does nothing but maybe it can unsetup the env vars(?)
-    """
-    pass
-
-
 @app.command(rich_help_panel="Status commands")
 def services(
     name: Optional[str] = typer.Option(
