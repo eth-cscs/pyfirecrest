@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2019-2021, ETH Zurich. All rights reserved.
+#  Copyright (c) 2019-2022, ETH Zurich. All rights reserved.
 #
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
@@ -249,6 +249,73 @@ class Firecrest:
         self._current_method_requests = []
         self._verify = verify
         self._sa_role = sa_role
+        #: It will be passed to all the requests that will be made.
+        #: How many seconds to wait for the server to send data before giving up.
+        #: After that time a `requests.exceptions.Timeout` error will be raised.
+        #:
+        #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
+        self.timeout = None
+
+    def _get_request(self, endpoint, additional_headers=None, params=None):
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        resp = requests.get(
+            url=url,
+            headers=headers,
+            params=params,
+            verify=self._verify,
+            timeout=self.timeout,
+        )
+        return resp
+
+    def _post_request(self, endpoint, additional_headers=None, data=None, files=None):
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        resp = requests.post(
+            url=url,
+            headers=headers,
+            data=data,
+            files=files,
+            verify=self._verify,
+            timeout=self.timeout
+        )
+        return resp
+
+    def _put_request(self, endpoint, additional_headers=None, data=None):
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        resp = requests.put(
+            url=url,
+            headers=headers,
+            data=data,
+            verify=self._verify,
+            timeout=self.timeout,
+        )
+        return resp
+
+    def _delete_request(self, endpoint, additional_headers=None, data=None):
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        resp = requests.delete(
+            url=url,
+            headers=headers,
+            data=data,
+            verify=self._verify,
+            timeout=self.timeout,
+        )
+        return resp
 
     def _json_response(self, responses, expected_status_code):
         # Will examine only the last response
@@ -295,8 +362,7 @@ class Firecrest:
         if len(task_ids) == 1:
             url += task_ids[0]
 
-        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers, verify=self._verify)
+        resp = self._get_request(endpoint=endpoint)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
         if len(task_ids) == 0:
@@ -324,12 +390,10 @@ class Firecrest:
         return task
 
     def _invalidate(self, task_id, responses=[]):
-        url = f"{self._firecrest_url}/storage/xfer-external/invalidate"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Task-Id": task_id,
-        }
-        resp = requests.post(url=url, headers=headers, verify=self._verify)
+        resp = self._post_request(
+            endpoint="/storage/xfer-external/invalidate",
+            additional_headers={"X-Task-Id": task_id},
+        )
         responses.append(resp)
         return self._json_response(responses, 201)
 
@@ -348,9 +412,7 @@ class Firecrest:
         :calls: GET `/status/services`
         :rtype: list of dictionaries (one for each service)
         """
-        url = f"{self._firecrest_url}/status/services"
-        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers, verify=self._verify)
+        resp = self._get_request(endpoint="/status/services")
         return self._json_response([resp], 200)["out"]
 
     def service(self, service_name):
@@ -362,9 +424,7 @@ class Firecrest:
         :calls: GET `/status/services/{service_name}`
         :rtype: list of dictionaries (one for each service)
         """
-        url = f"{self._firecrest_url}/status/services/{service_name}"
-        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers, verify=self._verify)
+        resp = self._get_request(endpoint=f"/status/services/{service_name}")
         return self._json_response([resp], 200)
 
     def all_systems(self):
@@ -373,9 +433,7 @@ class Firecrest:
         :calls: GET `/status/systems`
         :rtype: list of dictionaries (one for each system)
         """
-        url = f"{self._firecrest_url}/status/systems"
-        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers, verify=self._verify)
+        resp = self._get_request(endpoint="/status/systems")
         return self._json_response([resp], 200)["out"]
 
     def system(self, system_name):
@@ -387,9 +445,7 @@ class Firecrest:
         :calls: GET `/status/systems/{system_name}`
         :rtype: list of dictionaries (one for each system)
         """
-        url = f"{self._firecrest_url}/status/systems/{system_name}"
-        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers, verify=self._verify)
+        resp = self._get_request(endpoint=f"/status/systems/{system_name}")
         return self._json_response([resp], 200)["out"]
 
     def parameters(self):
@@ -398,9 +454,7 @@ class Firecrest:
         :calls: GET `/status/parameters`
         :rtype: list of parameters
         """
-        url = f"{self._firecrest_url}/status/parameters"
-        headers = {f"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        resp = requests.get(url=url, headers=headers, verify=self._verify)
+        resp = self._get_request(endpoint="/status/parameters")
         return self._json_response([resp], 200)["out"]
 
     # Utilities
@@ -416,17 +470,14 @@ class Firecrest:
         :calls: GET `/utilities/ls`
         :rtype: list of files
         """
-        url = f"{self._firecrest_url}/utilities/ls"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         params = {"targetPath": f"{target_path}"}
         if show_hidden == True:
             params["showhidden"] = show_hidden
 
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/utilities/ls",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
         return self._json_response([resp], 200)["output"]
 
@@ -442,16 +493,15 @@ class Firecrest:
         :calls: POST `/utilities/mkdir`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/utilities/mkdir"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         data = {"targetPath": target_path}
         if p:
             data["p"] = p
 
-        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._post_request(
+            endpoint="/utilities/mkdir",
+            additional_headers={"X-Machine-Name": machine},
+            data=data
+        )
         self._json_response([resp], 201)
 
     def mv(self, machine, source_path, target_path):
@@ -466,13 +516,11 @@ class Firecrest:
         :calls: PUT `/utilities/rename`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/utilities/rename"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path, "sourcePath": source_path}
-        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._put_request(
+            endpoint="/utilities/rename",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "sourcePath": source_path}
+        )
         self._json_response([resp], 200)
 
     def chmod(self, machine, target_path, mode):
@@ -487,13 +535,11 @@ class Firecrest:
         :calls: PUT `/utilities/chmod`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/utilities/chmod"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path, "mode": mode}
-        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._put_request(
+            endpoint="/utilities/chmod",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "mode": mode}
+        )
         self._json_response([resp], 200)
 
     def chown(self, machine, target_path, owner=None, group=None):
@@ -514,11 +560,6 @@ class Firecrest:
         if owner is None and group is None:
             return
 
-        url = f"{self._firecrest_url}/utilities/chown"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         data = {"targetPath": target_path}
         if owner:
             data["owner"] = owner
@@ -526,7 +567,11 @@ class Firecrest:
         if group:
             data["group"] = group
 
-        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._put_request(
+            endpoint="/utilities/chown",
+            additional_headers={"X-Machine-Name": machine},
+            data=data
+        )
         self._json_response([resp], 200)
 
     def copy(self, machine, source_path, target_path):
@@ -541,13 +586,11 @@ class Firecrest:
         :calls: POST `/utilities/copy`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/utilities/copy"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path, "sourcePath": source_path}
-        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._post_request(
+            endpoint="/utilities/copy",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "sourcePath": source_path}
+        )
         self._json_response([resp], 201)
 
     def file_type(self, machine, target_path):
@@ -560,14 +603,10 @@ class Firecrest:
         :calls: GET `/utilities/file`
         :rtype: string
         """
-        url = f"{self._firecrest_url}/utilities/file"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        params = {"targetPath": target_path}
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/utilities/file",
+            additional_headers={"X-Machine-Name": machine},
+            params={"targetPath": target_path},
         )
         return self._json_response([resp], 200)["output"]
 
@@ -583,17 +622,14 @@ class Firecrest:
         :calls: GET `/utilities/stat`
         :rtype: string
         """
-        url = f"{self._firecrest_url}/utilities/stat"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         params = {"targetPath": target_path}
         if dereference:
             params["dereference"] = dereference
 
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/utilities/stat",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
         return self._json_response([resp], 200)["output"]
 
@@ -609,13 +645,11 @@ class Firecrest:
         :calls: POST `/utilities/symlink`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/utilities/symlink"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path, "linkPath": link_path}
-        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._post_request(
+            endpoint="/utilities/symlink",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "linkPath": link_path}
+        )
         self._json_response([resp], 201)
 
     def simple_download(self, machine, source_path, target_path):
@@ -631,15 +665,10 @@ class Firecrest:
         :calls: GET `/utilities/download`
         :rtype: None
         """
-
-        url = f"{self._firecrest_url}/utilities/download"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        params = {"sourcePath": source_path}
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/utilities/download",
+            additional_headers={"X-Machine-Name": machine},
+            params={"sourcePath": source_path},
         )
         self._json_response([resp], 200)
         context = (
@@ -667,12 +696,6 @@ class Firecrest:
         :calls: POST `/utilities/upload`
         :rtype: None
         """
-
-        url = f"{self._firecrest_url}/utilities/upload"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         context = (
             open(source_path, "rb")
             if isinstance(source_path, str)
@@ -683,10 +706,12 @@ class Firecrest:
             # Set filename
             if filename is not None:
                 f = (filename, f)
-            data = {"targetPath": target_path}
-            files = {"file": f}
-            resp = requests.post(
-                url=url, headers=headers, data=data, files=files, verify=self._verify
+
+            resp = self._post_request(
+                endpoint="/utilities/upload",
+                additional_headers={"X-Machine-Name": machine},
+                data={"targetPath": target_path},
+                files={"file": f}
             )
 
         self._json_response([resp], 201)
@@ -701,14 +726,11 @@ class Firecrest:
         :calls: DELETE `/utilities/rm`
         :rtype: None
         """
-
-        url = f"{self._firecrest_url}/utilities/rm"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path}
-        resp = requests.delete(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._delete_request(
+            endpoint="/utilities/rm",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path}
+        )
         self._json_response([resp], 204)
 
     def checksum(self, machine, target_path):
@@ -721,14 +743,10 @@ class Firecrest:
         :calls: GET `/utilities/checksum`
         :rtype: string
         """
-        url = f"{self._firecrest_url}/utilities/checksum"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        params = {"targetPath": target_path}
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/utilities/checksum",
+            additional_headers={"X-Machine-Name": machine},
+            params={"targetPath": target_path},
         )
         return self._json_response([resp], 200)["output"]
 
@@ -742,14 +760,10 @@ class Firecrest:
         :calls: GET `/utilities/checksum`
         :rtype: string
         """
-        url = f"{self._firecrest_url}/utilities/view"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        params = {"targetPath": target_path}
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/utilities/view",
+            additional_headers={"X-Machine-Name": machine},
+            params={"targetPath": target_path},
         )
         return self._json_response([resp], 200)["output"]
 
@@ -783,49 +797,37 @@ class Firecrest:
 
     # Compute
     def _submit_request(self, machine, job_script, local_file):
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         if local_file:
-            url = f"{self._firecrest_url}/compute/jobs/upload"
             with open(job_script, "rb") as f:
-                files = {"file": f}
-                resp = requests.post(
-                    url=url, headers=headers, files=files, verify=self._verify
+                resp = self._post_request(
+                    endpoint="/compute/jobs/upload",
+                    additional_headers={"X-Machine-Name": machine},
+                    files={"file": f}
                 )
         else:
-            url = f"{self._firecrest_url}/compute/jobs/path"
-            data = {"targetPath": job_script}
-            resp = requests.post(
-                url=url, headers=headers, data=data, verify=self._verify
+            resp = self._post_request(
+                endpoint="/compute/jobs/path",
+                additional_headers={"X-Machine-Name": machine},
+                data={"targetPath": job_script}
             )
 
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
     def _squeue_request(self, machine, jobs=[]):
-        url = f"{self._firecrest_url}/compute/jobs"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         params = {}
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobs])}
 
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/compute/jobs",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
     def _acct_request(self, machine, jobs=[], start_time=None, end_time=None):
-        url = f"{self._firecrest_url}/compute/acct"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         params = {}
         if jobs:
             params["jobs"] = ",".join(jobs)
@@ -836,8 +838,10 @@ class Firecrest:
         if end_time:
             params["endtime"] = end_time
 
-        resp = requests.get(
-            url=url, headers=headers, params=params, verify=self._verify
+        resp = self._get_request(
+            endpoint="/compute/acct",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
@@ -926,12 +930,10 @@ class Firecrest:
         :rtype: dictionary
         """
         self._current_method_requests = []
-        url = f"{self._firecrest_url}/compute/jobs/{job_id}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        resp = requests.delete(url=url, headers=headers)
+        resp = self._delete_request(
+            endpoint=f"/compute/jobs/{job_id}",
+            additional_headers={"X-Machine-Name": machine},
+        )
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
         return self._poll_tasks(
@@ -941,7 +943,7 @@ class Firecrest:
     # Storage
     def _internal_transfer(
         self,
-        url,
+        endpoint,
         machine,
         source_path,
         target_path,
@@ -950,10 +952,6 @@ class Firecrest:
         stage_out_job_id,
         account,
     ):
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         data = {"targetPath": target_path}
         if source_path:
             data["sourcePath"] = source_path
@@ -970,7 +968,11 @@ class Firecrest:
         if account:
             data["account"] = account
 
-        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._post_request(
+            endpoint=endpoint,
+            additional_headers={"X-Machine-Name": machine},
+            data=data
+        )
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
@@ -1009,9 +1011,9 @@ class Firecrest:
         :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
-        url = f"{self._firecrest_url}/storage/xfer-internal/mv"
+        endpoint = "/storage/xfer-internal/mv"
         json_response = self._internal_transfer(
-            url,
+            endpoint,
             machine,
             source_path,
             target_path,
@@ -1059,9 +1061,9 @@ class Firecrest:
         :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
-        url = f"{self._firecrest_url}/storage/xfer-internal/cp"
+        endpoint = "/storage/xfer-internal/cp"
         json_response = self._internal_transfer(
-            url,
+            endpoint,
             machine,
             source_path,
             target_path,
@@ -1109,9 +1111,9 @@ class Firecrest:
         :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
-        url = f"{self._firecrest_url}/storage/xfer-internal/rsync"
+        endpoint = "/storage/xfer-internal/rsync"
         json_response = self._internal_transfer(
-            url,
+            endpoint,
             machine,
             source_path,
             target_path,
@@ -1156,9 +1158,9 @@ class Firecrest:
         :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
-        url = f"{self._firecrest_url}/storage/xfer-internal/rm"
+        endpoint = "/storage/xfer-internal/rm"
         json_response = self._internal_transfer(
-            url, machine, None, target_path, job_name, time, stage_out_job_id, account
+            endpoint, machine, None, target_path, job_name, time, stage_out_job_id, account
         )
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -1176,13 +1178,12 @@ class Firecrest:
         :returns: an ExternalUpload object
         :rtype: ExternalUpload
         """
-        url = f"{self._firecrest_url}/storage/xfer-external/upload"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"targetPath": target_path, "sourcePath": source_path}
-        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+        self._current_method_requests = []
+        resp = self._post_request(
+            endpoint="/storage/xfer-external/upload",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "sourcePath": source_path}
+        )
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
 
@@ -1196,13 +1197,12 @@ class Firecrest:
         :returns: an ExternalDownload object
         :rtype: ExternalDownload
         """
-        url = f"{self._firecrest_url}/storage/xfer-external/download"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        data = {"sourcePath": source_path}
-        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+        self._current_method_requests = []
+        resp = self._post_request(
+            endpoint="/storage/xfer-external/download",
+            additional_headers={"X-Machine-Name": machine},
+            data={"sourcePath": source_path}
+        )
         return ExternalDownload(
             self, self._json_response([resp], 201)["task_id"], [resp]
         )
@@ -1216,12 +1216,9 @@ class Firecrest:
         :calls: GET `/reservations`
         :rtype: list of dictionaries (one for each reservation)
         """
-        url = f"{self._firecrest_url}/reservations"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        resp = requests.get(url=url, headers=headers, verify=self._verify)
+        resp = self._get_request(
+            endpoint="/reservations", additional_headers={"X-Machine-Name": machine}
+        )
         return self._json_response([resp], 200)["success"]
 
     def create_reservation(
@@ -1253,11 +1250,6 @@ class Firecrest:
         :calls: POST `/reservations`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/reservations"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         data = {
             "reservation": reservation,
             "account": account,
@@ -1266,8 +1258,11 @@ class Firecrest:
             "starttime": start_time,
             "endtime": end_time,
         }
-
-        resp = requests.post(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._post_request(
+            endpoint="/reservations",
+            additional_headers={"X-Machine-Name": machine},
+            data=data
+        )
         self._json_response([resp], 201)
 
     def update_reservation(
@@ -1299,11 +1294,6 @@ class Firecrest:
         :calls: PUT `/reservations/{reservation}`
         :rtype: None
         """
-        url = f"{self._firecrest_url}/reservations/{reservation}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
         data = {
             "account": account,
             "numberOfNodes": number_of_nodes,
@@ -1311,7 +1301,11 @@ class Firecrest:
             "starttime": start_time,
             "endtime": end_time,
         }
-        resp = requests.put(url=url, headers=headers, data=data, verify=self._verify)
+        resp = self._put_request(
+            endpoint=f"/reservations/{reservation}",
+            additional_headers={"X-Machine-Name": machine},
+            data=data
+        )
         self._json_response([resp], 200)
 
     def delete_reservation(self, machine, reservation):
@@ -1324,11 +1318,8 @@ class Firecrest:
         :calls: DELETE `/reservations/{reservation}`
         :rtype: None
         """
-
-        url = f"{self._firecrest_url}/reservations/{reservation}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}",
-            "X-Machine-Name": machine,
-        }
-        resp = requests.delete(url=url, headers=headers, verify=self._verify)
+        resp = self._delete_request(
+            endpoint=f"/reservations/{reservation}",
+            additional_headers={"X-Machine-Name": machine,}
+        )
         self._json_response([resp], 204)
