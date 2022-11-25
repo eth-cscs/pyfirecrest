@@ -456,7 +456,6 @@ def whoami():
 class TransferType(str, Enum):
     direct = "direct"
     external = "external"
-    smart = "smart"
 
 
 @app.command(rich_help_panel="Storage commands")
@@ -499,9 +498,6 @@ def download(
                 "cancel the command and follow up through the task."
             ):
                 console.print(f"Download the file from: {down_obj.object_storage_data}")
-        else:
-            console.print("ERROR: smart option is not implemented yet.")
-            raise typer.Exit(code=1)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -554,9 +550,6 @@ def upload(
                     console.print(f"[yellow]{data['parameters']}[/yellow]")
                 else:
                     console.print(data)
-        else:
-            console.print("ERROR: smart option is not implemented yet.")
-            raise typer.Exit(code=1)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -749,7 +742,7 @@ def poll(
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None,
-        help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
+        help="List of job IDs to display.",
     ),
     start_time: Optional[str] = typer.Option(
         None,
@@ -808,7 +801,7 @@ def poll_active(
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None,
-        help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
+        help="List of job IDs to display.",
     ),
     raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
