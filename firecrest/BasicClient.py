@@ -36,7 +36,8 @@ class ExternalStorage:
     """External storage object.
     """
 
-    def __init__(self, client, task_id, previous_responses=[]):
+    def __init__(self, client, task_id, previous_responses=None):
+        previous_responses = [] if previous_responses is None else previous_responses
         self._client = client
         self._task_id = task_id
         self._in_progress = True
@@ -142,7 +143,8 @@ class ExternalUpload(ExternalStorage):
     :type task_id: string
     """
 
-    def __init__(self, client, task_id, previous_responses=[]):
+    def __init__(self, client, task_id, previous_responses=None):
+        previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
 
@@ -189,7 +191,8 @@ class ExternalDownload(ExternalStorage):
     :type task_id: string
     """
 
-    def __init__(self, client, task_id, previous_responses=[]):
+    def __init__(self, client, task_id, previous_responses=None):
+        previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"117", "118"}
 
@@ -356,8 +359,8 @@ class Firecrest:
         :calls: GET `/utilities/tasks` or `/utilities/tasks/{taskid}`
         :rtype: dictionary
         """
-        task_ids = [] if not task_ids else task_ids
-        responses = [] if not responses else responses
+        task_ids = [] if task_ids is None else task_ids
+        responses = [] if responses is None else responses
         endpoint = "/tasks/"
         if len(task_ids) == 1:
             endpoint += task_ids[0]
@@ -389,7 +392,8 @@ class Firecrest:
 
         return task
 
-    def _invalidate(self, task_id, responses=[]):
+    def _invalidate(self, task_id, responses=None):
+        responses = [] if responses is None else responses
         resp = self._post_request(
             endpoint="/storage/xfer-external/invalidate",
             additional_headers={"X-Task-Id": task_id},
@@ -814,7 +818,8 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
-    def _squeue_request(self, machine, jobs=[]):
+    def _squeue_request(self, machine, jobs=None):
+        jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobs])}
@@ -827,7 +832,8 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def _acct_request(self, machine, jobs=[], start_time=None, end_time=None):
+    def _acct_request(self, machine, jobs=None, start_time=None, end_time=None):
+        jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
             params["jobs"] = ",".join(jobs)
@@ -866,7 +872,7 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def poll(self, machine, jobs=[], start_time=None, end_time=None):
+    def poll(self, machine, jobs=None, start_time=None, end_time=None):
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
 
@@ -883,6 +889,7 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
+        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
         jobids = [str(j) for j in jobs]
         json_response = self._acct_request(machine, jobids, start_time, end_time)
@@ -895,7 +902,7 @@ class Firecrest:
         else:
             return res
 
-    def poll_active(self, machine, jobs=[]):
+    def poll_active(self, machine, jobs=None):
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
 
@@ -908,6 +915,7 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
+        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
         jobids = [str(j) for j in jobs]
         json_response = self._squeue_request(machine, jobids)
