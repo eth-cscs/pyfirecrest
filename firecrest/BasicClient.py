@@ -358,9 +358,9 @@ class Firecrest:
         """
         task_ids = [] if not task_ids else task_ids
         responses = [] if not responses else responses
-        url = f"{self._firecrest_url}/tasks/"
+        endpoint = "/tasks/"
         if len(task_ids) == 1:
-            url += task_ids[0]
+            endpoint += task_ids[0]
 
         resp = self._get_request(endpoint=endpoint)
         responses.append(resp)
@@ -1178,7 +1178,6 @@ class Firecrest:
         :returns: an ExternalUpload object
         :rtype: ExternalUpload
         """
-        self._current_method_requests = []
         resp = self._post_request(
             endpoint="/storage/xfer-external/upload",
             additional_headers={"X-Machine-Name": machine},
@@ -1197,7 +1196,6 @@ class Firecrest:
         :returns: an ExternalDownload object
         :rtype: ExternalDownload
         """
-        self._current_method_requests = []
         resp = self._post_request(
             endpoint="/storage/xfer-external/download",
             additional_headers={"X-Machine-Name": machine},
