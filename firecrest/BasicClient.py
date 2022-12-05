@@ -348,15 +348,15 @@ class Firecrest:
     def _tasks(self, task_ids=None, responses=None):
         """Return a dictionary of FirecREST tasks and their last update.
         When `task_ids` is an empty list or contains more than one element the
-        `/utilities/tasks` endpoint will be called. Otherwise `/utilities/tasks/{taskid}`.
-        When the `/utilities/tasks` is called the method will not give an error for invalid IDs,
-        but `/utilities/tasks/{taskid}` will raise an exception.
+        `/tasks` endpoint will be called. Otherwise `/tasks/{taskid}`.
+        When the `/tasks` is called the method will not give an error for invalid IDs,
+        but `/tasks/{taskid}` will raise an exception.
 
         :param task_ids: list of task IDs. When empty all tasks are returned.
         :type task_ids: list
         :param responses: list of responses that are associated with these tasks (only relevant for error)
         :type responses: list
-        :calls: GET `/utilities/tasks` or `/utilities/tasks/{taskid}`
+        :calls: GET `/tasks` or `/tasks/{taskid}`
         :rtype: dictionary
         """
         task_ids = [] if task_ids is None else task_ids
