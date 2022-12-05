@@ -36,7 +36,8 @@ class ExternalStorage:
     """External storage object.
     """
 
-    def __init__(self, client, task_id, previous_responses=[]):
+    def __init__(self, client, task_id, previous_responses=None):
+        previous_responses = [] if previous_responses is None else previous_responses
         self._client = client
         self._task_id = task_id
         self._in_progress = True
@@ -56,7 +57,7 @@ class ExternalStorage:
 
     def _update(self):
         if self._status not in self._final_states:
-            task = self._client._tasks(self._task_id, self._responses)
+            task = self._client._task_safe(self._task_id, self._responses)
             self._status = task["status"]
             self._data = task["data"]
             if not self._object_storage_data:
@@ -142,7 +143,8 @@ class ExternalUpload(ExternalStorage):
     :type task_id: string
     """
 
-    def __init__(self, client, task_id, previous_responses=[]):
+    def __init__(self, client, task_id, previous_responses=None):
+        previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
 
@@ -189,7 +191,8 @@ class ExternalDownload(ExternalStorage):
     :type task_id: string
     """
 
-    def __init__(self, client, task_id, previous_responses=[]):
+    def __init__(self, client, task_id, previous_responses=None):
+        previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"117", "118"}
 
@@ -244,6 +247,8 @@ class Firecrest:
     ):
         self._firecrest_url = firecrest_url
         self._authorization = authorization
+        # This should be used only for blocking operations that require multiple requests,
+        # not for external upload/download
         self._current_method_requests = []
         self._verify = verify
         self._sa_role = sa_role
@@ -340,18 +345,42 @@ class Firecrest:
 
         return ret
 
-    def _tasks(self, task_id=None, responses=None):
-        if responses is None:
-            responses = self._current_method_requests
+    def _tasks(self, task_ids=None, responses=None):
+        """Return a dictionary of FirecREST tasks and their last update.
+        When `task_ids` is an empty list or contains more than one element the
+        `/tasks` endpoint will be called. Otherwise `/tasks/{taskid}`.
+        When the `/tasks` is called the method will not give an error for invalid IDs,
+        but `/tasks/{taskid}` will raise an exception.
 
+        :param task_ids: list of task IDs. When empty all tasks are returned.
+        :type task_ids: list
+        :param responses: list of responses that are associated with these tasks (only relevant for error)
+        :type responses: list
+        :calls: GET `/tasks` or `/tasks/{taskid}`
+        :rtype: dictionary
+        """
+        task_ids = [] if task_ids is None else task_ids
+        responses = [] if responses is None else responses
         endpoint = "/tasks/"
-        if task_id:
-            endpoint += task_id
+        if len(task_ids) == 1:
+            endpoint += task_ids[0]
 
         resp = self._get_request(endpoint=endpoint)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
-        status = int(taskinfo["task"]["status"])
+        if len(task_ids) == 0:
+            return taskinfo["tasks"]
+        elif len(task_ids) == 1:
+            return taskinfo["task"]
+        else:
+            return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
+
+    def _task_safe(self, task_id, responses=None):
+        if responses is None:
+            responses = self._current_method_requests
+
+        task = self._tasks([task_id], responses)
+        status = int(task["status"])
         if status == 115:
             raise fe.StorageUploadException(responses)
 
@@ -361,9 +390,10 @@ class Firecrest:
         if status >= 400:
             raise fe.FirecrestException(responses)
 
-        return taskinfo["task"]
+        return task
 
-    def _invalidate(self, task_id, responses=[]):
+    def _invalidate(self, task_id, responses=None):
+        responses = [] if responses is None else responses
         resp = self._post_request(
             endpoint="/storage/xfer-external/invalidate",
             additional_headers={"X-Task-Id": task_id},
@@ -372,10 +402,10 @@ class Firecrest:
         return self._json_response(responses, 201)
 
     def _poll_tasks(self, task_id, final_status, sleep_time):
-        resp = self._tasks(task_id)
+        resp = self._task_safe(task_id)
         while resp["status"] < final_status:
             time.sleep(next(sleep_time))
-            resp = self._tasks(task_id)
+            resp = self._task_safe(task_id)
 
         return resp["data"]
 
@@ -788,7 +818,8 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
-    def _squeue_request(self, machine, jobs=[]):
+    def _squeue_request(self, machine, jobs=None):
+        jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobs])}
@@ -801,7 +832,8 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def _acct_request(self, machine, jobs=[], start_time=None, end_time=None):
+    def _acct_request(self, machine, jobs=None, start_time=None, end_time=None):
+        jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
             params["jobs"] = ",".join(jobs)
@@ -840,7 +872,7 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def poll(self, machine, jobs=[], start_time=None, end_time=None):
+    def poll(self, machine, jobs=None, start_time=None, end_time=None):
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
 
@@ -857,6 +889,7 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
+        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
         jobids = [str(j) for j in jobs]
         json_response = self._acct_request(machine, jobids, start_time, end_time)
@@ -869,7 +902,7 @@ class Firecrest:
         else:
             return res
 
-    def poll_active(self, machine, jobs=[]):
+    def poll_active(self, machine, jobs=None):
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
 
@@ -882,6 +915,7 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
+        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
         jobids = [str(j) for j in jobs]
         json_response = self._squeue_request(machine, jobids)
@@ -1152,7 +1186,6 @@ class Firecrest:
         :returns: an ExternalUpload object
         :rtype: ExternalUpload
         """
-        self._current_method_requests = []
         resp = self._post_request(
             endpoint="/storage/xfer-external/upload",
             additional_headers={"X-Machine-Name": machine},
@@ -1171,7 +1204,6 @@ class Firecrest:
         :returns: an ExternalDownload object
         :rtype: ExternalDownload
         """
-        self._current_method_requests = []
         resp = self._post_request(
             endpoint="/storage/xfer-external/download",
             additional_headers={"X-Machine-Name": machine},
