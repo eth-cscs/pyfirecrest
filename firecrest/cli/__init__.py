@@ -65,6 +65,17 @@ def examine_exeption(e):
     console.print(e)
 
 
+def create_table(table_title, data, *mappings):
+    table = Table(title=table_title)
+    for (title, _) in mappings:
+        table.add_column(title, overflow="fold")
+
+    for i in data:
+        table.add_row(*(str(i[key]) for (_, key) in mappings))
+
+    return table
+
+
 def version_callback(value: bool):
     if value:
         print(f"FirecREST CLI Version: {__version__}")
@@ -87,13 +98,13 @@ def services(
             result = client.all_services()
             title = "Status of FirecREST services"
 
-        table = Table(title=title)
-        table.add_column("Service")
-        table.add_column("Status")
-        table.add_column("Description")
-        for i in result:
-            table.add_row(i["service"], i["status"], i["description"])
-
+        table = create_table(
+            title,
+            result,
+            ("Service", "service"),
+            ("Status", "status"),
+            ("Description", "description"),
+        )
         console.print(table, overflow="fold")
     except fc.FirecrestException as e:
         examine_exeption(e)
@@ -116,14 +127,14 @@ def systems(
             result = client.all_systems()
             title = "Status of FirecREST systems"
 
-        table = Table(title=title)
-        table.add_column("System")
-        table.add_column("Status")
-        table.add_column("Description")
-        for i in result:
-            table.add_row(i["system"], i["status"], i["description"])
-
-        console.print(table)
+        table = create_table(
+            title,
+            result,
+            ("System", "system"),
+            ("Status", "status"),
+            ("Description", "description"),
+        )
+        console.print(table, overflow="fold")
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -134,24 +145,24 @@ def parameters():
     """Configurable parameters of FirecREST
     """
     try:
-        all_results = client.parameters()
-        title = "Storage parameters"
-        table1 = Table(title=title)
-        table1.add_column("Name")
-        table1.add_column("Value")
-        table1.add_column("Unit")
-        for i in all_results["storage"]:
-            table1.add_row(i["name"], str(i["value"]), i["unit"])
+        result = client.parameters()
+        storage_table = create_table(
+            "Storage parameters",
+            result["storage"],
+            ("Name", "name"),
+            ("Value", "value"),
+            ("Unit", "unit"),
+        )
 
-        title = "Utilities parameters"
-        table2 = Table(title=title)
-        table2.add_column("Name")
-        table2.add_column("Value")
-        table2.add_column("Unit")
-        for i in all_results["utilities"]:
-            table2.add_row(i["name"], str(i["value"]), i["unit"])
+        utilities_table = create_table(
+            "Utilities parameters",
+            result["utilities"],
+            ("Name", "name"),
+            ("Value", "value"),
+            ("Unit", "unit"),
+        )
 
-        console.print(table1, table2)
+        console.print(storage_table, utilities_table, overflow="fold")
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -178,26 +189,18 @@ def ls(
         if raw:
             console.print(result)
         else:
-            table = Table(title=f"Files in machine `{machine}` and path `{path}`")
-            table.add_column("filename")
-            table.add_column("type")
-            table.add_column("group")
-            table.add_column("permissions")
-            table.add_column("size")
-            table.add_column("user")
-            table.add_column("last_modified")
-            table.add_column("link_target")
-            for i in result:
-                table.add_row(
-                    i["name"],
-                    i["type"],
-                    i["group"],
-                    i["permissions"],
-                    i["size"],
-                    i["user"],
-                    i["last_modified"],
-                    i["link_target"],
-                )
+            table = create_table(
+                f"Files in machine `{machine}` and path `{path}`",
+                result,
+                ("Filename", "name"),
+                ("Type", "type"),
+                ("Group", "group"),
+                ("Permissions", "permissions"),
+                ("Size", "size"),
+                ("User", "user"),
+                ("Last modified", "last_modified"),
+                ("Link target", "link_target"),
+            )
 
             console.print(table)
     except fc.FirecrestException as e:
@@ -333,32 +336,64 @@ def stat(
             if deref:
                 title += " (dereferenced)"
 
-            table = Table(title=title)
-            table.add_column("Attribute")
-            table.add_column("Value")
-            table.add_column("Description")
-
-            table.add_row("mode", str(result["mode"]), "access rights in octal")
-            table.add_row("ino", str(result["ino"]), "inode number")
-            table.add_row("dev", str(result["dev"]), "device number in decimal")
-            table.add_row("nlink", str(result["nlink"]), "number of hard links")
-            table.add_row("uid", str(result["uid"]), "user ID of owner")
-            table.add_row("gid", str(result["gid"]), "group ID of owner")
-            table.add_row("size", str(result["size"]), "total size, in bytes")
-            table.add_row(
-                "atime",
-                str(result["atime"]),
-                "time of last access, seconds since Epoch",
-            )
-            table.add_row(
-                "mtime",
-                str(result["mtime"]),
-                "time of last data modification, seconds since Epoch",
-            )
-            table.add_row(
-                "ctime",
-                str(result["ctime"]),
-                "time of last status change, seconds since Epoch",
+            data = [
+                {
+                    "Attribute": "mode",
+                    "Value": result["mode"],
+                    "Description": "access rights in octal",
+                },
+                {
+                    "Attribute": "ino",
+                    "Value": result["ino"],
+                    "Description": "inode number",
+                },
+                {
+                    "Attribute": "dev",
+                    "Value": result["dev"],
+                    "Description": "device number in decimal",
+                },
+                {
+                    "Attribute": "nlink",
+                    "Value": result["nlink"],
+                    "Description": "number of hard links",
+                },
+                {
+                    "Attribute": "uid",
+                    "Value": result["uid"],
+                    "Description": "user ID of owner",
+                },
+                {
+                    "Attribute": "gid",
+                    "Value": result["gid"],
+                    "Description": "group ID of owner",
+                },
+                {
+                    "Attribute": "size",
+                    "Value": result["size"],
+                    "Description": "total size, in bytes",
+                },
+                {
+                    "Attribute": "atime",
+                    "Value": result["atime"],
+                    "Description": "time of last access, seconds since Epoch",
+                },
+                {
+                    "Attribute": "mtime",
+                    "Value": result["mtime"],
+                    "Description": "time of last data modification, seconds since Epoch",
+                },
+                {
+                    "Attribute": "ctime",
+                    "Value": result["ctime"],
+                    "Description": "time of last status change, seconds since Epoch",
+                },
+            ]
+            table = create_table(
+                title,
+                data,
+                ("Attribute", "Attribute"),
+                ("Value", "Value"),
+                ("Description", "Description"),
             )
 
             console.print(table)
@@ -741,8 +776,7 @@ def poll(
         ..., help="The machine name where the source filesystem belongs to."
     ),
     jobs: Optional[List[str]] = typer.Argument(
-        None,
-        help="List of job IDs to display.",
+        None, help="List of job IDs to display."
     ),
     start_time: Optional[str] = typer.Option(
         None,
@@ -762,32 +796,20 @@ def poll(
         if raw:
             console.print(result)
         else:
-            title = "Accounting data for jobs"
-            table = Table(title=title)
-            table.add_column("Job ID", overflow="fold")
-            table.add_column("Name", overflow="fold")
-            table.add_column("Nonelist", overflow="fold")
-            table.add_column("Nodes", overflow="fold")
-            table.add_column("Partition", overflow="fold")
-            table.add_column("Start time", overflow="fold")
-            table.add_column("State", overflow="fold")
-            table.add_column("Time", overflow="fold")
-            table.add_column("Time left", overflow="fold")
-            table.add_column("User", overflow="fold")
-            for i in result:
-                table.add_row(
-                    i["jobid"],
-                    i["name"],
-                    i["nodelist"],
-                    i["nodes"],
-                    i["partition"],
-                    i["start_time"],
-                    i["state"],
-                    i["time"],
-                    i["time_left"],
-                    i["user"],
-                )
-
+            table = create_table(
+                "Accounting data for jobs",
+                result,
+                ("Job ID", "jobid"),
+                ("Name", "name"),
+                ("Nodelist", "nodelist"),
+                ("Nodes", "nodes"),
+                ("Partition", "partition"),
+                ("Start time", "start_time"),
+                ("State", "state"),
+                ("Time", "time"),
+                ("Time left", "time_left"),
+                ("User", "user"),
+            )
             console.print(table)
     except fc.FirecrestException as e:
         examine_exeption(e)
@@ -800,8 +822,7 @@ def poll_active(
         ..., help="The machine name where the source filesystem belongs to."
     ),
     jobs: Optional[List[str]] = typer.Argument(
-        None,
-        help="List of job IDs to display.",
+        None, help="List of job IDs to display."
     ),
     raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
@@ -813,32 +834,20 @@ def poll_active(
         if raw:
             console.print(result)
         else:
-            title = "Information about jobs in the queue"
-            table = Table(title=title)
-            table.add_column("Job ID")
-            table.add_column("Name")
-            table.add_column("Nonelist")
-            table.add_column("Nodes")
-            table.add_column("Partition")
-            table.add_column("Start time")
-            table.add_column("State")
-            table.add_column("Time")
-            table.add_column("Time left")
-            table.add_column("User")
-            for i in result:
-                table.add_row(
-                    i["jobid"],
-                    i["name"],
-                    i["nodelist"],
-                    i["nodes"],
-                    i["partition"],
-                    i["start_time"],
-                    i["state"],
-                    i["time"],
-                    i["time_left"],
-                    i["user"],
-                )
-
+            table = create_table(
+                "Information about jobs in the queue",
+                result,
+                ("Job ID", "jobid"),
+                ("Name", "name"),
+                ("Nodelist", "nodelist"),
+                ("Nodes", "nodes"),
+                ("Partition", "partition"),
+                ("Start time", "start_time"),
+                ("State", "state"),
+                ("Time", "time"),
+                ("Time left", "time_left"),
+                ("User", "user"),
+            )
             console.print(table)
     except fc.FirecrestException as e:
         examine_exeption(e)
