@@ -262,10 +262,10 @@ def test_cli_all_tasks(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Task information: 3 results" in stdout
-    assert "Task ID  | Status | Description" in stdout
-    assert "taskid_1 | 114    | description" in stdout
-    assert "taskid_2 | 112    | description" in stdout
-    assert "taskid_3 | 111    | description" in stdout
+    assert "Task ID  | Status" in stdout
+    assert "taskid_1 | 114" in stdout
+    assert "taskid_2 | 112" in stdout
+    assert "taskid_3 | 111" in stdout
 
 
 def test_subset_tasks(valid_client):
@@ -306,10 +306,10 @@ def test_cli_subset_tasks(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Task information: 2 results" in stdout
-    assert "Task ID  | Status | Description" in stdout
-    assert "taskid_1 | 114    | description" in stdout
-    assert "taskid_3 | 111    | description" in stdout
-    assert "taskid_2 | 112    | description" not in stdout
+    assert "Task ID  | Status" in stdout
+    assert "taskid_1 | 114" in stdout
+    assert "taskid_3 | 111" in stdout
+    assert "taskid_2 | 112" not in stdout
 
 
 def test_one_task(valid_client):
@@ -336,10 +336,10 @@ def test_cli_one_task(valid_credentials):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "Task information: 1 result" in stdout
-    assert "Task ID  | Status | Description" in stdout
-    assert "taskid_2 | 112    | description" in stdout
-    assert "taskid_1 | 114    | description" not in stdout
-    assert "taskid_3 | 111    | description" not in stdout
+    assert "Task ID  | Status" in stdout
+    assert "taskid_2 | 112" in stdout
+    assert "taskid_1 | 114" not in stdout
+    assert "taskid_3 | 111" not in stdout
 
 
 def test_invalid_task(valid_client):
