@@ -1,7 +1,9 @@
+import common
 import httpretty
 import json
 import pytest
 import re
+import test_authoriation as auth
 
 from context import firecrest
 from typer.testing import CliRunner
@@ -93,6 +95,16 @@ def valid_client():
 
 
 @pytest.fixture
+def valid_credentials():
+    return [
+        "--firecrest-url=http://firecrest.cscs.ch",
+        "--client-id=valid_id",
+        "--client-secret=valid_secret",
+        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+    ]
+
+
+@pytest.fixture
 def invalid_client():
     class ValidAuthorization:
         def get_access_token(self):
@@ -172,6 +184,12 @@ def setup_callbacks():
         body=tasks_callback,
     )
 
+    httpretty.register_uri(
+        httpretty.POST,
+        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        body=auth.auth_callback,
+    )
+
     yield
 
     httpretty.disable()
@@ -238,6 +256,18 @@ def test_all_tasks(valid_client):
     }
 
 
+def test_cli_all_tasks(valid_credentials):
+    args = valid_credentials + ["tasks", "--no-pager"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Task information: 3 results" in stdout
+    assert "Task ID  | Status | Description" in stdout
+    assert "taskid_1 | 114    | description" in stdout
+    assert "taskid_2 | 112    | description" in stdout
+    assert "taskid_3 | 111    | description" in stdout
+
+
 def test_subset_tasks(valid_client):
     # "taskid_4" is not a valid id but it will be silently ignored
     assert valid_client._tasks(["taskid_1", "taskid_3", "taskid_4"]) == {
@@ -270,6 +300,18 @@ def test_subset_tasks(valid_client):
     }
 
 
+def test_cli_subset_tasks(valid_credentials):
+    args = valid_credentials + ["tasks", "--no-pager",  "taskid_1",  "taskid_3"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Task information: 2 results" in stdout
+    assert "Task ID  | Status | Description" in stdout
+    assert "taskid_1 | 114    | description" in stdout
+    assert "taskid_3 | 111    | description" in stdout
+    assert "taskid_2 | 112    | description" not in stdout
+
+
 def test_one_task(valid_client):
     assert valid_client._tasks(["taskid_2"]) == {
         "taskid_2": {
@@ -286,6 +328,18 @@ def test_one_task(valid_client):
             "user": "username",
         }
     }
+
+
+def test_cli_one_task(valid_credentials):
+    args = valid_credentials + ["tasks", "--no-pager",  "taskid_2"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Task information: 1 result" in stdout
+    assert "Task ID  | Status | Description" in stdout
+    assert "taskid_2 | 112    | description" in stdout
+    assert "taskid_1 | 114    | description" not in stdout
+    assert "taskid_3 | 111    | description" not in stdout
 
 
 def test_invalid_task(valid_client):
