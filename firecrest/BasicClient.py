@@ -898,7 +898,6 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
-        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
@@ -925,7 +924,6 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
-        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
