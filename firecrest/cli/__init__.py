@@ -14,7 +14,9 @@ from enum import Enum
 
 from rich.console import Console
 from rich.table import Table
-from rich import print
+from rich.theme import Theme
+from rich import box
+
 
 app = typer.Typer(
     rich_markup_mode="rich",
@@ -52,7 +54,12 @@ app.add_typer(
     help="Create, list, update and delete reservations",
 )
 
-console = Console()
+custom_theme = {
+    "repr.attrib_name": "none",
+    "repr.attrib_value": "none",
+    "repr.number": "none",
+}
+console = Console(theme=Theme(custom_theme))
 client = None
 
 
@@ -66,7 +73,7 @@ def examine_exeption(e):
 
 
 def create_table(table_title, data, *mappings):
-    table = Table(title=table_title)
+    table = Table(title=table_title, box=box.ASCII)
     for (title, _) in mappings:
         table.add_column(title, overflow="fold")
 
@@ -532,7 +539,8 @@ def download(
                 "Moving file to the staging area... It is safe to "
                 "cancel the command and follow up through the task."
             ):
-                console.print(f"Download the file from: {down_obj.object_storage_data}")
+                console.print("Download the file from:")
+                console.out(down_obj.object_storage_data)
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -578,7 +586,7 @@ def upload(
                     console.print(
                         "\nRun the following the following command to finish the upload:"
                     )
-                    console.print(f"[green]{data['command']}[/green]")
+                    console.out(data["command"])
                     console.print(
                         "\nYou can also use a different software to upload the file:"
                     )

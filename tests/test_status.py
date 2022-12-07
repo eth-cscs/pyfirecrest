@@ -211,9 +211,9 @@ def test_cli_all_services(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "Service   ┃ Status    ┃ Description" in stdout
-    assert "utilities │ available │ server up & flask running" in stdout
-    assert "compute   │ available │ server up & flask running" in stdout
+    assert "Service   | Status    | Description" in stdout
+    assert "utilities | available | server up & flask running" in stdout
+    assert "compute   | available | server up & flask running" in stdout
 
 
 def test_all_services_invalid(invalid_client):
@@ -234,8 +234,8 @@ def test_cli_service(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "Service   ┃ Status    ┃ Description" in stdout
-    assert "utilities │ available │ server up & flask running" in stdout
+    assert "Service   | Status    | Description" in stdout
+    assert "utilities | available | server up & flask running" in stdout
     assert "compute" not in stdout
 
 
@@ -261,9 +261,9 @@ def test_cli_all_systems(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "System   ┃ Status    ┃ Description" in stdout
-    assert "cluster1 │ available │ System ready" in stdout
-    assert "cluster2 │ available │ System ready" in stdout
+    assert "System   | Status    | Description" in stdout
+    assert "cluster1 | available | System ready" in stdout
+    assert "cluster2 | available | System ready" in stdout
 
 
 def test_all_systems_invalid(invalid_client):
@@ -284,8 +284,8 @@ def test_cli_system(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "System   ┃ Status    ┃ Description" in stdout
-    assert "cluster1 │ available │ System ready" in stdout
+    assert "System   | Status    | Description" in stdout
+    assert "cluster1 | available | System ready" in stdout
     assert "cluster2" not in stdout
 
 

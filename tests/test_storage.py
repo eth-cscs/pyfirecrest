@@ -578,7 +578,7 @@ def test_cli_external_download(valid_credentials):
         in stdout
     )
     assert "external_download_id" in stdout
-    assert "Download the file from: https://object_storage_link.com" in stdout
+    assert "Download the file from:\nhttps://object_storage_link.com" in stdout
 
 
 def test_external_upload(valid_client):

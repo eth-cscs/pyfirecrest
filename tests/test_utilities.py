@@ -936,13 +936,13 @@ def test_cli_stat(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "ino       │ 648577971375854279 │ inode number" in stdout
+    assert "ino       | 648577971375854279 | inode number" in stdout
 
     args = valid_credentials + ["stat", "cluster1", "/path/to/link", "-L"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "ino       │ 648577914584968738 │ inode number" in stdout
+    assert "ino       | 648577914584968738 | inode number" in stdout
 
 
 def test_stat_invalid_arguments(valid_client):
