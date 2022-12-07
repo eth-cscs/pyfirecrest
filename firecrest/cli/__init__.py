@@ -175,6 +175,44 @@ def parameters():
         raise typer.Exit(code=1)
 
 
+@app.command(rich_help_panel="Status commands")
+def tasks(
+    taskids: Optional[List[str]] = typer.Argument(
+        None, help="List of task IDs to display."
+    ),
+    pager: Optional[bool] = typer.Option(
+        True,
+        help="Display the output in a pager application.",
+    ),
+):
+    """Retrieve information about the FirecREST tasks of the users
+    """
+    try:
+        result = client._tasks(taskids)
+        num_results = len(result.values())
+        table = create_table(
+            f"Task information: {num_results} result{'s' if num_results > 1 else ''}",
+            result.values(),
+            ("Task ID", "hash_id"),
+            ("Status", "status"),
+            ("Description", "description"),
+            ("Created at", "created_at"),
+            ("Updated at", "updated_at"),
+            ("User", "user"),
+            ("Service", "service"),
+            ("Data", "data"),
+        )
+        if pager:
+            with console.pager():
+                console.print(table)
+        else:
+            console.print(table)
+
+    except fc.FirecrestException as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
 @app.command(rich_help_panel="Utilities commands")
 def ls(
     machine: str = typer.Argument(
