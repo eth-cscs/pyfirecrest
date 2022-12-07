@@ -379,7 +379,7 @@ class Firecrest:
         if len(task_ids) == 0:
             return taskinfo["tasks"]
         elif len(task_ids) == 1:
-            return taskinfo["task"]
+            return {task_ids[0]: taskinfo["task"]}
         else:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
@@ -387,7 +387,7 @@ class Firecrest:
         if responses is None:
             responses = self._current_method_requests
 
-        task = self._tasks([task_id], responses)
+        task = self._tasks([task_id], responses)[task_id]
         status = int(task["status"])
         if status == 115:
             raise fe.StorageUploadException(responses)

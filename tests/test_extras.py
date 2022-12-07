@@ -272,17 +272,19 @@ def test_subset_tasks(valid_client):
 
 def test_one_task(valid_client):
     assert valid_client._tasks(["taskid_2"]) == {
-        "created_at": "2022-08-16T07:18:54",
-        "data": "data",
-        "description": "description",
-        "hash_id": "taskid_2",
-        "last_modify": "2022-08-16T07:18:54",
-        "service": "storage",
-        "status": "112",
-        "task_id": "taskid_2",
-        "task_url": "TASK_IP/tasks/taskid_2",
-        "updated_at": "2022-08-16T07:18:54",
-        "user": "username",
+        "taskid_2": {
+            "created_at": "2022-08-16T07:18:54",
+            "data": "data",
+            "description": "description",
+            "hash_id": "taskid_2",
+            "last_modify": "2022-08-16T07:18:54",
+            "service": "storage",
+            "status": "112",
+            "task_id": "taskid_2",
+            "task_url": "TASK_IP/tasks/taskid_2",
+            "updated_at": "2022-08-16T07:18:54",
+            "user": "username",
+        }
     }
 
 
