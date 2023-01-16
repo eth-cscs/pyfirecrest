@@ -26,12 +26,22 @@ requests = ">=2.14.0"
 PyJWT = ">=2.4.0"
 typer = {extras = ["all"], version = "^0.7.0"}
 
+[tool.poetry.group.test]
+optional = true
 
-[tool.poetry.group.dev.dependencies]
+[tool.poetry.group.test.dependencies]
 httpretty = ">=1.0.3"
 pytest = ">=5.3"
-flake8 = "^6.0"
+flake8 = "^5.0"
 
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+myst-parser = ">=0.16"
+sphinx = ">=4.0"
+sphinx-autobuild = ">=2021.0"
+sphinx-rtd-theme = ">=1.0"
 
 [build-system]
 requires = ["poetry-core"]
