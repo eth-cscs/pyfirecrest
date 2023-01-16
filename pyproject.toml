@@ -17,8 +17,7 @@ packages = [
 ]
 
 [tool.poetry.scripts]
-firecrest = 'firecrest.__main__:main'
-firecrest = 'firecrest.cli:app
+firecrest = 'firecrest.cli_script:main'
 
 
 [tool.poetry.dependencies]
