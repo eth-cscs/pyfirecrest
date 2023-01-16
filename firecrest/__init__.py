@@ -9,7 +9,7 @@ from firecrest.version import VERSION
 
 
 __version__ = VERSION
-__app_name__ = "firecrest_cli"
+__app_name__ = "firecrest"
 MIN_PYTHON_VERSION = (3, 7, 0)
 
 # Check python version

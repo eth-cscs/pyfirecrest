@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "pyfirecrest"
+version = "1.3.0"
+description = "pyFirecrest is a python wrapper for FirecREST"
+authors = ["CSCS"]
+license = "BSD-3-Clause"
+maintainers = [
+    "Eirini Koutsaniti <eirini.koutsaniti@cscs.ch>",
+    "Juan Pablo Dorsch <juanpablo.dorsch@cscs.ch>"
+]
+readme = "README.md"
+homepage = "https://pyfirecrest.readthedocs.io"
+documentation = "https://pyfirecrest.readthedocs.io"
+repository = "https://github.com/eth-cscs/pyfirecrest"
+packages = [
+    { include = "firecrest" }
+]
+
+[tool.poetry.scripts]
+firecrest = 'firecrest.__main__:main'
+firecrest = 'firecrest.cli:app
+
+
+[tool.poetry.dependencies]
+python = "^3.7"
+requests = ">=2.14.0"
+PyJWT = ">=2.4.0"
+typer = {extras = ["all"], version = "^0.7.0"}
+
+
+[tool.poetry.group.dev.dependencies]
+httpretty = ">=1.0.3"
+pytest = ">=5.3"
+flake8 = "^6.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
