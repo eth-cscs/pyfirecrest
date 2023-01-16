@@ -1,0 +1,35 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "firecrest"
+
+[project]
+name = "pyfirecrest"
+dynamic = ["version"]
+authors = [{name = "CSCS Swiss National Supercomputing Center"}]
+license = {text = "BSD 3-Clause"}
+description = "pyFirecrest is a python wrapper for FirecREST"
+classifiers = [
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+urls = {Homepage = "https://github.com/eth-cscs/pyfirecrest"}
+requires-python = ">=3.7"
+dependencies = ["requests>=2.14.0", "PyJWT>=2.4.0"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.optional-dependencies]
+testing = [
+    "requests>=2.14.0",
+    "pyjwt>=2.4.0",
+    "httpretty>=1.0.3",
+    "pytest>=5.3",
+]

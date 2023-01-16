@@ -4,15 +4,7 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup --------------------------------------------------------------
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import os
-import sys
-sys.path.insert(0, os.path.abspath('../..'))
+from firecrest import __version__
 
 
 # -- Project information -----------------------------------------------------
@@ -21,13 +13,7 @@ project = 'PyFirecREST'
 copyright = '2022, CSCS Swiss National Supercomputing Center'
 author = 'CSCS Swiss National Supercomputing Center'
 
-# The full version, including alpha/beta/rc tags
-version_py = os.path.join(os.path.dirname(__file__), '../..', 'firecrest', 'version.py')
-version_d = {}
-with open(version_py) as fp:
-    exec(fp.read(), version_d)
-
-release = version_d['VERSION']
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
