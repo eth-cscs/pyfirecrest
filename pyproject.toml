@@ -20,7 +20,7 @@ classifiers = [
 ]
 urls = {Homepage = "https://github.com/eth-cscs/pyfirecrest"}
 requires-python = ">=3.7"
-dependencies = ["requests>=2.14.0", "PyJWT>=2.4.0", "click"]
+dependencies = ["requests>=2.14.0", "PyJWT>=2.4.0", "click", "pyyaml"]
 
 [project.readme]
 file = "README.md"

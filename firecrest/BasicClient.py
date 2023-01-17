@@ -4,6 +4,8 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+from __future__ import annotations
+
 from contextlib import nullcontext
 import itertools
 import pathlib
@@ -484,6 +486,37 @@ class Firecrest:
             params=params,
         )
         return self._json_response([resp], 200)["output"]
+
+    def ls_recurse(
+        self,
+        machine: str,
+        path: str,
+        *,
+        show_hidden: bool = False,
+        delimiter: str = "/",
+        max_calls: int | None = None,
+        max_depth: int | None = None,
+    ):
+        """Recursively yield paths, depth first."""
+        stack = [{"depth": 0, "path": path, "type": "d", "_initial": True}]
+        calls_made = 0
+        while stack:
+            current_path = stack.pop()
+            if not current_path.get("_initial"):
+                yield current_path
+            if current_path["type"] == "d":
+                if max_depth is None or current_path["depth"] < max_depth:
+                    if max_calls and calls_made >= max_calls:
+                        raise RecursionError("Too many API calls, aborting.")
+                    calls_made += 1
+                    for child in self.list_files(
+                        machine, current_path["path"], show_hidden=show_hidden
+                    ):
+                        child["path"] = delimiter.join(
+                            (current_path["path"], child["name"])
+                        )
+                        child["depth"] = current_path["depth"] + 1
+                        stack.append(child)
 
     def mkdir(self, machine, target_path, p=None):
         """Creates a new directory.
