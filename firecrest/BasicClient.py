@@ -4,20 +4,21 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+from contextlib import nullcontext
 import itertools
-import jwt
 import pathlib
-import requests
 import shlex
 import shutil
 import subprocess
 import time
 import urllib.request
 
+import jwt
+import requests
+from requests.compat import json
+
 import firecrest.FirecrestException as fe
 
-from contextlib import nullcontext
-from requests.compat import json
 
 # This function is temporarily here
 def handle_response(response):
@@ -33,8 +34,7 @@ def handle_response(response):
 
 
 class ExternalStorage:
-    """External storage object.
-    """
+    """External storage object."""
 
     def __init__(self, client, task_id, previous_responses=None):
         previous_responses = [] if previous_responses is None else previous_responses
@@ -236,7 +236,7 @@ class Firecrest:
     :type firecrest_url: string
     :param authorization: the authorization object
     :type authorization: object
-    :param verify: either a boolean, in which case it controls whether requests will verify the server’s TLS certificate, or a string, in which case it must be a path to a CA bundle to use (default True)
+    :param verify: either a boolean, in which case it controls whether requests will verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use (default True)
     :type verify: boolean or string, optional
     :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
     :type sa_role: string, optional
@@ -286,7 +286,7 @@ class Firecrest:
             data=data,
             files=files,
             verify=self._verify,
-            timeout=self.timeout
+            timeout=self.timeout,
         )
         return resp
 
@@ -475,7 +475,7 @@ class Firecrest:
         :rtype: list of files
         """
         params = {"targetPath": f"{target_path}"}
-        if show_hidden == True:
+        if show_hidden:
             params["showhidden"] = show_hidden
 
         resp = self._get_request(
@@ -504,7 +504,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/utilities/mkdir",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 201)
 
@@ -523,7 +523,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint="/utilities/rename",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "sourcePath": source_path}
+            data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 200)
 
@@ -542,7 +542,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint="/utilities/chmod",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "mode": mode}
+            data={"targetPath": target_path, "mode": mode},
         )
         self._json_response([resp], 200)
 
@@ -574,7 +574,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint="/utilities/chown",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 200)
 
@@ -593,7 +593,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/utilities/copy",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "sourcePath": source_path}
+            data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 201)
 
@@ -652,7 +652,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/utilities/symlink",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "linkPath": link_path}
+            data={"targetPath": target_path, "linkPath": link_path},
         )
         self._json_response([resp], 201)
 
@@ -715,7 +715,7 @@ class Firecrest:
                 endpoint="/utilities/upload",
                 additional_headers={"X-Machine-Name": machine},
                 data={"targetPath": target_path},
-                files={"file": f}
+                files={"file": f},
             )
 
         self._json_response([resp], 201)
@@ -733,7 +733,7 @@ class Firecrest:
         resp = self._delete_request(
             endpoint="/utilities/rm",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path}
+            data={"targetPath": target_path},
         )
         self._json_response([resp], 204)
 
@@ -806,13 +806,13 @@ class Firecrest:
                 resp = self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
-                    files={"file": f}
+                    files={"file": f},
                 )
         else:
             resp = self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
-                data={"targetPath": job_script}
+                data={"targetPath": job_script},
             )
 
         self._current_method_requests.append(resp)
@@ -977,9 +977,7 @@ class Firecrest:
             data["account"] = account
 
         resp = self._post_request(
-            endpoint=endpoint,
-            additional_headers={"X-Machine-Name": machine},
-            data=data
+            endpoint=endpoint, additional_headers={"X-Machine-Name": machine}, data=data
         )
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
@@ -1168,7 +1166,14 @@ class Firecrest:
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rm"
         json_response = self._internal_transfer(
-            endpoint, machine, None, target_path, job_name, time, stage_out_job_id, account
+            endpoint,
+            machine,
+            None,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
         )
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -1189,7 +1194,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/storage/xfer-external/upload",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "sourcePath": source_path}
+            data={"targetPath": target_path, "sourcePath": source_path},
         )
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
@@ -1207,7 +1212,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/storage/xfer-external/download",
             additional_headers={"X-Machine-Name": machine},
-            data={"sourcePath": source_path}
+            data={"sourcePath": source_path},
         )
         return ExternalDownload(
             self, self._json_response([resp], 201)["task_id"], [resp]
@@ -1267,7 +1272,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/reservations",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 201)
 
@@ -1310,7 +1315,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint=f"/reservations/{reservation}",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 200)
 
@@ -1326,6 +1331,8 @@ class Firecrest:
         """
         resp = self._delete_request(
             endpoint=f"/reservations/{reservation}",
-            additional_headers={"X-Machine-Name": machine,}
+            additional_headers={
+                "X-Machine-Name": machine,
+            },
         )
         self._json_response([resp], 204)

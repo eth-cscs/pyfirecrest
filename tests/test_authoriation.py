@@ -1,8 +1,8 @@
-import httpretty
 import json
-import pytest
 
 from context import firecrest
+import httpretty
+import pytest
 
 
 def auth_callback(request, uri, response_headers):

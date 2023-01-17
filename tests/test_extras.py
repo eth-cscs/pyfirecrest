@@ -1,9 +1,9 @@
-import httpretty
 import json
-import pytest
 import re
 
 from context import firecrest
+import httpretty
+import pytest
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def client1():
             #     "clientId": "bob-client",
             #     "preferred_username": "service-account-bob-client"
             # }
-            return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZmlyZWNyZXN0LXNhIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYm9iLWNsaWVudCI6eyJyb2xlcyI6WyJib2IiXX19LCJjbGllbnRJZCI6ImJvYi1jbGllbnQiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJzZXJ2aWNlLWFjY291bnQtYm9iLWNsaWVudCJ9.XfCXDclEBh7faQrOF2piYdnb7c3AUiCxDesTkNSwpSY"
+            return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZmlyZWNyZXN0LXNhIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYm9iLWNsaWVudCI6eyJyb2xlcyI6WyJib2IiXX19LCJjbGllbnRJZCI6ImJvYi1jbGllbnQiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJzZXJ2aWNlLWFjY291bnQtYm9iLWNsaWVudCJ9.XfCXDclEBh7faQrOF2piYdnb7c3AUiCxDesTkNSwpSY"  # noqa: E501
 
     return firecrest.Firecrest(
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
@@ -179,7 +179,7 @@ def test_whoami_3(client3):
 
 
 def test_whoami_invalid_client(invalid_client):
-    assert invalid_client.whoami() == None
+    assert invalid_client.whoami() is None
 
 
 def test_all_tasks(valid_client):

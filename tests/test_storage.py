@@ -1,10 +1,11 @@
-import httpretty
 import json
-import pytest
 import re
 
 from context import firecrest
-from firecrest.BasicClient import ExternalUpload, ExternalDownload
+import httpretty
+import pytest
+
+from firecrest.BasicClient import ExternalDownload, ExternalUpload
 
 
 @pytest.fixture
