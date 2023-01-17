@@ -181,8 +181,7 @@ def tasks(
         None, help="List of task IDs to display."
     ),
     pager: Optional[bool] = typer.Option(
-        True,
-        help="Display the output in a pager application.",
+        True, help="Display the output in a pager application."
     ),
 ):
     """Retrieve information about the FirecREST tasks of the users
