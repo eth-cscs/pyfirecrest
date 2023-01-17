@@ -4,12 +4,17 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+import logging
 import requests
 import time
+import datetime
 
 import firecrest.FirecrestException as fe
 
+from datetime import datetime
 from requests.compat import json
+
+logger = logging.getLogger(__name__)
 
 
 class ClientCredentialsAuth:
@@ -48,6 +53,9 @@ class ClientCredentialsAuth:
             and self._token_expiration_ts
             and time.time() <= (self._token_expiration_ts - self._min_token_validity)
         ):
+            logger.info(
+                f"Reusing token, will renew after {datetime.fromtimestamp(self._token_expiration_ts - self._min_token_validity)}"
+            )
             return self._access_token
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -67,4 +75,7 @@ class ClientCredentialsAuth:
 
         self._access_token = resp_json["access_token"]
         self._token_expiration_ts = time.time() + resp_json["expires_in"]
+        logger.info(
+            f"Token expires at {datetime.fromtimestamp(self._token_expiration_ts)}"
+        )
         return self._access_token
