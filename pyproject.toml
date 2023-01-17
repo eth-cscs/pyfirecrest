@@ -28,8 +28,6 @@ content-type = "text/markdown"
 
 [project.optional-dependencies]
 testing = [
-    "requests>=2.14.0",
-    "pyjwt>=2.4.0",
     "httpretty>=1.0.3",
     "pytest>=5.3",
 ]

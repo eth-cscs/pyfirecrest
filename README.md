@@ -50,3 +50,6 @@ except Exception as e:
 ## Development
 
 To format and lint the code, install [pre-commit](https://pre-commit.com/) and run `pre-commit run --all` in the root of the repository.
+
+To test the code, create a [virtual environment](https://docs.python.org/3/tutorial/venv.html) and install the package with `pip install -e .[testing]`.
+Then run `pytest` in the root of the repository.
