@@ -46,3 +46,7 @@ except Exception as e:
     # trying to upload a file that doesn't exist in your local filesystem.
     pass
 ```
+
+## Development
+
+To format and lint the code, install [pre-commit](https://pre-commit.com/) and run `pre-commit run --all` in the root of the repository.
