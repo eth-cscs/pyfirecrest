@@ -4,9 +4,9 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-import requests
 import time
 
+import requests
 from requests.compat import json
 
 
@@ -22,7 +22,7 @@ class ClientCredentialsAuth:
     :type token_uri: string
     :param min_token_validity: reuse OIDC token until {min_token_validity} sec before the expiration time (by default 10). Since the token will be checked by different microservices, setting more time in min_token_validity will ensure that the token doesn't expire in the middle of the request.
     :type min_token_validity: float
-    """
+    """  # noqa: E501
 
     def __init__(self, client_id, client_secret, token_uri, min_token_validity=10):
         self._client_id = client_id

@@ -1,9 +1,9 @@
-import httpretty
 import json
-import pytest
 import re
 
 from context import firecrest
+import httpretty
+import pytest
 
 
 @pytest.fixture
@@ -113,7 +113,7 @@ def submit_upload_callback(request, uri, response_headers):
             }
             status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = f"path is an invalid path."
+        response_headers["X-Invalid-Path"] = "path is an invalid path."
         ret = {"description": "Failed to submit job"}
         status_code = 400
 

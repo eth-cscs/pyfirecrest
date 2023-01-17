@@ -1,9 +1,8 @@
-import httpretty
 import json
-import pytest
-import re
 
 from context import firecrest
+import httpretty
+import pytest
 
 
 @pytest.fixture
