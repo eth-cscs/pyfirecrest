@@ -55,6 +55,14 @@ class ExternalStorage:
         """
         return self._client
 
+    @property
+    def task_id(self):
+        """Returns the FirecREST task ID that is associated with this transfer.
+
+        :rtype: string
+        """
+        return self._task_id
+
     def _update(self):
         if self._status not in self._final_states:
             task = self._client._task_safe(self._task_id, self._responses)
@@ -286,7 +294,7 @@ class Firecrest:
             data=data,
             files=files,
             verify=self._verify,
-            timeout=self.timeout
+            timeout=self.timeout,
         )
         return resp
 
@@ -371,7 +379,7 @@ class Firecrest:
         if len(task_ids) == 0:
             return taskinfo["tasks"]
         elif len(task_ids) == 1:
-            return taskinfo["task"]
+            return {task_ids[0]: taskinfo["task"]}
         else:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
@@ -379,7 +387,7 @@ class Firecrest:
         if responses is None:
             responses = self._current_method_requests
 
-        task = self._tasks([task_id], responses)
+        task = self._tasks([task_id], responses)[task_id]
         status = int(task["status"])
         if status == 115:
             raise fe.StorageUploadException(responses)
@@ -504,7 +512,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/utilities/mkdir",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 201)
 
@@ -523,7 +531,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint="/utilities/rename",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "sourcePath": source_path}
+            data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 200)
 
@@ -542,7 +550,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint="/utilities/chmod",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "mode": mode}
+            data={"targetPath": target_path, "mode": mode},
         )
         self._json_response([resp], 200)
 
@@ -554,9 +562,9 @@ class Firecrest:
         :type machine: string
         :param target_path: the absolute target path
         :type target_path: string
-        :param owner: owner username for target
+        :param owner: owner ID for target
         :type owner: string, optional
-        :param group: group username for target
+        :param group: group ID for target
         :type group: string, optional
         :calls: PUT `/utilities/chown`
         :rtype: None
@@ -574,7 +582,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint="/utilities/chown",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 200)
 
@@ -593,7 +601,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/utilities/copy",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "sourcePath": source_path}
+            data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 201)
 
@@ -616,6 +624,7 @@ class Firecrest:
 
     def stat(self, machine, target_path, dereference=False):
         """Uses the stat linux application to determine the status of a file on the machine's filesystem.
+        The result follows: https://docs.python.org/3/library/os.html#os.stat_result.
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string
@@ -652,7 +661,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/utilities/symlink",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "linkPath": link_path}
+            data={"targetPath": target_path, "linkPath": link_path},
         )
         self._json_response([resp], 201)
 
@@ -695,7 +704,7 @@ class Firecrest:
         :type source_path: string or binary stream
         :param target_path: the absolute target path of the directory where the file will be uploaded
         :type target_path: string
-        :param filename: naming target file to filename (default None)
+        :param filename: naming target file to filename (default is same as the local one)
         :type filename: string
         :calls: POST `/utilities/upload`
         :rtype: None
@@ -715,7 +724,7 @@ class Firecrest:
                 endpoint="/utilities/upload",
                 additional_headers={"X-Machine-Name": machine},
                 data={"targetPath": target_path},
-                files={"file": f}
+                files={"file": f},
             )
 
         self._json_response([resp], 201)
@@ -733,7 +742,7 @@ class Firecrest:
         resp = self._delete_request(
             endpoint="/utilities/rm",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path}
+            data={"targetPath": target_path},
         )
         self._json_response([resp], 204)
 
@@ -806,13 +815,13 @@ class Firecrest:
                 resp = self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
-                    files={"file": f}
+                    files={"file": f},
                 )
         else:
             resp = self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
-                data={"targetPath": job_script}
+                data={"targetPath": job_script},
             )
 
         self._current_method_requests.append(resp)
@@ -878,7 +887,7 @@ class Firecrest:
 
         :param machine: the machine name where the scheduler belongs to
         :type machine: string
-        :param jobs: list of the IDs of the jobs (default [])
+        :param jobs: list of the IDs of the jobs
         :type jobs: list of strings/integers, optional
         :param start_time: Start time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
         :type start_time: string, optional
@@ -889,8 +898,8 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
-        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
+        jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._acct_request(machine, jobids, start_time, end_time)
         res = self._poll_tasks(
@@ -908,15 +917,15 @@ class Firecrest:
 
         :param machine: the machine name where the scheduler belongs to
         :type machine: string
-        :param jobs: list of the IDs of the jobs (default [])
+        :param jobs: list of the IDs of the jobs
         :type jobs: list of strings/integers, optional
         :calls: GET `/compute/jobs`
 
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
-        jobs = [] if jobs is None else jobs
         self._current_method_requests = []
+        jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._squeue_request(machine, jobids)
         dict_result = self._poll_tasks(
@@ -925,7 +934,7 @@ class Firecrest:
         return list(dict_result.values())
 
     def cancel(self, machine, job_id):
-        """Retrieves information about submitted jobs.
+        """Cancels running job.
         This call uses the `scancel` command.
 
         :param machine: the machine name where the scheduler belongs to
@@ -977,9 +986,7 @@ class Firecrest:
             data["account"] = account
 
         resp = self._post_request(
-            endpoint=endpoint,
-            additional_headers={"X-Machine-Name": machine},
-            data=data
+            endpoint=endpoint, additional_headers={"X-Machine-Name": machine}, data=data
         )
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
@@ -1168,7 +1175,14 @@ class Firecrest:
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rm"
         json_response = self._internal_transfer(
-            endpoint, machine, None, target_path, job_name, time, stage_out_job_id, account
+            endpoint,
+            machine,
+            None,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
         )
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -1189,7 +1203,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/storage/xfer-external/upload",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "sourcePath": source_path}
+            data={"targetPath": target_path, "sourcePath": source_path},
         )
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
@@ -1207,7 +1221,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/storage/xfer-external/download",
             additional_headers={"X-Machine-Name": machine},
-            data={"sourcePath": source_path}
+            data={"sourcePath": source_path},
         )
         return ExternalDownload(
             self, self._json_response([resp], 201)["task_id"], [resp]
@@ -1267,7 +1281,7 @@ class Firecrest:
         resp = self._post_request(
             endpoint="/reservations",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 201)
 
@@ -1310,7 +1324,7 @@ class Firecrest:
         resp = self._put_request(
             endpoint=f"/reservations/{reservation}",
             additional_headers={"X-Machine-Name": machine},
-            data=data
+            data=data,
         )
         self._json_response([resp], 200)
 
@@ -1326,6 +1340,6 @@ class Firecrest:
         """
         resp = self._delete_request(
             endpoint=f"/reservations/{reservation}",
-            additional_headers={"X-Machine-Name": machine,}
+            additional_headers={"X-Machine-Name": machine},
         )
         self._json_response([resp], 204)

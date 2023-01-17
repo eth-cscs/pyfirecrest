@@ -57,6 +57,14 @@ class UnauthorizedException(FirecrestException):
         return f"{super().__str__()}: unauthorized request"
 
 
+class ClientsCredentialsException(FirecrestException):
+    """Exception raised by the request to the authorization server
+    """
+
+    def __str__(self):
+        return f"{super().__str__()}: Client credentials error"
+
+
 class HeaderException(FirecrestException):
     """Exception raised by a request with an error header
     """

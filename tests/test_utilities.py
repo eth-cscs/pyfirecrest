@@ -1,9 +1,17 @@
+import common
 import httpretty
 import json
 import pytest
 import re
+import test_authoriation as auth
 
 from context import firecrest
+
+from firecrest import __app_name__, __version__, cli
+from typer.testing import CliRunner
+
+
+runner = CliRunner()
 
 
 @pytest.fixture
@@ -15,6 +23,16 @@ def valid_client():
     return firecrest.Firecrest(
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
     )
+
+
+@pytest.fixture
+def valid_credentials():
+    return [
+        "--firecrest-url=http://firecrest.cscs.ch",
+        "--client-id=valid_id",
+        "--client-secret=valid_secret",
+        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+    ]
 
 
 @pytest.fixture
@@ -547,6 +565,12 @@ def setup_callbacks():
         httpretty.GET, "http://firecrest.cscs.ch/utilities/view", body=view_callback
     )
 
+    httpretty.register_uri(
+        httpretty.POST,
+        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        body=auth.auth_callback,
+    )
+
     yield
 
     httpretty.disable()
@@ -613,6 +637,24 @@ def test_list_files(valid_client):
     ]
 
 
+def test_cli_list_files(valid_credentials):
+    args = valid_credentials + ["ls", "cluster1", "/path/to/valid/dir"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "file.txt" in stdout
+    assert "projectd" in stdout
+    assert ".hiddenf" not in stdout
+
+    args = valid_credentials + ["ls", "cluster1", "/path/to/valid/dir", "--show-hidden"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "file.txt" in stdout
+    assert "projectd" in stdout
+    assert ".hiddenf" in stdout
+
+
 def test_list_files_invalid_path(valid_client):
     with pytest.raises(firecrest.FirecrestException):
         valid_client.list_files("cluster1", "/path/to/invalid/dir")
@@ -634,6 +676,16 @@ def test_mkdir(valid_client):
     valid_client.mkdir("cluster1", "path/to/valid/dir/with/p", p=True)
 
 
+def test_cli_mkdir(valid_credentials):
+    args = valid_credentials + ["mkdir", "cluster1", "path/to/valid/dir"]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+
+    args = valid_credentials + ["mkdir", "cluster1", "path/to/valid/dir/with/p", "-p"]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+
+
 def test_mkdir_invalid_path(valid_client):
     with pytest.raises(firecrest.FirecrestException):
         valid_client.mkdir("cluster1", "/path/to/invalid/dir")
@@ -652,6 +704,17 @@ def test_mkdir_invalid_client(invalid_client):
 def test_mv(valid_client):
     # Make sure this doesn't raise an error
     valid_client.mv("cluster1", "/path/to/valid/source", "/path/to/valid/destination")
+
+
+def test_cli_mv(valid_credentials):
+    args = valid_credentials + [
+        "mv",
+        "cluster1",
+        "/path/to/valid/source",
+        "/path/to/valid/destination",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
 
 
 def test_mv_invalid_paths(valid_client):
@@ -681,6 +744,12 @@ def test_chmod(valid_client):
     valid_client.chmod("cluster1", "/path/to/valid/file", "777")
 
 
+def test_cli_chmod(valid_credentials):
+    args = valid_credentials + ["chmod", "cluster1", "/path/to/valid/file", "777"]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+
+
 def test_chmod_invalid_arguments(valid_client):
     with pytest.raises(firecrest.FirecrestException):
         valid_client.chmod("cluster1", "/path/to/invalid/file", "777")
@@ -706,6 +775,18 @@ def test_chown(valid_client):
     )
     # Call will immediately return if neither owner and nor group are set
     valid_client.chown("cluster", "path")
+
+
+def test_cli_chown(valid_credentials):
+    args = valid_credentials + [
+        "chown",
+        "cluster1",
+        "/path/to/file",
+        "--owner=new_owner",
+        "--group=new_group",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
 
 
 def test_chown_invalid_arguments(valid_client):
@@ -744,6 +825,17 @@ def test_copy(valid_client):
     valid_client.copy("cluster1", "/path/to/valid/source", "/path/to/valid/destination")
 
 
+def test_cli_copy(valid_credentials):
+    args = valid_credentials + [
+        "cp",
+        "cluster1",
+        "/path/to/valid/source",
+        "/path/to/valid/destination",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+
+
 def test_copy_invalid_arguments(valid_client):
     with pytest.raises(firecrest.HeaderException):
         valid_client.copy(
@@ -769,6 +861,20 @@ def test_copy_invalid_client(invalid_client):
 def test_file_type(valid_client):
     assert valid_client.file_type("cluster1", "/path/to/empty/file") == "empty"
     assert valid_client.file_type("cluster1", "/path/to/directory") == "directory"
+
+
+def test_cli_file_type(valid_credentials):
+    args = valid_credentials + ["file", "cluster1", "/path/to/empty/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "empty" in stdout
+
+    args = valid_credentials + ["file", "cluster1", "/path/to/directory"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "directory" in stdout
 
 
 def test_file_type_invalid_arguments(valid_client):
@@ -825,6 +931,20 @@ def test_stat(valid_client):
     }
 
 
+def test_cli_stat(valid_credentials):
+    args = valid_credentials + ["stat", "cluster1", "/path/to/link"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "ino       | 648577971375854279 | inode number" in stdout
+
+    args = valid_credentials + ["stat", "cluster1", "/path/to/link", "-L"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "ino       | 648577914584968738 | inode number" in stdout
+
+
 def test_stat_invalid_arguments(valid_client):
     with pytest.raises(firecrest.HeaderException):
         valid_client.stat("cluster1", "/path/to/invalid/file")
@@ -843,6 +963,12 @@ def test_stat_invalid_client(invalid_client):
 def test_symlink(valid_client):
     # Make sure this doesn't raise an error
     valid_client.symlink("cluster1", "/path/to/file", "/path/to/link")
+
+
+def test_cli_symlink(valid_credentials):
+    args = valid_credentials + ["symlink", "cluster1", "/path/to/file", "/path/to/link"]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
 
 
 def test_symlink_invalid_arguments(valid_client):
@@ -874,6 +1000,18 @@ def test_simple_download(valid_client, tmp_path):
         assert f.read() == "Hello!\n"
 
 
+def test_cli_simple_download(valid_credentials, tmp_path):
+    tmp_dir = tmp_path / "download_dir"
+    tmp_dir.mkdir()
+    local_file = tmp_dir / "hello_cli.txt"
+    args = valid_credentials + ["download", "cluster1", "/path/to/remote/source", str(local_file), "--type=direct"]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+
+    with open(local_file) as f:
+        assert f.read() == "Hello!\n"
+
+
 def test_simple_download_invalid_arguments(valid_client):
     with pytest.raises(firecrest.HeaderException):
         valid_client.simple_download(
@@ -896,12 +1034,23 @@ def test_simple_download_invalid_client(invalid_client):
 
 
 def test_simple_upload(valid_client, tmp_path):
-    tmp_dir = tmp_path / "download_dir"
+    tmp_dir = tmp_path / "upload_dir"
     tmp_dir.mkdir()
     local_file = tmp_dir / "hello.txt"
     local_file.write_text("hi")
     # Make sure this doesn't raise an error
     valid_client.simple_upload("cluster1", local_file, "/path/to/remote/destination")
+
+
+def test_cli_simple_upload(valid_credentials, tmp_path):
+    tmp_dir = tmp_path / "upload_dir"
+    tmp_dir.mkdir()
+    local_file = tmp_dir / "hello.txt"
+    local_file.write_text("hi")
+    args = valid_credentials + ["upload", "cluster1", str(local_file), "/path/to/remote/destination", "--type=direct"]
+    result = runner.invoke(cli.app, args=args)
+    # Make sure this doesn't raise an error
+    assert result.exit_code == 0
 
 
 def test_simple_upload_invalid_arguments(valid_client, tmp_path):
@@ -942,6 +1091,13 @@ def test_simple_delete(valid_client):
     valid_client.simple_delete("cluster1", "/path/to/file")
 
 
+def test_cli_simple_delete(valid_credentials):
+    args = valid_credentials + ["rm", "cluster1", "/path/to/file", "--force"]
+    result = runner.invoke(cli.app, args=args)
+    # Make sure this doesn't raise an error
+    assert result.exit_code == 0
+
+
 def test_simple_delete_invalid_arguments(valid_client):
     with pytest.raises(firecrest.HeaderException):
         valid_client.simple_delete("cluster1", "/path/to/invalid/file")
@@ -964,6 +1120,14 @@ def test_checksum(valid_client):
     )
 
 
+def test_cli_checksum(valid_credentials):
+    args = valid_credentials + ["checksum", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" in stdout
+
+
 def test_checksum_invalid_arguments(valid_client):
     with pytest.raises(firecrest.HeaderException):
         valid_client.checksum("cluster1", "/path/to/invalid/file")
@@ -981,6 +1145,14 @@ def test_checksum_invalid_client(invalid_client):
 
 def test_view(valid_client):
     assert valid_client.view("cluster1", "/path/to/file") == "hello\n"
+
+
+def test_cli_view(valid_credentials):
+    args = valid_credentials + ["head", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "hello\n" in stdout
 
 
 def test_view_invalid_arguments(valid_client):

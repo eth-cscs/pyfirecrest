@@ -1,9 +1,16 @@
+import common
 import httpretty
 import json
 import pytest
 import re
+import test_authoriation as auth
 
 from context import firecrest
+from firecrest import __app_name__, __version__, cli
+from typer.testing import CliRunner
+
+
+runner = CliRunner()
 
 
 @pytest.fixture
@@ -15,6 +22,16 @@ def valid_client():
     return firecrest.Firecrest(
         firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
     )
+
+
+@pytest.fixture
+def valid_credentials():
+    return [
+        "--firecrest-url=http://firecrest.cscs.ch",
+        "--client-id=valid_id",
+        "--client-secret=valid_secret",
+        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+    ]
 
 
 @pytest.fixture
@@ -162,6 +179,12 @@ def setup_callbacks():
         body=parameters_callback,
     )
 
+    httpretty.register_uri(
+        httpretty.POST,
+        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        body=auth.auth_callback,
+    )
+
     yield
 
     httpretty.disable()
@@ -183,6 +206,16 @@ def test_all_services(valid_client):
     ]
 
 
+def test_cli_all_services(valid_credentials):
+    args = valid_credentials + ["services"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Service   | Status    | Description" in stdout
+    assert "utilities | available | server up & flask running" in stdout
+    assert "compute   | available | server up & flask running" in stdout
+
+
 def test_all_services_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.all_services()
@@ -194,6 +227,16 @@ def test_service(valid_client):
         "service": "utilities",
         "status": "available",
     }
+
+
+def test_cli_service(valid_credentials):
+    args = valid_credentials + ["services", "--name=utilities"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Service   | Status    | Description" in stdout
+    assert "utilities | available | server up & flask running" in stdout
+    assert "compute" not in stdout
 
 
 def test_invalid_service(valid_client):
@@ -213,6 +256,16 @@ def test_all_systems(valid_client):
     ]
 
 
+def test_cli_all_systems(valid_credentials):
+    args = valid_credentials + ["systems"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "System   | Status    | Description" in stdout
+    assert "cluster1 | available | System ready" in stdout
+    assert "cluster2 | available | System ready" in stdout
+
+
 def test_all_systems_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.all_systems()
@@ -224,6 +277,16 @@ def test_system(valid_client):
         "status": "available",
         "system": "cluster1",
     }
+
+
+def test_cli_system(valid_credentials):
+    args = valid_credentials + ["systems", "--name=cluster1"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "System   | Status    | Description" in stdout
+    assert "cluster1 | available | System ready" in stdout
+    assert "cluster2" not in stdout
 
 
 def test_invalid_system(valid_client):
@@ -253,6 +316,15 @@ def test_parameters(valid_client):
             {"name": "UTILITIES_TIMEOUT", "unit": "seconds", "value": "5"},
         ],
     }
+
+
+def test_cli_parameters(valid_credentials):
+    args = valid_credentials + ["parameters"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Storage parameters" in stdout
+    assert "Utilities parameters" in stdout
 
 
 def test_parameters_invalid(invalid_client):
