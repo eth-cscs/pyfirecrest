@@ -71,6 +71,7 @@ class ClientCredentialsAuth:
             resp_json = ""
 
         if not resp.ok:
+            logger.critical(f"Could not obtain token: {fe.ClientsCredentialsException([resp])}")
             raise fe.ClientsCredentialsException([resp])
 
         self._access_token = resp_json["access_token"]

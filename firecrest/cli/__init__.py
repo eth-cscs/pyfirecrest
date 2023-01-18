@@ -66,12 +66,11 @@ client = None
 
 
 def examine_exeption(e):
+    msg = "{__app_name__}: Operation failed"
     if isinstance(e, fc.ClientsCredentialsException):
-        console.print(
-            f"[red]{__app_name__}: Operation failed: could not fetch token[/red]"
-        )
+        msg += ": could not fetch token"
 
-    console.print(e)
+    console.print(f"[red]{__app_name__}: Operation failed[/red]")
 
 
 def create_table(table_title, data, *mappings):
@@ -1059,6 +1058,12 @@ def main(
     elif verbose:
         logging.basicConfig(
             level=logging.INFO,
+            format="%(message)s",
+            handlers=[RichHandler(console=console)],
+        )
+    else:
+        logging.basicConfig(
+            level=logging.WARNING,
             format="%(message)s",
             handlers=[RichHandler(console=console)],
         )

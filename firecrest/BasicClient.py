@@ -180,9 +180,11 @@ class ExternalUpload(ExternalStorage):
             shlex.split(c), stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         if command.returncode != 0:
-            raise Exception(
+            exc = Exception(
                 f"failed to finish upload with error: {command.stderr.decode('utf-8')}"
             )
+            logger.critical(exc)
+            raise exc
 
 
 class ExternalDownload(ExternalStorage):
@@ -346,16 +348,26 @@ class Firecrest:
         # handle_response(response)
         for h in fe.ERROR_HEADERS:
             if h in response.headers:
-                raise fe.HeaderException(responses)
+                exc = fe.HeaderException(responses)
+                logger.critical(exc)
+                raise exc
 
         if status_code == 401:
-            raise fe.UnauthorizedException(responses)
+            exc = fe.UnauthorizedException(responses)
+            logger.critical(exc)
+            raise exc
         elif status_code == 404:
-            raise fe.NotFound(responses)
+            exc = fe.NotFound(responses)
+            logger.critical(exc)
+            raise exc
         elif status_code >= 400:
-            raise fe.FirecrestException(responses)
+            exc = fe.FirecrestException(responses)
+            logger.critical(exc)
+            raise exc
         elif status_code != expected_status_code:
-            raise fe.UnexpectedStatusException(responses, expected_status_code)
+            exc = fe.UnexpectedStatusException(responses, expected_status_code)
+            logger.critical(exc)
+            raise exc
 
         try:
             ret = response.json()
@@ -401,13 +413,19 @@ class Firecrest:
         task = self._tasks([task_id], responses)[task_id]
         status = int(task["status"])
         if status == 115:
-            raise fe.StorageUploadException(responses)
+            exc = fe.StorageUploadException(responses)
+            logger.critical(exc)
+            raise exc
 
         if status == 118:
-            raise fe.StorageDownloadException(responses)
+            exc = fe.StorageDownloadException(responses)
+            logger.critical(exc)
+            raise exc
 
         if status >= 400:
-            raise fe.FirecrestException(responses)
+            exc = fe.FirecrestException(responses)
+            logger.critical(exc)
+            raise exc
 
         return task
 
