@@ -373,7 +373,9 @@ class Firecrest:
             logger.critical(exc)
             raise exc
         elif status_code != expected_status_code:
-            logger.critical(f"Unexpected status of last request {status_code}, it should have been {expected_status_code}")
+            logger.critical(
+                f"Unexpected status of last request {status_code}, it should have been {expected_status_code}"
+            )
             exc = fe.UnexpectedStatusException(responses, expected_status_code)
             logger.critical(exc)
             raise exc
@@ -422,19 +424,19 @@ class Firecrest:
         task = self._tasks([task_id], responses)[task_id]
         status = int(task["status"])
         if status == 115:
-            logger.critical('Task has error status code 115')
+            logger.critical("Task has error status code 115")
             exc = fe.StorageUploadException(responses)
             logger.critical(exc)
             raise exc
 
         if status == 118:
-            logger.critical('Task has error status code 118')
+            logger.critical("Task has error status code 118")
             exc = fe.StorageDownloadException(responses)
             logger.critical(exc)
             raise exc
 
         if status >= 400:
-            logger.critical(f'Task has error status code {status}')
+            logger.critical(f"Task has error status code {status}")
             exc = fe.FirecrestException(responses)
             logger.critical(exc)
             raise exc
