@@ -6,6 +6,7 @@
 #
 import itertools
 import jwt
+import logging
 import pathlib
 import requests
 import shlex
@@ -18,6 +19,9 @@ import firecrest.FirecrestException as fe
 
 from contextlib import nullcontext
 from requests.compat import json
+
+
+logger = logging.getLogger(__name__)
 
 # This function is temporarily here
 def handle_response(response):
@@ -68,6 +72,7 @@ class ExternalStorage:
             task = self._client._task_safe(self._task_id, self._responses)
             self._status = task["status"]
             self._data = task["data"]
+            logger.info(f"Task {self._task_id} has status {self._status}")
             if not self._object_storage_data:
                 if self._status == "111":
                     self._object_storage_data = task["data"]["msg"]
@@ -116,7 +121,9 @@ class ExternalStorage:
             self._update()
 
         while not self._object_storage_data:
-            time.sleep(next(self._sleep_time))
+            t = next(self._sleep_time)
+            logger.info(f"Sleeping for {t} sec")
+            time.sleep(t)
             self._update()
 
         return self._object_storage_data
@@ -155,6 +162,7 @@ class ExternalUpload(ExternalStorage):
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
+        logger.info(f"Creating ExternalUpload object for task {task_id}")
 
     def finish_upload(self):
         """Finish the upload process.
@@ -167,13 +175,16 @@ class ExternalUpload(ExternalStorage):
         c = self.object_storage_data["command"]
         # LOCAL FIX FOR MAC
         # c = c.replace("192.168.220.19", "localhost")
+        logger.info(f"Uploading the file to the staging area with the command: {c}")
         command = subprocess.run(
             shlex.split(c), stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         if command.returncode != 0:
-            raise Exception(
-                f"failed to finish upload with error: {command.stderr.decode('utf-8')}"
+            exc = Exception(
+                f"Failed to finish upload with error: {command.stderr.decode('utf-8')}"
             )
+            logger.critical(exc)
+            raise exc
 
 
 class ExternalDownload(ExternalStorage):
@@ -203,6 +214,7 @@ class ExternalDownload(ExternalStorage):
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"117", "118"}
+        logger.info(f"Creating ExternalDownload object for task {task_id}")
 
     def invalidate_object_storage_link(self):
         """Invalidate the temporary URL for downloading.
@@ -220,6 +232,7 @@ class ExternalDownload(ExternalStorage):
         :rtype: None
         """
         url = self.object_storage_data
+        logger.info(f"Downloading the file from {url} and saving to {target_path}")
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")
         context = (
@@ -273,6 +286,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making GET request to {endpoint}")
         resp = requests.get(
             url=url,
             headers=headers,
@@ -288,6 +302,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making POST request to {endpoint}")
         resp = requests.post(
             url=url,
             headers=headers,
@@ -304,6 +319,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making PUT request to {endpoint}")
         resp = requests.put(
             url=url,
             headers=headers,
@@ -319,6 +335,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making DELETE request to {endpoint}")
         resp = requests.delete(
             url=url,
             headers=headers,
@@ -335,16 +352,33 @@ class Firecrest:
         # handle_response(response)
         for h in fe.ERROR_HEADERS:
             if h in response.headers:
-                raise fe.HeaderException(responses)
+                logger.critical(f"Header '{h}' is included in the response")
+                exc = fe.HeaderException(responses)
+                logger.critical(exc)
+                raise exc
 
         if status_code == 401:
-            raise fe.UnauthorizedException(responses)
+            logger.critical(f"Status of the response is 401")
+            exc = fe.UnauthorizedException(responses)
+            logger.critical(exc)
+            raise exc
         elif status_code == 404:
-            raise fe.NotFound(responses)
+            logger.critical(f"Status of the response is 404")
+            exc = fe.NotFound(responses)
+            logger.critical(exc)
+            raise exc
         elif status_code >= 400:
-            raise fe.FirecrestException(responses)
+            logger.critical(f"Status of the response is {status_code}")
+            exc = fe.FirecrestException(responses)
+            logger.critical(exc)
+            raise exc
         elif status_code != expected_status_code:
-            raise fe.UnexpectedStatusException(responses, expected_status_code)
+            logger.critical(
+                f"Unexpected status of last request {status_code}, it should have been {expected_status_code}"
+            )
+            exc = fe.UnexpectedStatusException(responses, expected_status_code)
+            logger.critical(exc)
+            raise exc
 
         try:
             ret = response.json()
@@ -390,13 +424,22 @@ class Firecrest:
         task = self._tasks([task_id], responses)[task_id]
         status = int(task["status"])
         if status == 115:
-            raise fe.StorageUploadException(responses)
+            logger.critical("Task has error status code 115")
+            exc = fe.StorageUploadException(responses)
+            logger.critical(exc)
+            raise exc
 
         if status == 118:
-            raise fe.StorageDownloadException(responses)
+            logger.critical("Task has error status code 118")
+            exc = fe.StorageDownloadException(responses)
+            logger.critical(exc)
+            raise exc
 
         if status >= 400:
-            raise fe.FirecrestException(responses)
+            logger.critical(f"Task has error status code {status}")
+            exc = fe.FirecrestException(responses)
+            logger.critical(exc)
+            raise exc
 
         return task
 
@@ -410,11 +453,17 @@ class Firecrest:
         return self._json_response(responses, 201)
 
     def _poll_tasks(self, task_id, final_status, sleep_time):
+        logger.info(f"Polling task {task_id} until status is {final_status}")
         resp = self._task_safe(task_id)
         while resp["status"] < final_status:
-            time.sleep(next(sleep_time))
+            t = next(sleep_time)
+            logger.info(
+                f'Status of {task_id} is {resp["status"]}, sleeping for {t} sec'
+            )
+            time.sleep(t)
             resp = self._task_safe(task_id)
 
+        logger.info(f'Status of {task_id} is {resp["status"]}')
         return resp["data"]
 
     # Status
@@ -877,6 +926,7 @@ class Firecrest:
         """
         self._current_method_requests = []
         json_response = self._submit_request(machine, job_script, local_file)
+        logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -902,6 +952,7 @@ class Firecrest:
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._acct_request(machine, jobids, start_time, end_time)
+        logger.info(f"Job polling task: {json_response['task_id']}")
         res = self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -928,6 +979,7 @@ class Firecrest:
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._squeue_request(machine, jobids)
+        logger.info(f"Job active polling task: {json_response['task_id']}")
         dict_result = self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -953,6 +1005,7 @@ class Firecrest:
         )
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
+        logger.info(f"Job cancellation task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -1037,6 +1090,7 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
+        logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -1087,6 +1141,7 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
+        logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -1137,6 +1192,7 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
+        logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
@@ -1184,6 +1240,7 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
+        logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )

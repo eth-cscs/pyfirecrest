@@ -1004,7 +1004,13 @@ def test_cli_simple_download(valid_credentials, tmp_path):
     tmp_dir = tmp_path / "download_dir"
     tmp_dir.mkdir()
     local_file = tmp_dir / "hello_cli.txt"
-    args = valid_credentials + ["download", "cluster1", "/path/to/remote/source", str(local_file), "--type=direct"]
+    args = valid_credentials + [
+        "download",
+        "cluster1",
+        "/path/to/remote/source",
+        str(local_file),
+        "--type=direct",
+    ]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 
@@ -1047,7 +1053,13 @@ def test_cli_simple_upload(valid_credentials, tmp_path):
     tmp_dir.mkdir()
     local_file = tmp_dir / "hello.txt"
     local_file.write_text("hi")
-    args = valid_credentials + ["upload", "cluster1", str(local_file), "/path/to/remote/destination", "--type=direct"]
+    args = valid_credentials + [
+        "upload",
+        "cluster1",
+        str(local_file),
+        "/path/to/remote/destination",
+        "--type=direct",
+    ]
     result = runner.invoke(cli.app, args=args)
     # Make sure this doesn't raise an error
     assert result.exit_code == 0

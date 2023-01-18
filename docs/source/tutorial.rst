@@ -217,6 +217,33 @@ The simplest way to do the uploading through pyFirecREST is as follows:
 But, as before, you can get the necessary components for the upload from the ``object_storage_data`` property.
 You can get the link, as well as all the necessary arguments for the request to Object Storage and the full command you could perform manually from the terminal.
 
+Enable logging in your python code
+----------------------------------
+
+The simplest way to enable logging in your code would be to add this in the beginning of your file:
+
+.. code-block:: Python
+
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
+
+pyFirecREST has all of it's messages in `INFO` level. If you want to avoid messages from other packages, you can do the following:
+
+.. code-block:: Python
+
+    import logging
+
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
+    logging.getLogger("firecrest").setLevel(logging.INFO)
+
+
 Handling of errors
 ------------------
 

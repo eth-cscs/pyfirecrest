@@ -301,7 +301,7 @@ def test_subset_tasks(valid_client):
 
 
 def test_cli_subset_tasks(valid_credentials):
-    args = valid_credentials + ["tasks", "--no-pager",  "taskid_1",  "taskid_3"]
+    args = valid_credentials + ["tasks", "--no-pager", "taskid_1", "taskid_3"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -331,7 +331,7 @@ def test_one_task(valid_client):
 
 
 def test_cli_one_task(valid_credentials):
-    args = valid_credentials + ["tasks", "--no-pager",  "taskid_2"]
+    args = valid_credentials + ["tasks", "--no-pager", "taskid_2"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0

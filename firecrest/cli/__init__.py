@@ -4,6 +4,7 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+import logging
 import typer
 
 import firecrest as fc
@@ -12,10 +13,11 @@ from firecrest import __app_name__, __version__
 from typing import List, Optional
 from enum import Enum
 
+from rich import box
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.table import Table
 from rich.theme import Theme
-from rich import box
 
 
 app = typer.Typer(
@@ -64,12 +66,11 @@ client = None
 
 
 def examine_exeption(e):
+    msg = "{__app_name__}: Operation failed"
     if isinstance(e, fc.ClientsCredentialsException):
-        console.print(
-            f"[red]{__app_name__}: Operation failed: could not fetch token[/red]"
-        )
+        msg += ": could not fetch token"
 
-    console.print(e)
+    console.print(f"[red]{__app_name__}: Operation failed[/red]")
 
 
 def create_table(table_title, data, *mappings):
@@ -85,7 +86,7 @@ def create_table(table_title, data, *mappings):
 
 def version_callback(value: bool):
     if value:
-        print(f"FirecREST CLI Version: {__version__}")
+        console.print(f"FirecREST CLI Version: {__version__}")
         raise typer.Exit()
 
 
@@ -181,8 +182,7 @@ def tasks(
         None, help="List of task IDs to display."
     ),
     pager: Optional[bool] = typer.Option(
-        True,
-        help="Display the output in a pager application.",
+        True, help="Display the output in a pager application."
     ),
 ):
     """Retrieve information about the FirecREST tasks of the users
@@ -577,8 +577,7 @@ def download(
                 "Moving file to the staging area... It is safe to "
                 "cancel the command and follow up through the task."
             ):
-                console.print("Download the file from:")
-                console.out(down_obj.object_storage_data)
+                console.out(f"Download the file from:\n{down_obj.object_storage_data}")
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1014,6 +1013,7 @@ def delete(
 def main(
     version: Optional[bool] = typer.Option(
         None,
+        "--version",
         callback=version_callback,
         is_eager=True,
         help="Show the application's version and exit.",
@@ -1032,6 +1032,10 @@ def main(
         help="URL of the token request in the authorization server (e.g. https://auth.com/auth/.../openid-connect/token).",
         envvar="AUTH_TOKEN_URL",
     ),
+    verbose: Optional[bool] = typer.Option(
+        None, "-v", "--verbose", help="Enable verbose mode."
+    ),
+    debug: Optional[bool] = typer.Option(None, help="Enable debug mode."),
 ):
     """
     CLI for FirecREST
@@ -1045,3 +1049,21 @@ def main(
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
     client = fc.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
+    if debug:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(message)s",
+            handlers=[RichHandler(console=console)],
+        )
+    elif verbose:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(message)s",
+            handlers=[RichHandler(console=console)],
+        )
+    else:
+        logging.basicConfig(
+            level=logging.WARNING,
+            format="%(message)s",
+            handlers=[RichHandler(console=console)],
+        )
