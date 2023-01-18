@@ -286,6 +286,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making GET request to {endpoint}")
         resp = requests.get(
             url=url,
             headers=headers,
@@ -301,6 +302,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making POST request to {endpoint}")
         resp = requests.post(
             url=url,
             headers=headers,
@@ -317,6 +319,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making PUT request to {endpoint}")
         resp = requests.put(
             url=url,
             headers=headers,
@@ -332,6 +335,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
+        logger.info(f"Making DELETE request to {endpoint}")
         resp = requests.delete(
             url=url,
             headers=headers,
