@@ -552,14 +552,16 @@ def download(
         TransferType.direct,
         "--type",
         case_sensitive=False,
-        help=f"Select type of transfer (run `{__app_name__} download --help` for details).",
+        help=f"Select type of transfer.",
     ),
 ):
     """Download a file
 
-    Direct download will download the file to the DESTINATION but it will work only for small files. You can find the maximum size by running the `parameters` command.
+    Direct download will download the file to the DESTINATION but it will work only for small files.
+    You can find the maximum size in UTILITIES_MAX_FILE_SIZE by running the `parameters` command.
 
-    External download will return with a link in case of success. The file can be downloaded locally from there without any authentication.
+    External download will return with a link in case of success.
+    The file can be downloaded locally from there without any authentication.
     """
     try:
         if transfer_type == TransferType.direct:
@@ -594,16 +596,22 @@ def upload(
     ),
     filename: Optional[str] = typer.Argument(
         None,
-        help="The name of the file in the machine (by default it will be same as the local file).",
+        help="The name of the file in the machine (by default it will be same as the local file). It works only for a direct upload.",
     ),
     transfer_type: TransferType = typer.Option(
         TransferType.direct,
         "--type",
         case_sensitive=False,
-        help=f"Select type of transfer (run `{__app_name__} upload --help` for details).",
+        help=f"Select type of transfer.",
     ),
 ):
     """Upload a file
+
+    Direct upload will upload the file to the DESTINATION directory but it will work only for small files.
+    You can find the maximum size in UTILITIES_MAX_FILE_SIZE by running the `parameters` command.
+
+    External download will return with a command that will need to be run in case of success.
+    The file can be uploaded to a stage area without any authentication and FirecREST will move the file to the cluster's filesystem as soon as it finished.
     """
     try:
         if transfer_type == TransferType.direct:
@@ -621,13 +629,13 @@ def upload(
                 data = up_obj.object_storage_data
                 if "command" in data:
                     console.print(
-                        "\nRun the following the following command to finish the upload:"
-                    )
-                    console.out(data["command"])
-                    console.print(
-                        "\nYou can also use a different software to upload the file:"
+                        "\nNecessary information to upload the file in the staging area:"
                     )
                     console.print(f"[yellow]{data['parameters']}[/yellow]")
+                    console.print(
+                        "\nOr simply run the following command to finish the upload:"
+                    )
+                    console.print(f"[green]{data['command']}[/green]")
                 else:
                     console.print(data)
     except fc.FirecrestException as e:
