@@ -59,7 +59,7 @@ export FIRECREST_URL=http://localhost:8000
 export AUTH_TOKEN_URL=http://localhost:8080/auth/realms/kcrealm/protocol/openid-connect/token
 ```
 
-After that you can explore the capabilities of the CLI with the `--help` in :
+After that you can explore the capabilities of the CLI with the `--help` option:
 ```bash
 firecrest --help
 firecrest ls --help
