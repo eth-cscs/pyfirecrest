@@ -87,6 +87,6 @@ firecrest submit cluster script.sh
 firecrest upload --type=direct cluster local_file.txt /path/to/cluster/fs
 
 # Upload a "large" file
-firecrest upload --type=direct cluster local_file.txt /path/to/cluster/fs
+firecrest upload --type=external cluster local_file.txt /path/to/cluster/fs
 # You will have to finish the upload with a second command that will be given in the output
 ```
