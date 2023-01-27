@@ -5,10 +5,9 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #
 import sys
-from firecrest.version import VERSION
 
 
-__version__ = VERSION
+__version__ = "1.3.0"
 __app_name__ = "firecrest"
 MIN_PYTHON_VERSION = (3, 7, 0)
 

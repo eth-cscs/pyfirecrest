@@ -4,4 +4,6 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-VERSION = "1.3.0"
+from . import __version__
+
+VERSION = __version__
