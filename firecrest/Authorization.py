@@ -7,12 +7,11 @@
 import logging
 import requests
 import time
-import datetime
 
 import firecrest.FirecrestException as fe
 
 from datetime import datetime
-from requests.compat import json
+from requests.compat import json  # type: ignore
 
 logger = logging.getLogger(__name__)
 

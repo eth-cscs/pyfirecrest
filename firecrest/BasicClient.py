@@ -18,7 +18,7 @@ import urllib.request
 import firecrest.FirecrestException as fe
 
 from contextlib import nullcontext
-from requests.compat import json
+from requests.compat import json  # type: ignore
 
 
 logger = logging.getLogger(__name__)
