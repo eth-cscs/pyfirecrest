@@ -35,6 +35,9 @@ Homepage = "https://pyfirecrest.readthedocs.io"
 Documentation = "https://pyfirecrest.readthedocs.io"
 Repository = "https://github.com/eth-cscs/pyfirecrest"
 
+[project.scripts]
+firecrest = "firecrest.cli_script:main"
+
 [project.optional-dependencies]
 test = [
     "httpretty>=1.0.3",
