@@ -1,4 +1,7 @@
-"""Types returned by the API."""
+"""Types returned by the API.
+
+See also: https://firecrest-api.cscs.ch
+"""
 from __future__ import annotations
 
 import sys

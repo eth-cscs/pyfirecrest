@@ -6,7 +6,7 @@
 #
 from __future__ import annotations
 
-from io import BufferedReader, BufferedWriter
+from io import BufferedWriter, BytesIO
 import itertools
 import jwt
 import logging
@@ -660,7 +660,7 @@ class Firecrest:
         )
         self._json_response([resp], 201)
 
-    def simple_download(self, machine: str, source_path: str, target_path: str | pathlib.Path | BufferedWriter) -> None:
+    def simple_download(self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO) -> None:
         """Blocking call to download a small file.
         The maximun size of file that is allowed can be found from the parameters() call.
 
@@ -675,7 +675,7 @@ class Firecrest:
             params={"sourcePath": source_path},
         )
         self._json_response([resp], 200)
-        context: ContextManager[BufferedWriter] = (
+        context: ContextManager[BytesIO] = (
             open(target_path, "wb")  # type: ignore
             if isinstance(target_path, str)
             or isinstance(target_path, pathlib.Path)
@@ -684,7 +684,7 @@ class Firecrest:
         with context as f:
             f.write(resp.content)
 
-    def simple_upload(self, machine: str, source_path: str | pathlib.Path | BufferedReader, target_path: str, filename: None | str = None) -> None:
+    def simple_upload(self, machine: str, source_path: str | pathlib.Path | BytesIO, target_path: str, filename: None | str = None) -> None:
         """Blocking call to upload a small file.
         The file that will be uploaded will have the same name as the source_path.
         The maximum size of file that is allowed can be found from the parameters() call.
@@ -695,7 +695,7 @@ class Firecrest:
         :param filename: naming target file to filename (default is same as the local one)
         :calls: POST `/utilities/upload`
         """
-        context: ContextManager[BufferedReader] = (
+        context: ContextManager[BytesIO] = (
             open(source_path, "rb")  # type: ignore
             if isinstance(source_path, str)
             or isinstance(source_path, pathlib.Path)
