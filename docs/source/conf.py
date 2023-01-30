@@ -13,22 +13,14 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
-
+import firecrest
 
 # -- Project information -----------------------------------------------------
 
 project = 'PyFirecREST'
 copyright = '2022, CSCS Swiss National Supercomputing Center'
 author = 'CSCS Swiss National Supercomputing Center'
-
-# The full version, including alpha/beta/rc tags
-version_py = os.path.join(os.path.dirname(__file__), '../..', 'firecrest', 'version.py')
-version_d = {}
-with open(version_py) as fp:
-    exec(fp.read(), version_d)
-
-release = version_d['VERSION']
-
+release = firecrest.__version__
 
 # -- General configuration ---------------------------------------------------
 
