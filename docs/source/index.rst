@@ -4,7 +4,7 @@ Welcome to PyFirecREST
 
 PyFirecREST is a Python library to use the `FirecREST API <https://firecrest.readthedocs.io>`__. With it, you can manage your resources from Python 3 scripts.
 
-
+Test ci
 
 Installation
 ============
