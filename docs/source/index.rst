@@ -12,15 +12,6 @@ Installation
 This package is in `PyPi <https://pypi.org/project/pyfirecrest/>`__, and ``python3 -m pip install pyfirecrest`` should be enough.
 You can also clone it from `Github <https://github.com/eth-cscs/pyfirecrest>`__ and even modify according to your needs.
 
-Requirements
-============
-
-* Python 3.7 or higher.
-  Python 2 is not supported.
-* The required Python packages are the following:
-
-.. literalinclude:: ../../requirements.txt
-
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
