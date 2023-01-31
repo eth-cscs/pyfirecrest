@@ -62,7 +62,7 @@ custom_theme = {
     "repr.number": "none",
 }
 console = Console(theme=Theme(custom_theme))
-client = None
+client: fc.Firecrest = None  # type: ignore
 
 
 def examine_exeption(e):
