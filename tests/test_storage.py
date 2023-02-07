@@ -609,5 +609,5 @@ def test_cli_external_upload(valid_credentials):
         "Follow the status of the transfer asynchronously with that task ID:" in stdout
     )
     assert "external_upload_id" in stdout
-    assert "Run the following the following command to finish the upload:" in stdout
-    assert "You can also use a different software to upload the file:" in stdout
+    assert "Necessary information to upload the file in the staging area:" in stdout
+    assert "Or simply run the following command to finish the upload:" in stdout
