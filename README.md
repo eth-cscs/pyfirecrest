@@ -51,7 +51,7 @@ except Exception as e:
 
 After version 1.3.0 pyFirecREST comes together with a CLI but for now it can only be used with the `f7t.ClientCredentialsAuth` authentication class.
 
-Assuming you are using the same client  can start by setting as environment variables the following, but you:
+Assuming you are using the same client, you can start by setting as environment variables:
 ```bash
 export FIRECREST_CLIENT_ID=firecrest-sample
 export FIRECREST_CLIENT_SECRET=b391e177-fa50-4987-beaf-e6d33ca93571
