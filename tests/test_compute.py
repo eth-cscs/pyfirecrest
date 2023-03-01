@@ -810,6 +810,7 @@ def test_submit_remote(valid_client):
         "jobid": 35335405,
         "result": "Job submitted",
     }
+    submit_path_retry = 0
     assert valid_client.submit(
         machine="cluster1",
         job_script="/path/to/workdir/script.sh",
@@ -841,6 +842,20 @@ def test_cli_submit_remote(valid_credentials):
     assert "'jobid': 35335405" in stdout
     assert "'result': 'Job submitted'" in stdout
 
+    submit_path_retry = 0
+    args = valid_credentials + [
+        "submit",
+        "cluster1",
+        "/path/to/workdir/script.sh",
+        "--no-local",
+        "--account=proj",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "'jobid': 35335406" in stdout
+    assert "'result': 'Job submitted'" in stdout
+
 
 def test_submit_local(valid_client, slurm_script):
     # Test submission for local script
@@ -857,6 +872,7 @@ def test_submit_local(valid_client, slurm_script):
         "jobid": 35342667,
         "result": "Job submitted",
     }
+    submit_upload_retry = 0
     assert valid_client.submit(
         machine="cluster1", job_script=slurm_script, local_file=True, account="proj"
     ) == {
@@ -878,6 +894,19 @@ def test_cli_submit_local(valid_credentials, slurm_script):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "'jobid': 35342667" in stdout
+    assert "'result': 'Job submitted'" in stdout
+
+    submit_upload_retry = 0
+    args = valid_credentials + [
+        "submit",
+        "cluster1",
+        str(slurm_script),
+        "--account=proj",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "'jobid': 35342668" in stdout
     assert "'result': 'Job submitted'" in stdout
 
 
