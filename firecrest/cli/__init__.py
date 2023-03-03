@@ -1048,6 +1048,12 @@ def main(
     verbose: Optional[bool] = typer.Option(
         None, "-v", "--verbose", help="Enable verbose mode."
     ),
+    timeout: Optional[float] = typer.Option(
+        None, help="How many seconds to wait for the FirecREST server to send data before giving up."
+    ),
+    auth_timeout: Optional[float] = typer.Option(
+        None, help="How many seconds to wait for the authorization server to send data before giving up."
+    ),
     debug: Optional[bool] = typer.Option(None, help="Enable debug mode."),
 ):
     """
@@ -1061,7 +1067,9 @@ def main(
     """
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
+    auth_obj.timeout = auth_timeout
     client = fc.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
+    client.timeout = timeout
     if debug:
         logging.basicConfig(
             level=logging.DEBUG,
