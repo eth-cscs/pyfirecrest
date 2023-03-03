@@ -79,13 +79,22 @@ def submit_path_callback(request, uri, response_headers):
         ]
 
     target_path = request.parsed_body["targetPath"][0]
+    account = request.parsed_body.get("account", [None])[0]
     if target_path == "/path/to/workdir/script.sh":
-        ret = {
-            "success": "Task created",
-            "task_id": "submit_path_job_id",
-            "task_url": "TASK_IP/tasks/submit_path_job_id",
-        }
-        status_code = 201
+        if account is None:
+            ret = {
+                "success": "Task created",
+                "task_id": "submit_path_job_id_default_account",
+                "task_url": "TASK_IP/tasks/submit_path_job_id_default_account",
+            }
+            status_code = 201
+        else:
+            ret = {
+                "success": "Task created",
+                "task_id": f"submit_path_job_id_{account}_account",
+                "task_url": f"TASK_IP/tasks/submit_path_job_id_{account}_account",
+            }
+            status_code = 201
     elif target_path == "/path/to/non/slurm/file.sh":
         ret = {
             "success": "Task created",
@@ -116,11 +125,18 @@ def submit_upload_callback(request, uri, response_headers):
     # I couldn't find a better way to get the params from the request
     if b'form-data; name="file"; filename="script.sh"' in request.body:
         if b"#!/bin/bash -l\n" in request.body:
-            ret = {
-                "success": "Task created",
-                "task_id": "submit_upload_job_id",
-                "task_url": "TASK_IP/tasks/submit_upload_job_id",
-            }
+            if b"proj" in request.body:
+                ret = {
+                    "success": "Task created",
+                    "task_id": "submit_upload_job_id_proj_account",
+                    "task_url": "TASK_IP/tasks/submit_upload_job_id_proj_account",
+                }
+            else:
+                ret = {
+                    "success": "Task created",
+                    "task_id": "submit_upload_job_id_default_account",
+                    "task_url": "TASK_IP/tasks/submit_upload_job_id_default_account",
+                }
             status_code = 201
         else:
             ret = {
@@ -291,7 +307,11 @@ def tasks_callback(request, uri, response_headers):
     if taskid == "tasks":
         # TODO: return all tasks
         pass
-    elif taskid == "submit_path_job_id" or taskid == "submit_path_job_id_fail":
+    elif taskid in (
+        "submit_path_job_id_default_account",
+        "submit_path_job_id_proj_account",
+        "submit_path_job_id_fail",
+    ):
         if submit_path_retry < submit_path_result:
             submit_path_retry += 1
             ret = {
@@ -308,7 +328,13 @@ def tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
-        elif taskid == "submit_path_job_id":
+        elif taskid in (
+            "submit_path_job_id_default_account",
+            "submit_path_job_id_proj_account",
+        ):
+            jobid = (
+                35335405 if taskid == "submit_path_job_id_default_account" else 35335406
+            )
             ret = {
                 "task": {
                     "data": {
@@ -317,16 +343,16 @@ def tasks_callback(request, uri, response_headers):
                         "job_file": "/path/to/workdir/script.sh",
                         "job_file_err": "/path/to/workdir/slurm-35335405.out",
                         "job_file_out": "/path/to/workdir/slurm-35335405.out",
-                        "jobid": 35335405,
+                        "jobid": jobid,
                         "result": "Job submitted",
                     },
                     "description": "Finished successfully",
-                    "hash_id": "submit_path_job_id",
+                    "hash_id": taskid,
                     "last_modify": "2021-12-04T11:52:11",
                     "service": "compute",
                     "status": "200",
-                    "task_id": "submit_path_job_id",
-                    "task_url": "TASK_IP/tasks/submit_path_job_id",
+                    "task_id": taskid,
+                    "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
                 }
             }
@@ -346,7 +372,11 @@ def tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
-    elif taskid == "submit_upload_job_id" or taskid == "submit_upload_job_id_fail":
+    elif taskid in (
+        "submit_upload_job_id_default_account",
+        "submit_upload_job_id_proj_account",
+        "submit_upload_job_id_fail",
+    ):
         if submit_upload_retry < submit_upload_result:
             submit_upload_retry += 1
             ret = {
@@ -363,7 +393,15 @@ def tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
-        elif taskid == "submit_upload_job_id":
+        elif taskid in (
+            "submit_upload_job_id_default_account",
+            "submit_upload_job_id_proj_account",
+        ):
+            jobid = (
+                35342667
+                if taskid == "submit_upload_job_id_default_account"
+                else 35342668
+            )
             ret = {
                 "task": {
                     "data": {
@@ -372,7 +410,7 @@ def tasks_callback(request, uri, response_headers):
                         "job_file": f"/path/to/firecrest/{taskid}/script.sh",
                         "job_file_err": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
                         "job_file_out": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
-                        "jobid": 35342667,
+                        "jobid": jobid,
                         "result": "Job submitted",
                     },
                     "description": "Finished successfully",
@@ -772,6 +810,21 @@ def test_submit_remote(valid_client):
         "jobid": 35335405,
         "result": "Job submitted",
     }
+    submit_path_retry = 0
+    assert valid_client.submit(
+        machine="cluster1",
+        job_script="/path/to/workdir/script.sh",
+        local_file=False,
+        account="proj",
+    ) == {
+        "job_data_err": "",
+        "job_data_out": "",
+        "job_file": "/path/to/workdir/script.sh",
+        "job_file_err": "/path/to/workdir/slurm-35335405.out",
+        "job_file_out": "/path/to/workdir/slurm-35335405.out",
+        "jobid": 35335406,
+        "result": "Job submitted",
+    }
 
 
 def test_cli_submit_remote(valid_credentials):
@@ -789,6 +842,20 @@ def test_cli_submit_remote(valid_credentials):
     assert "'jobid': 35335405" in stdout
     assert "'result': 'Job submitted'" in stdout
 
+    submit_path_retry = 0
+    args = valid_credentials + [
+        "submit",
+        "cluster1",
+        "/path/to/workdir/script.sh",
+        "--no-local",
+        "--account=proj",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "'jobid': 35335406" in stdout
+    assert "'result': 'Job submitted'" in stdout
+
 
 def test_submit_local(valid_client, slurm_script):
     # Test submission for local script
@@ -799,10 +866,22 @@ def test_submit_local(valid_client, slurm_script):
     ) == {
         "job_data_err": "",
         "job_data_out": "",
-        "job_file": "/path/to/firecrest/submit_upload_job_id/script.sh",
-        "job_file_err": "/path/to/firecrest/submit_upload_job_id/slurm-35342667.out",
-        "job_file_out": "/path/to/firecrest/submit_upload_job_id/slurm-35342667.out",
+        "job_file": "/path/to/firecrest/submit_upload_job_id_default_account/script.sh",
+        "job_file_err": "/path/to/firecrest/submit_upload_job_id_default_account/slurm-35342667.out",
+        "job_file_out": "/path/to/firecrest/submit_upload_job_id_default_account/slurm-35342667.out",
         "jobid": 35342667,
+        "result": "Job submitted",
+    }
+    submit_upload_retry = 0
+    assert valid_client.submit(
+        machine="cluster1", job_script=slurm_script, local_file=True, account="proj"
+    ) == {
+        "job_data_err": "",
+        "job_data_out": "",
+        "job_file": "/path/to/firecrest/submit_upload_job_id_proj_account/script.sh",
+        "job_file_err": "/path/to/firecrest/submit_upload_job_id_proj_account/slurm-35342667.out",
+        "job_file_out": "/path/to/firecrest/submit_upload_job_id_proj_account/slurm-35342667.out",
+        "jobid": 35342668,
         "result": "Job submitted",
     }
 
@@ -815,6 +894,19 @@ def test_cli_submit_local(valid_credentials, slurm_script):
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "'jobid': 35342667" in stdout
+    assert "'result': 'Job submitted'" in stdout
+
+    submit_upload_retry = 0
+    args = valid_credentials + [
+        "submit",
+        "cluster1",
+        str(slurm_script),
+        "--account=proj",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "'jobid': 35342668" in stdout
     assert "'result': 'Job submitted'" in stdout
 
 

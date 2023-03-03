@@ -858,19 +858,29 @@ class Firecrest:
             return None
 
     # Compute
-    def _submit_request(self, machine, job_script, local_file):
+    def _submit_request(self, machine, job_script, local_file, account=None):
         if local_file:
             with open(job_script, "rb") as f:
+                if account:
+                    data = {"account": account}
+                else:
+                    data = None
+
                 resp = self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
                     files={"file": f},
+                    data=data,
                 )
         else:
+            data = {"targetPath": job_script}
+            if account:
+                data["account"] = account
+
             resp = self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
-                data={"targetPath": job_script},
+                data=data,
             )
 
         self._current_method_requests.append(resp)
@@ -910,7 +920,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def submit(self, machine, job_script, local_file=True):
+    def submit(self, machine, job_script, local_file=True, account=None):
         """Submits a batch script to SLURM on the target system
 
         :param machine: the machine name where the scheduler belongs to
@@ -919,13 +929,15 @@ class Firecrest:
         :type job_script: string
         :param local_file: batch file can be local (default) or on the machine's filesystem
         :type local_file: boolean, optional
+        :param account: submit the job with this project account
+        :type account: string, optional
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         :rtype: dictionary
         """
         self._current_method_requests = []
-        json_response = self._submit_request(machine, job_script, local_file)
+        json_response = self._submit_request(machine, job_script, local_file, account)
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])

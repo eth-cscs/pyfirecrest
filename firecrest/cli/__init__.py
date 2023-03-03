@@ -652,6 +652,11 @@ def submit(
         ...,
         help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
     ),
+    account: Optional[str] = typer.Option(
+        None,
+        "--account",
+        help="Charge resources used by this job to specified account.",
+    ),
     local: Optional[bool] = typer.Option(
         True,
         help="The batch file can be local (default) or on the machine's filesystem.",
@@ -660,7 +665,7 @@ def submit(
     """Submit a batch script to the workload manger of the target system
     """
     try:
-        console.print(client.submit(machine, job_script, local))
+        console.print(client.submit(machine, job_script, local, account=account))
     except fc.FirecrestException as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
