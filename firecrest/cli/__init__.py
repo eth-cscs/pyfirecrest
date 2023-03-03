@@ -658,6 +658,11 @@ def submit(
         ...,
         help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
     ),
+    account: Optional[str] = typer.Option(
+        None,
+        "--account",
+        help="Charge resources used by this job to specified account.",
+    ),
     local: Optional[bool] = typer.Option(
         True,
         help="The batch file can be local (default) or on the machine's filesystem.",
@@ -666,7 +671,7 @@ def submit(
     """Submit a batch script to the workload manger of the target system
     """
     try:
-        console.print(client.submit(machine, job_script, local))
+        console.print(client.submit(machine, job_script, local, account=account))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1049,6 +1054,12 @@ def main(
     verbose: Optional[bool] = typer.Option(
         None, "-v", "--verbose", help="Enable verbose mode."
     ),
+    timeout: Optional[float] = typer.Option(
+        None, help="How many seconds to wait for the FirecREST server to send data before giving up."
+    ),
+    auth_timeout: Optional[float] = typer.Option(
+        None, help="How many seconds to wait for the authorization server to send data before giving up."
+    ),
     debug: Optional[bool] = typer.Option(None, help="Enable debug mode."),
 ):
     """
@@ -1062,7 +1073,9 @@ def main(
     """
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
+    auth_obj.timeout = auth_timeout
     client = fc.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
+    client.timeout = timeout
     if debug:
         logging.basicConfig(
             level=logging.DEBUG,
