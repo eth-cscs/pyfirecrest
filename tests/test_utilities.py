@@ -1252,7 +1252,7 @@ def test_tail(valid_client):
     assert valid_client.tail("cluster1", "/path/to/file", bytes=5) == "ello\n"
 
 
-def test_cli_head(valid_credentials):
+def test_cli_tail(valid_credentials):
     args = valid_credentials + ["tail", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
