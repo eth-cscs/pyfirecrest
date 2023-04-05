@@ -493,6 +493,45 @@ def view_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def head_tail_callback(request, uri, response_headers):
+    is_tail_req = "tail" in uri
+
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on head operation", "error": "Machine does not exist"}',
+        ]
+
+    target_path = request.querystring.get("targetPath", [None])[0]
+    lines = request.querystring.get("lines", [None])[0]
+    bytes = request.querystring.get("bytes", [None])[0]
+    if target_path == "/path/to/file":
+        if lines and int(lines) < 10:
+                result = int(lines)*"hello\n"
+        else:
+            result = 10*"hello\n"
+
+        if bytes:
+            if is_tail_req:
+                result = result[-int(bytes):]
+            else:
+                result = result[0:int(bytes)]
+
+        ret = {"description": "Success to head file.", "output": result}
+        status_code = 200
+    else:
+        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        ret = {"description": "Error on head operation"}
+        status_code = 400
+
+    return [status_code, response_headers, json.dumps(ret)]
+
+
 @pytest.fixture(autouse=True)
 def setup_callbacks():
     httpretty.enable(allow_net_connect=False, verbose=True)
@@ -563,6 +602,14 @@ def setup_callbacks():
 
     httpretty.register_uri(
         httpretty.GET, "http://firecrest.cscs.ch/utilities/view", body=view_callback
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/utilities/head", body=head_tail_callback
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/utilities/tail", body=head_tail_callback
     )
 
     httpretty.register_uri(
@@ -1159,12 +1206,84 @@ def test_view(valid_client):
     assert valid_client.view("cluster1", "/path/to/file") == "hello\n"
 
 
-def test_cli_view(valid_credentials):
+def test_head(valid_client):
+    assert valid_client.head("cluster1", "/path/to/file") == 10*"hello\n"
+    assert valid_client.head("cluster1", "/path/to/file", lines=2) == 2*"hello\n"
+    assert valid_client.head("cluster1", "/path/to/file", bytes=4) == "hell"
+
+
+def test_cli_head(valid_credentials):
     args = valid_credentials + ["head", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "hello\n" in stdout
+    assert stdout.count("hello") == 10
+
+    args = valid_credentials + ["head", "--lines=3", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert stdout.count("hello") == 3
+
+    args = valid_credentials + ["head", "-n", "3", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert stdout.count("hello") == 3
+
+    args = valid_credentials + ["head", "--bytes", "4", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "hello" not in stdout
+    assert "hell" in stdout
+
+    args = valid_credentials + ["head", "-c", "4", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "hello" not in stdout
+    assert "hell" in stdout
+
+
+def test_tail(valid_client):
+    assert valid_client.tail("cluster1", "/path/to/file") == 10*"hello\n"
+    assert valid_client.tail("cluster1", "/path/to/file", lines=2) == 2*"hello\n"
+    assert valid_client.tail("cluster1", "/path/to/file", bytes=5) == "ello\n"
+
+
+def test_cli_head(valid_credentials):
+    args = valid_credentials + ["tail", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert stdout.count("hello") == 10
+
+    args = valid_credentials + ["tail", "--lines=3", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert stdout.count("hello") == 3
+
+    args = valid_credentials + ["tail", "-n", "3", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert stdout.count("hello") == 3
+
+    args = valid_credentials + ["tail", "--bytes", "4", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "hello" not in stdout
+    assert "llo" in stdout
+
+    args = valid_credentials + ["tail", "-c", "4", "cluster1", "/path/to/file"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "hello" not in stdout
+    assert "llo" in stdout
 
 
 def test_view_invalid_arguments(valid_client):
