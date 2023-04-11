@@ -515,14 +515,52 @@ def head(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
+    lines: str = typer.Option(None, "-n", "--lines", help="Print count lines of each of the specified files."),
+    bytes: str = typer.Option(None, "-c", "--bytes", help="Print bytes of each of the specified files."),
 ):
-    """View the content of a specified file
+    """Display the beginning of a specified file.
+    By default the first 10 lines will be returned.
+    Bytes and lines cannot be specified simultaneously.
 
     You view only files smaller than UTILITIES_MAX_FILE_SIZE bytes.
     This variable is available in the parameters command.
     """
+    if lines and bytes:
+        console.print(
+            f"[red]{__app_name__} head: cannot specify both 'bytes' and 'lines'[/red]"
+        )
+        raise typer.Exit(code=1)
+
     try:
-        console.print(client.view(machine, path))
+        console.print(client.head(machine, path, bytes, lines))
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+@app.command(rich_help_panel="Utilities commands")
+def tail(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+    lines: str = typer.Option(None, "-n", "--lines", help="Print count lines of each of the specified files."),
+    bytes: str = typer.Option(None, "-c", "--bytes", help="Print bytes of each of the specified files."),
+):
+    """Display the end of a specified file.
+    By default the last 10 lines will be returned.
+    Bytes and lines cannot be specified simultaneously.
+
+    You view only files smaller than UTILITIES_MAX_FILE_SIZE bytes.
+    This variable is available in the parameters command.
+    """
+    if lines and bytes:
+        console.print(
+            f"[red]{__app_name__} tail: cannot specify both 'bytes' and 'lines'[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        console.print(client.tail(machine, path, bytes, lines))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
