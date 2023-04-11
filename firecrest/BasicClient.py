@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2019-2022, ETH Zurich. All rights reserved.
+#  Copyright (c) 2019-2023, ETH Zurich. All rights reserved.
 #
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
@@ -743,8 +743,68 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
+    def head(self, machine: str, target_path: str, bytes: str = None, lines: str = None):
+        """Display the beginning of a specified file.
+        By default 10 lines will be returned.
+        Bytes and lines cannot be specified simultaneously.
+        The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
+        This variable is available in the parameters command.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param target_path: the absolute target path
+        :type target_path: string
+        :param lines: the number of lines to be displayed
+        :type lines: integer, optional
+        :param bytes: the number of bytes to be displayed
+        :type bytes: integer, optional
+        :calls: GET `/utilities/head`
+        :rtype: string
+        """
+        resp = self._get_request(
+            endpoint="/utilities/head",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+            },
+        )
+        return self._json_response([resp], 200)["output"]
+
+    def tail(self, machine: str, target_path: str, bytes: str | int = None, lines: str | int = None):
+        """Display the last part of a specified file.
+        By default 10 lines will be returned.
+        Bytes and lines cannot be specified simultaneously.
+        The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
+        This variable is available in the parameters command.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param target_path: the absolute target path
+        :type target_path: string
+        :param lines: the number of lines to be displayed
+        :type lines: integer, optional
+        :param bytes: the number of bytes to be displayed
+        :type bytes: integer, optional
+        :calls: GET `/utilities/head`
+        :rtype: string
+        """
+        resp = self._get_request(
+            endpoint="/utilities/tail",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+            },
+        )
+        return self._json_response([resp], 200)["output"]
+
     def view(self, machine: str, target_path: str) -> str:
         """View the content of a specified file.
+        The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
+        This variable is available in the parameters command.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
@@ -784,19 +844,29 @@ class Firecrest:
             return None
 
     # Compute
-    def _submit_request(self, machine: str, job_script, local_file):
+    def _submit_request(self, machine: str, job_script, local_file, account=None):
         if local_file:
             with open(job_script, "rb") as f:
+                if account:
+                    data = {"account": account}
+                else:
+                    data = None
+
                 resp = self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
                     files={"file": f},
+                    data=data,
                 )
         else:
+            data = {"targetPath": job_script}
+            if account:
+                data["account"] = account
+
             resp = self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
-                data={"targetPath": job_script},
+                data=data,
             )
 
         self._current_method_requests.append(resp)
@@ -836,18 +906,19 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def submit(self, machine: str, job_script: str, local_file: None | bool = True) -> t.JobSubmit:
+    def submit(self, machine: str, job_script: str, local_file: bool = True, account: None | str = None) -> t.JobSubmit:
         """Submits a batch script to SLURM on the target system
 
         :param machine: the machine name where the scheduler belongs to
         :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
         :param local_file: batch file can be local (default) or on the machine's filesystem
+        :param account: submit the job with this project account
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         """
         self._current_method_requests = []
-        json_response = self._submit_request(machine, job_script, local_file)
+        json_response = self._submit_request(machine, job_script, local_file, account)
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])

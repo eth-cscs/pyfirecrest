@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2019-2022, ETH Zurich. All rights reserved.
+#  Copyright (c) 2019-2023, ETH Zurich. All rights reserved.
 #
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
@@ -63,14 +63,20 @@ custom_theme = {
 }
 console = Console(theme=Theme(custom_theme))
 client: fc.Firecrest = None  # type: ignore
-
+logger = logging.getLogger(__name__)
 
 def examine_exeption(e):
-    msg = "{__app_name__}: Operation failed"
+    msg = f"{__app_name__}: Operation failed"
     if isinstance(e, fc.ClientsCredentialsException):
         msg += ": could not fetch token"
+    elif isinstance(e, fc.FirecrestException):
+        msg += ": a Firecrest client error has occurred"
+    else:
+        # in case of FirecrestException and ClientsCredentialsException
+        # we don't need to log again the exception
+        logger.critical(e)
 
-    console.print(f"[red]{__app_name__}: Operation failed[/red]")
+    console.print(f"[red]{msg}[/red]")
 
 
 def create_table(table_title, data, *mappings):
@@ -114,7 +120,7 @@ def services(
             ("Description", "description"),
         )
         console.print(table, overflow="fold")
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -143,7 +149,7 @@ def systems(
             ("Description", "description"),
         )
         console.print(table, overflow="fold")
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -171,7 +177,7 @@ def parameters():
         )
 
         console.print(storage_table, utilities_table, overflow="fold")
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -208,7 +214,7 @@ def tasks(
         else:
             console.print(table)
 
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -248,7 +254,7 @@ def ls(
             )
 
             console.print(table)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -269,7 +275,7 @@ def mkdir(
     """
     try:
         client.mkdir(machine, path, p)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -286,7 +292,7 @@ def mv(
     """
     try:
         client.mv(machine, source, destination)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -303,7 +309,7 @@ def chmod(
     """
     try:
         client.chmod(machine, path, mode)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -323,7 +329,7 @@ def chown(
     """
     try:
         client.chown(machine, path, owner, group)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -340,7 +346,7 @@ def cp(
     """
     try:
         client.copy(machine, source, destination)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -356,7 +362,7 @@ def file(
     """
     try:
         console.print(client.file_type(machine, path))
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -442,7 +448,7 @@ def stat(
             )
 
             console.print(table)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -459,7 +465,7 @@ def symlink(
     """
     try:
         client.symlink(machine, target, link_name)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -482,7 +488,7 @@ def rm(
             client.simple_delete(machine, path)
         else:
             console.print("Operation cancelled")
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -498,7 +504,7 @@ def checksum(
     """
     try:
         console.print(client.checksum(machine, path))
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -509,15 +515,53 @@ def head(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
+    lines: str = typer.Option(None, "-n", "--lines", help="Print count lines of each of the specified files."),
+    bytes: str = typer.Option(None, "-c", "--bytes", help="Print bytes of each of the specified files."),
 ):
-    """View the content of a specified file
+    """Display the beginning of a specified file.
+    By default the first 10 lines will be returned.
+    Bytes and lines cannot be specified simultaneously.
 
     You view only files smaller than UTILITIES_MAX_FILE_SIZE bytes.
     This variable is available in the parameters command.
     """
+    if lines and bytes:
+        console.print(
+            f"[red]{__app_name__} head: cannot specify both 'bytes' and 'lines'[/red]"
+        )
+        raise typer.Exit(code=1)
+
     try:
-        console.print(client.view(machine, path))
-    except fc.FirecrestException as e:
+        console.print(client.head(machine, path, bytes, lines))
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+@app.command(rich_help_panel="Utilities commands")
+def tail(
+    machine: str = typer.Argument(
+        ..., help="The machine name where the filesystem belongs to."
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
+    lines: str = typer.Option(None, "-n", "--lines", help="Print count lines of each of the specified files."),
+    bytes: str = typer.Option(None, "-c", "--bytes", help="Print bytes of each of the specified files."),
+):
+    """Display the end of a specified file.
+    By default the last 10 lines will be returned.
+    Bytes and lines cannot be specified simultaneously.
+
+    You view only files smaller than UTILITIES_MAX_FILE_SIZE bytes.
+    This variable is available in the parameters command.
+    """
+    if lines and bytes:
+        console.print(
+            f"[red]{__app_name__} tail: cannot specify both 'bytes' and 'lines'[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        console.print(client.tail(machine, path, bytes, lines))
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -528,7 +572,7 @@ def whoami():
     """
     try:
         console.print(client.whoami())
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -580,7 +624,7 @@ def download(
                 "cancel the command and follow up through the task."
             ):
                 console.out(f"Download the file from:\n{down_obj.object_storage_data}")
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -638,7 +682,7 @@ def upload(
                     console.print(f"[green]{data['command']}[/green]")
                 else:
                     console.print(data)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -652,6 +696,11 @@ def submit(
         ...,
         help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
     ),
+    account: Optional[str] = typer.Option(
+        None,
+        "--account",
+        help="Charge resources used by this job to specified account.",
+    ),
     local: Optional[bool] = typer.Option(
         True,
         help="The batch file can be local (default) or on the machine's filesystem.",
@@ -660,8 +709,8 @@ def submit(
     """Submit a batch script to the workload manger of the target system
     """
     try:
-        console.print(client.submit(machine, job_script, local))
-    except fc.FirecrestException as e:
+        console.print(client.submit(machine, job_script, local, account=account))
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -701,7 +750,7 @@ def submit_mv(
                 machine, source, destination, job_name, time, jobid, account
             )
         )
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -741,7 +790,7 @@ def submit_cp(
                 machine, source, destination, job_name, time, jobid, account
             )
         )
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -781,7 +830,7 @@ def submit_rsync(
                 machine, source, destination, job_name, time, jobid, account
             )
         )
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -818,7 +867,7 @@ def submit_rm(
         console.print(
             client.submit_delete_job(machine, path, job_name, time, jobid, account)
         )
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -864,7 +913,7 @@ def poll(
                 ("User", "user"),
             )
             console.print(table)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -902,7 +951,7 @@ def poll_active(
                 ("User", "user"),
             )
             console.print(table)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -918,7 +967,7 @@ def cancel(
     """
     try:
         client.cancel(machine, job)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -934,7 +983,7 @@ def list(
     try:
         res = client.all_reservations(machine)
         console.print(res)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -965,7 +1014,7 @@ def create(
         client.create_reservation(
             machine, name, account, num_nodes, node_type, start_time, end_time
         )
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -996,7 +1045,7 @@ def update(
         client.update_reservation(
             machine, name, account, num_nodes, node_type, start_time, end_time
         )
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -1012,7 +1061,7 @@ def delete(
     """
     try:
         client.delete_reservation(machine, name)
-    except fc.FirecrestException as e:
+    except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
@@ -1043,6 +1092,12 @@ def main(
     verbose: Optional[bool] = typer.Option(
         None, "-v", "--verbose", help="Enable verbose mode."
     ),
+    timeout: Optional[float] = typer.Option(
+        None, help="How many seconds to wait for the FirecREST server to send data before giving up."
+    ),
+    auth_timeout: Optional[float] = typer.Option(
+        None, help="How many seconds to wait for the authorization server to send data before giving up."
+    ),
     debug: Optional[bool] = typer.Option(None, help="Enable debug mode."),
 ):
     """
@@ -1056,7 +1111,9 @@ def main(
     """
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
+    auth_obj.timeout = auth_timeout
     client = fc.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
+    client.timeout = timeout
     if debug:
         logging.basicConfig(
             level=logging.DEBUG,

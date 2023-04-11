@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2019-2022, ETH Zurich. All rights reserved.
+#  Copyright (c) 2019-2023, ETH Zurich. All rights reserved.
 #
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
@@ -37,6 +37,12 @@ class ClientCredentialsAuth:
         self._access_token = None
         self._token_expiration_ts = None
         self._min_token_validity = min_token_validity
+        #: It will be passed to all the requests that will be made.
+        #: How many seconds to wait for the server to send data before giving up.
+        #: After that time a `requests.exceptions.Timeout` error will be raised.
+        #:
+        #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
+        self.timeout = None
 
     def get_access_token(self):
         """Returns an access token to be used for accessing resources.
@@ -63,7 +69,7 @@ class ClientCredentialsAuth:
             "client_id": self._client_id,
             "client_secret": self._client_secret,
         }
-        resp = requests.post(self._token_uri, headers=headers, data=data)
+        resp = requests.post(self._token_uri, headers=headers, data=data, timeout=self.timeout)
         try:
             resp_json = resp.json()
         except json.JSONDecodeError:
