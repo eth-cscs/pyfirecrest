@@ -18,7 +18,7 @@ import firecrest
 # -- Project information -----------------------------------------------------
 
 project = 'PyFirecREST'
-copyright = '2022, CSCS Swiss National Supercomputing Center'
+copyright = '2021-2023, CSCS Swiss National Supercomputing Center'
 author = 'CSCS Swiss National Supercomputing Center'
 release = firecrest.__version__
 
