@@ -812,8 +812,68 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
+    def head(self, machine, target_path, bytes=None, lines=None):
+        """Display the beginning of a specified file.
+        By default 10 lines will be returned.
+        Bytes and lines cannot be specified simultaneously.
+        The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
+        This variable is available in the parameters command.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param target_path: the absolute target path
+        :type target_path: string
+        :param lines: the number of lines to be displayed
+        :type lines: integer, optional
+        :param bytes: the number of bytes to be displayed
+        :type bytes: integer, optional
+        :calls: GET `/utilities/head`
+        :rtype: string
+        """
+        resp = self._get_request(
+            endpoint="/utilities/head",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+            },
+        )
+        return self._json_response([resp], 200)["output"]
+
+    def tail(self, machine, target_path, bytes=None, lines=None):
+        """Display the last part of a specified file.
+        By default 10 lines will be returned.
+        Bytes and lines cannot be specified simultaneously.
+        The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
+        This variable is available in the parameters command.
+
+        :param machine: the machine name where the filesystem belongs to
+        :type machine: string
+        :param target_path: the absolute target path
+        :type target_path: string
+        :param lines: the number of lines to be displayed
+        :type lines: integer, optional
+        :param bytes: the number of bytes to be displayed
+        :type bytes: integer, optional
+        :calls: GET `/utilities/head`
+        :rtype: string
+        """
+        resp = self._get_request(
+            endpoint="/utilities/tail",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+            },
+        )
+        return self._json_response([resp], 200)["output"]
+
     def view(self, machine, target_path):
         """View the content of a specified file.
+        The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
+        This variable is available in the parameters command.
 
         :param machine: the machine name where the filesystem belongs to
         :type machine: string
