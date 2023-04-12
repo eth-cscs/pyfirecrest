@@ -69,7 +69,9 @@ class ClientCredentialsAuth:
             "client_id": self._client_id,
             "client_secret": self._client_secret,
         }
-        resp = requests.post(self._token_uri, headers=headers, data=data, timeout=self.timeout)
+        resp = requests.post(
+            self._token_uri, headers=headers, data=data, timeout=self.timeout
+        )
         try:
             resp_json = resp.json()
         except json.JSONDecodeError:

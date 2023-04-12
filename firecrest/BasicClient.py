@@ -50,7 +50,12 @@ class ExternalStorage:
 
     _final_states: set[str]
 
-    def __init__(self, client: Firecrest, task_id: str, previous_responses: None | list[requests.Response] = None) -> None:
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: None | list[requests.Response] = None,
+    ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         self._client = client
         self._task_id = task_id
@@ -160,7 +165,12 @@ class ExternalUpload(ExternalStorage):
     :param task_id: FirecrREST task associated with the transfer
     """
 
-    def __init__(self, client: Firecrest, task_id: str, previous_responses: None | list[requests.Response] = None) -> None:
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: None | list[requests.Response] = None,
+    ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
@@ -208,7 +218,12 @@ class ExternalDownload(ExternalStorage):
     :param task_id: FirecrREST task associated with the transfer
     """
 
-    def __init__(self, client: Firecrest, task_id: str, previous_responses: None | list[requests.Response] = None) -> None:
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: None | list[requests.Response] = None,
+    ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"117", "118"}
@@ -232,8 +247,7 @@ class ExternalDownload(ExternalStorage):
         # url = url.replace("192.168.220.19", "localhost")
         context: ContextManager[BufferedWriter] = (
             open(target_path, "wb")  # type: ignore
-            if isinstance(target_path, str)
-            or isinstance(target_path, pathlib.Path)
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
             else nullcontext(target_path)
         )
         with urllib.request.urlopen(url) as response, context as out_file:
@@ -255,7 +269,11 @@ class Firecrest:
     """
 
     def __init__(
-        self, firecrest_url: str, authorization: ClientCredentialsAuth, verify: None | str | bool = None, sa_role: str = "firecrest-sa"
+        self,
+        firecrest_url: str,
+        authorization: ClientCredentialsAuth,
+        verify: None | str | bool = None,
+        sa_role: str = "firecrest-sa",
     ) -> None:
         self._firecrest_url = firecrest_url
         self._authorization = authorization
@@ -271,7 +289,9 @@ class Firecrest:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
         self.timeout = None
 
-    def _get_request(self, endpoint, additional_headers=None, params=None) -> requests.Response:
+    def _get_request(
+        self, endpoint, additional_headers=None, params=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -287,7 +307,9 @@ class Firecrest:
         )
         return resp
 
-    def _post_request(self, endpoint, additional_headers=None, data=None, files=None) -> requests.Response:
+    def _post_request(
+        self, endpoint, additional_headers=None, data=None, files=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -304,7 +326,9 @@ class Firecrest:
         )
         return resp
 
-    def _put_request(self, endpoint, additional_headers=None, data=None) -> requests.Response:
+    def _put_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -320,7 +344,9 @@ class Firecrest:
         )
         return resp
 
-    def _delete_request(self, endpoint, additional_headers=None, data=None) -> requests.Response:
+    def _delete_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -378,7 +404,11 @@ class Firecrest:
 
         return ret
 
-    def _tasks(self, task_ids: None | list[str] = None, responses: None | list[requests.Response] = None) -> dict[str, t.Task]:
+    def _tasks(
+        self,
+        task_ids: None | list[str] = None,
+        responses: None | list[requests.Response] = None,
+    ) -> dict[str, t.Task]:
         """Return a dictionary of FirecREST tasks and their last update.
         When `task_ids` is an empty list or contains more than one element the
         `/tasks` endpoint will be called. Otherwise `/tasks/{taskid}`.
@@ -405,7 +435,9 @@ class Firecrest:
         else:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
-    def _task_safe(self, task_id: str, responses: None | list[requests.Response] = None) -> t.Task:
+    def _task_safe(
+        self, task_id: str, responses: None | list[requests.Response] = None
+    ) -> t.Task:
         if responses is None:
             responses = self._current_method_requests
 
@@ -432,7 +464,9 @@ class Firecrest:
 
         return task
 
-    def _invalidate(self, task_id: str, responses: None | list[requests.Response] = None):
+    def _invalidate(
+        self, task_id: str, responses: None | list[requests.Response] = None
+    ):
         responses = [] if responses is None else responses
         resp = self._post_request(
             endpoint="/storage/xfer-external/invalidate",
@@ -501,7 +535,9 @@ class Firecrest:
         return self._json_response([resp], 200)["out"]
 
     # Utilities
-    def list_files(self, machine: str, target_path: str, show_hidden: bool = False) -> list[t.LsFile]:
+    def list_files(
+        self, machine: str, target_path: str, show_hidden: bool = False
+    ) -> list[t.LsFile]:
         """Returns a list of files in a directory.
 
         :param machine: the machine name where the filesystem belongs to
@@ -569,7 +605,13 @@ class Firecrest:
         )
         self._json_response([resp], 200)
 
-    def chown(self, machine: str, target_path: str, owner: str | None = None, group: str | None = None) -> None:
+    def chown(
+        self,
+        machine: str,
+        target_path: str,
+        owner: str | None = None,
+        group: str | None = None,
+    ) -> None:
         """Changes the user and/or group ownership of a given file.
         If only owner or group information is passed, only that information will be updated.
 
@@ -625,7 +667,9 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def stat(self, machine: str, target_path: str, dereference: bool=False) -> t.StatFile:
+    def stat(
+        self, machine: str, target_path: str, dereference: bool = False
+    ) -> t.StatFile:
         """Uses the stat linux application to determine the status of a file on the machine's filesystem.
         The result follows: https://docs.python.org/3/library/os.html#os.stat_result.
 
@@ -660,7 +704,9 @@ class Firecrest:
         )
         self._json_response([resp], 201)
 
-    def simple_download(self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO) -> None:
+    def simple_download(
+        self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO
+    ) -> None:
         """Blocking call to download a small file.
         The maximun size of file that is allowed can be found from the parameters() call.
 
@@ -677,14 +723,19 @@ class Firecrest:
         self._json_response([resp], 200)
         context: ContextManager[BytesIO] = (
             open(target_path, "wb")  # type: ignore
-            if isinstance(target_path, str)
-            or isinstance(target_path, pathlib.Path)
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
             else nullcontext(target_path)
         )
         with context as f:
             f.write(resp.content)
 
-    def simple_upload(self, machine: str, source_path: str | pathlib.Path | BytesIO, target_path: str, filename: None | str = None) -> None:
+    def simple_upload(
+        self,
+        machine: str,
+        source_path: str | pathlib.Path | BytesIO,
+        target_path: str,
+        filename: None | str = None,
+    ) -> None:
         """Blocking call to upload a small file.
         The file that will be uploaded will have the same name as the source_path.
         The maximum size of file that is allowed can be found from the parameters() call.
@@ -697,8 +748,7 @@ class Firecrest:
         """
         context: ContextManager[BytesIO] = (
             open(source_path, "rb")  # type: ignore
-            if isinstance(source_path, str)
-            or isinstance(source_path, pathlib.Path)
+            if isinstance(source_path, str) or isinstance(source_path, pathlib.Path)
             else nullcontext(source_path)
         )
         with context as f:
@@ -743,7 +793,9 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def head(self, machine: str, target_path: str, bytes: str = None, lines: str = None):
+    def head(
+        self, machine: str, target_path: str, bytes: str = None, lines: str = None
+    ):
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
         Bytes and lines cannot be specified simultaneously.
@@ -764,15 +816,17 @@ class Firecrest:
         resp = self._get_request(
             endpoint="/utilities/head",
             additional_headers={"X-Machine-Name": machine},
-            params={
-                "targetPath": target_path,
-                "lines": lines,
-                "bytes": bytes,
-            },
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
         )
         return self._json_response([resp], 200)["output"]
 
-    def tail(self, machine: str, target_path: str, bytes: str | int = None, lines: str | int = None):
+    def tail(
+        self,
+        machine: str,
+        target_path: str,
+        bytes: str | int = None,
+        lines: str | int = None,
+    ):
         """Display the last part of a specified file.
         By default 10 lines will be returned.
         Bytes and lines cannot be specified simultaneously.
@@ -793,11 +847,7 @@ class Firecrest:
         resp = self._get_request(
             endpoint="/utilities/tail",
             additional_headers={"X-Machine-Name": machine},
-            params={
-                "targetPath": target_path,
-                "lines": lines,
-                "bytes": bytes,
-            },
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
         )
         return self._json_response([resp], 200)["output"]
 
@@ -906,7 +956,13 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def submit(self, machine: str, job_script: str, local_file: bool = True, account: None | str = None) -> t.JobSubmit:
+    def submit(
+        self,
+        machine: str,
+        job_script: str,
+        local_file: bool = True,
+        account: None | str = None,
+    ) -> t.JobSubmit:
         """Submits a batch script to SLURM on the target system
 
         :param machine: the machine name where the scheduler belongs to
@@ -924,7 +980,13 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def poll(self, machine: str, jobs: None | Sequence[str | int] = None, start_time: None | str = None, end_time: None | str = None) -> list[t.JobAcct]:
+    def poll(
+        self,
+        machine: str,
+        jobs: None | Sequence[str | int] = None,
+        start_time: None | str = None,
+        end_time: None | str = None,
+    ) -> list[t.JobAcct]:
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
 
@@ -949,7 +1011,9 @@ class Firecrest:
         else:
             return res
 
-    def poll_active(self, machine: str, jobs: None | Sequence[str | int] = None) -> list[t.JobQueue]:
+    def poll_active(
+        self, machine: str, jobs: None | Sequence[str | int] = None
+    ) -> list[t.JobQueue]:
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
 
@@ -1195,7 +1259,9 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def external_upload(self, machine: str, source_path: str, target_path: str) -> ExternalUpload:
+    def external_upload(
+        self, machine: str, source_path: str, target_path: str
+    ) -> ExternalUpload:
         """Non blocking call for the upload of larger files.
 
         :param machine: the machine where the filesystem belongs to
