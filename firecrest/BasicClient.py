@@ -15,8 +15,9 @@ import requests
 import shlex
 import shutil
 import subprocess
+import sys
 import time
-from typing import Any, TYPE_CHECKING, ContextManager, Sequence
+from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
 import urllib.request
 
 import firecrest.FirecrestException as fe
@@ -25,9 +26,10 @@ import firecrest.types as t
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore
 
-if TYPE_CHECKING:
-    from firecrest.Authorization import ClientCredentialsAuth
-
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +56,13 @@ class ExternalStorage:
         self,
         client: Firecrest,
         task_id: str,
-        previous_responses: None | list[requests.Response] = None,
+        previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         self._client = client
         self._task_id = task_id
         self._in_progress = True
-        self._status: None | str = None
+        self._status: Optional[str] = None
         self._data = None
         self._object_storage_data = None
         self._sleep_time = itertools.cycle([1, 5, 10])
@@ -109,11 +111,10 @@ class ExternalStorage:
         return self._status not in self._final_states
 
     @property
-    def data(self):
+    def data(self) -> Optional[dict]:
         """Returns the task information from the latest response.
 
         :calls: GET `/tasks/{taskid}`
-        :rtype: dictionary
         """
         self._update()
         return self._data
@@ -169,7 +170,7 @@ class ExternalUpload(ExternalStorage):
         self,
         client: Firecrest,
         task_id: str,
-        previous_responses: None | list[requests.Response] = None,
+        previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
@@ -182,7 +183,7 @@ class ExternalUpload(ExternalStorage):
         Check with the method `status` or `in_progress` to see the status of the transfer.
         The transfer from the staging area to the systems's filesystem can take several seconds to start to start.
         """
-        c = self.object_storage_data["command"]
+        c = self.object_storage_data["command"]  # typer: ignore
         # LOCAL FIX FOR MAC
         # c = c.replace("192.168.220.19", "localhost")
         logger.info(f"Uploading the file to the staging area with the command: {c}")
@@ -222,7 +223,7 @@ class ExternalDownload(ExternalStorage):
         self,
         client: Firecrest,
         task_id: str,
-        previous_responses: None | list[requests.Response] = None,
+        previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
@@ -258,36 +259,33 @@ class Firecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v1.
     Necessary parameters are the firecrest URL and an authorization object.
-    This object is responsible of handling the credentials and the only
-    requirement for it is that it has a method get_access_token() that returns
-    a valid access token.
 
     :param firecrest_url: FirecREST's URL
-    :param authorization: the authorization object
-    :param verify: either a boolean, in which case it controls whether requests will verify the server’s TLS certificate, or a string, in which case it must be a path to a CA bundle to use (default True)
+    :param authorization: the authorization object. This object is responsible of handling the credentials and the only requirement for it is that it has a method get_access_token() that returns a valid access token.
+    :param verify: either a boolean, in which case it controls whether requests will verify the server’s TLS certificate, or a string, in which case it must be a path to a CA bundle to use
     :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
     """
 
     def __init__(
         self,
         firecrest_url: str,
-        authorization: ClientCredentialsAuth,
-        verify: None | str | bool = None,
+        authorization: Any,
+        verify: Optional[str | bool] = None,
         sa_role: str = "firecrest-sa",
     ) -> None:
         self._firecrest_url = firecrest_url
         self._authorization = authorization
         # This should be used only for blocking operations that require multiple requests,
         # not for external upload/download
-        self._current_method_requests: list[requests.Response] = []
+        self._current_method_requests: List[requests.Response] = []
         self._verify = verify
         self._sa_role = sa_role
-        #: It will be passed to all the requests that will be made.
+        #: This attribute will be passed to all the requests that will be made.
         #: How many seconds to wait for the server to send data before giving up.
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout = None
+        self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
 
     def _get_request(
         self, endpoint, additional_headers=None, params=None
@@ -362,11 +360,35 @@ class Firecrest:
         )
         return resp
 
-    def _json_response(self, responses, expected_status_code):
+    @overload
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: Literal[False] = ...,
+    ) -> dict:
+        ...
+
+    @overload
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: Literal[True],
+    ) -> Optional[dict]:
+        ...
+
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: bool = False,
+    ):
         # Will examine only the last response
         response = responses[-1]
         status_code = response.status_code
         # handle_response(response)
+        exc: fe.FirecrestException
         for h in fe.ERROR_HEADERS:
             if h in response.headers:
                 logger.critical(f"Header '{h}' is included in the response")
@@ -400,14 +422,19 @@ class Firecrest:
         try:
             ret = response.json()
         except json.decoder.JSONDecodeError:
-            ret = None
+            if allow_none_result:
+                ret = None
+            else:
+                exc = fe.NoJSONException(responses)
+                logger.critical(exc)
+                raise exc
 
         return ret
 
     def _tasks(
         self,
-        task_ids: None | list[str] = None,
-        responses: None | list[requests.Response] = None,
+        task_ids: Optional[List[str]] = None,
+        responses: Optional[List[requests.Response]] = None,
     ) -> dict[str, t.Task]:
         """Return a dictionary of FirecREST tasks and their last update.
         When `task_ids` is an empty list or contains more than one element the
@@ -436,7 +463,7 @@ class Firecrest:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
     def _task_safe(
-        self, task_id: str, responses: None | list[requests.Response] = None
+        self, task_id: str, responses: Optional[List[requests.Response]] = None
     ) -> t.Task:
         if responses is None:
             responses = self._current_method_requests
@@ -465,7 +492,7 @@ class Firecrest:
         return task
 
     def _invalidate(
-        self, task_id: str, responses: None | list[requests.Response] = None
+        self, task_id: str, responses: Optional[List[requests.Response]] = None
     ):
         responses = [] if responses is None else responses
         resp = self._post_request(
@@ -473,7 +500,7 @@ class Firecrest:
             additional_headers={"X-Task-Id": task_id},
         )
         responses.append(resp)
-        return self._json_response(responses, 201)
+        return self._json_response(responses, 201, allow_none_result=True)
 
     def _poll_tasks(self, task_id: str, final_status, sleep_time):
         logger.info(f"Polling task {task_id} until status is {final_status}")
@@ -490,7 +517,7 @@ class Firecrest:
         return resp["data"]
 
     # Status
-    def all_services(self) -> list[t.Service]:
+    def all_services(self) -> List[t.Service]:
         """Returns a list containing all available micro services with a name, description, and status.
 
         :calls: GET `/status/services`
@@ -506,9 +533,9 @@ class Firecrest:
         :calls: GET `/status/services/{service_name}`
         """
         resp = self._get_request(endpoint=f"/status/services/{service_name}")
-        return self._json_response([resp], 200)
+        return self._json_response([resp], 200)  # type: ignore
 
-    def all_systems(self) -> list[t.System]:
+    def all_systems(self) -> List[t.System]:
         """Returns a list containing all available systems and response status.
 
         :calls: GET `/status/systems`
@@ -527,7 +554,7 @@ class Firecrest:
         return self._json_response([resp], 200)["out"]
 
     def parameters(self) -> t.Parameters:
-        """Returns list of parameters that can be configured in environment files.
+        """Returns configuration parameters of the FirecREST deployment that is associated with the client.
 
         :calls: GET `/status/parameters`
         """
@@ -537,7 +564,7 @@ class Firecrest:
     # Utilities
     def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False
-    ) -> list[t.LsFile]:
+    ) -> List[t.LsFile]:
         """Returns a list of files in a directory.
 
         :param machine: the machine name where the filesystem belongs to
@@ -556,7 +583,7 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def mkdir(self, machine: str, target_path: str, p: None | bool = None) -> None:
+    def mkdir(self, machine: str, target_path: str, p: Optional[bool] = None) -> None:
         """Creates a new directory.
 
         :param machine: the machine name where the filesystem belongs to
@@ -609,8 +636,8 @@ class Firecrest:
         self,
         machine: str,
         target_path: str,
-        owner: str | None = None,
-        group: str | None = None,
+        owner: Optional[str] = None,
+        group: Optional[str] = None,
     ) -> None:
         """Changes the user and/or group ownership of a given file.
         If only owner or group information is passed, only that information will be updated.
@@ -720,7 +747,7 @@ class Firecrest:
             additional_headers={"X-Machine-Name": machine},
             params={"sourcePath": source_path},
         )
-        self._json_response([resp], 200)
+        self._json_response([resp], 200, allow_none_result=True)
         context: ContextManager[BytesIO] = (
             open(target_path, "wb")  # type: ignore
             if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
@@ -734,7 +761,7 @@ class Firecrest:
         machine: str,
         source_path: str | pathlib.Path | BytesIO,
         target_path: str,
-        filename: None | str = None,
+        filename: Optional[str] = None,
     ) -> None:
         """Blocking call to upload a small file.
         The file that will be uploaded will have the same name as the source_path.
@@ -777,7 +804,7 @@ class Firecrest:
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path},
         )
-        self._json_response([resp], 204)
+        self._json_response([resp], 204, allow_none_result=True)
 
     def checksum(self, machine: str, target_path: str) -> str:
         """Calculate the SHA256 (256-bit) checksum of a specified file.
@@ -794,8 +821,12 @@ class Firecrest:
         return self._json_response([resp], 200)["output"]
 
     def head(
-        self, machine: str, target_path: str, bytes: str = None, lines: str = None
-    ):
+        self,
+        machine: str,
+        target_path: str,
+        bytes: Optional[int] = None,
+        lines: Optional[int] = None,
+    ) -> str:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
         Bytes and lines cannot be specified simultaneously.
@@ -803,15 +834,10 @@ class Firecrest:
         This variable is available in the parameters command.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param lines: the number of lines to be displayed
-        :type lines: integer, optional
         :param bytes: the number of bytes to be displayed
-        :type bytes: integer, optional
         :calls: GET `/utilities/head`
-        :rtype: string
         """
         resp = self._get_request(
             endpoint="/utilities/head",
@@ -824,9 +850,9 @@ class Firecrest:
         self,
         machine: str,
         target_path: str,
-        bytes: str | int = None,
-        lines: str | int = None,
-    ):
+        bytes: Optional[int] = None,
+        lines: Optional[int] = None,
+    ) -> str:
         """Display the last part of a specified file.
         By default 10 lines will be returned.
         Bytes and lines cannot be specified simultaneously.
@@ -834,15 +860,10 @@ class Firecrest:
         This variable is available in the parameters command.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param lines: the number of lines to be displayed
-        :type lines: integer, optional
         :param bytes: the number of bytes to be displayed
-        :type bytes: integer, optional
         :calls: GET `/utilities/head`
-        :rtype: string
         """
         resp = self._get_request(
             endpoint="/utilities/tail",
@@ -867,7 +888,7 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def whoami(self) -> None | str:
+    def whoami(self) -> Optional[str]:
         """Returns the username that FirecREST will be using to perform the other calls.
         Will return `None` if the token is not valid.
         """
@@ -960,8 +981,8 @@ class Firecrest:
         self,
         machine: str,
         job_script: str,
-        local_file: bool = True,
-        account: None | str = None,
+        local_file: Optional[bool] = True,
+        account: Optional[str] = None,
     ) -> t.JobSubmit:
         """Submits a batch script to SLURM on the target system
 
@@ -983,10 +1004,10 @@ class Firecrest:
     def poll(
         self,
         machine: str,
-        jobs: None | Sequence[str | int] = None,
-        start_time: None | str = None,
-        end_time: None | str = None,
-    ) -> list[t.JobAcct]:
+        jobs: Optional[Sequence[str | int]] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+    ) -> List[t.JobAcct]:
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
 
@@ -1012,8 +1033,8 @@ class Firecrest:
             return res
 
     def poll_active(
-        self, machine: str, jobs: None | Sequence[str | int] = None
-    ) -> list[t.JobQueue]:
+        self, machine: str, jobs: Optional[Sequence[str | int]] = None
+    ) -> List[t.JobQueue]:
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
 
@@ -1094,10 +1115,10 @@ class Firecrest:
         machine: str,
         source_path: str,
         target_path: str,
-        job_name: str | None = None,
-        time: str | None = None,
-        stage_out_job_id: str | None = None,
-        account: str | None = None,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
     ) -> t.JobSubmit:
         """Move files between internal CSCS file systems.
         Rename/Move source_path to target_path.
@@ -1137,10 +1158,10 @@ class Firecrest:
         machine: str,
         source_path: str,
         target_path: str,
-        job_name: str | None = None,
-        time: str | None = None,
-        stage_out_job_id: str | None = None,
-        account: str | None = None,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
     ) -> t.JobSubmit:
         """Copy files between internal CSCS file systems.
         Copy source_path to target_path.
@@ -1180,10 +1201,10 @@ class Firecrest:
         machine: str,
         source_path: str,
         target_path: str,
-        job_name: str | None = None,
-        time: str | None = None,
-        stage_out_job_id: str | None = None,
-        account: str | None = None,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
     ) -> t.JobSubmit:
         """Transfer files between internal CSCS file systems.
         Transfer source_path to target_path.
@@ -1222,10 +1243,10 @@ class Firecrest:
         self,
         machine: str,
         target_path: str,
-        job_name: str | None = None,
-        time: str | None = None,
-        stage_out_job_id: str | None = None,
-        account: str | None = None,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
     ) -> t.JobSubmit:
         """Remove files in internal CSCS file systems.
         Remove file in target_path.
@@ -1294,12 +1315,11 @@ class Firecrest:
         )
 
     # Reservation
-    def all_reservations(self, machine: str):
+    def all_reservations(self, machine: str) -> List[dict]:
         """List all active reservations and their status
 
         :param machine: the machine name
         :calls: GET `/reservations`
-        :rtype: list of dictionaries (one for each reservation)
         """
         resp = self._get_request(
             endpoint="/reservations", additional_headers={"X-Machine-Name": machine}
@@ -1388,4 +1408,4 @@ class Firecrest:
             endpoint=f"/reservations/{reservation}",
             additional_headers={"X-Machine-Name": machine},
         )
-        self._json_response([resp], 204)
+        self._json_response([resp], 204, allow_none_result=True)

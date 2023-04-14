@@ -66,7 +66,7 @@ client: fc.Firecrest = None  # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def examine_exeption(e):
+def examine_exeption(e: Exception) -> None:
     msg = f"{__app_name__}: Operation failed"
     if isinstance(e, fc.ClientsCredentialsException):
         msg += ": could not fetch token"
@@ -516,10 +516,10 @@ def head(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    lines: str = typer.Option(
+    lines: int = typer.Option(
         None, "-n", "--lines", help="Print count lines of each of the specified files."
     ),
-    bytes: str = typer.Option(
+    bytes: int = typer.Option(
         None, "-c", "--bytes", help="Print bytes of each of the specified files."
     ),
 ):
@@ -549,10 +549,10 @@ def tail(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    lines: str = typer.Option(
+    lines: int = typer.Option(
         None, "-n", "--lines", help="Print count lines of each of the specified files."
     ),
-    bytes: str = typer.Option(
+    bytes: int = typer.Option(
         None, "-c", "--bytes", help="Print bytes of each of the specified files."
     ),
 ):

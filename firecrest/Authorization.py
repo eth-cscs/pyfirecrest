@@ -12,6 +12,7 @@ import firecrest.FirecrestException as fe
 
 from datetime import datetime
 from requests.compat import json  # type: ignore
+from typing import Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class ClientCredentialsAuth:
     :type min_token_validity: float
     """
 
-    def __init__(self, client_id, client_secret, token_uri, min_token_validity=10):
+    def __init__(self, client_id: str, client_secret: str, token_uri: str, min_token_validity: int = 10):
         self._client_id = client_id
         self._client_secret = client_secret
         self._token_uri = token_uri
@@ -42,13 +43,11 @@ class ClientCredentialsAuth:
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout = None
+        self.timeout: Optional[Union[float, Tuple[float, float], Tuple[float, None]]] = None
 
-    def get_access_token(self):
+    def get_access_token(self) -> str:
         """Returns an access token to be used for accessing resources.
         If the request fails the token will be None
-
-        :rtype: string
         """
 
         # Make sure that the access token has at least {min_token_validity} sec left before
@@ -85,6 +84,7 @@ class ClientCredentialsAuth:
 
         self._access_token = resp_json["access_token"]
         self._token_expiration_ts = time.time() + resp_json["expires_in"]
+        assert self._token_expiration_ts is not None
         logger.info(
             f"Token expires at {datetime.fromtimestamp(self._token_expiration_ts)}"
         )
