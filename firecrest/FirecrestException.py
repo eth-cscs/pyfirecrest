@@ -90,6 +90,7 @@ class UnexpectedStatusException(FirecrestException):
     def __str__(self):
         return f"{super().__str__()}: expected status {self._expected_status_code}"
 
+
 class NoJSONException(FirecrestException):
     """Exception raised when JSON in not included in the response
     """

@@ -31,7 +31,13 @@ class ClientCredentialsAuth:
     :type min_token_validity: float
     """
 
-    def __init__(self, client_id: str, client_secret: str, token_uri: str, min_token_validity: int = 10):
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        token_uri: str,
+        min_token_validity: int = 10,
+    ):
         self._client_id = client_id
         self._client_secret = client_secret
         self._token_uri = token_uri
@@ -43,7 +49,9 @@ class ClientCredentialsAuth:
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout: Optional[Union[float, Tuple[float, float], Tuple[float, None]]] = None
+        self.timeout: Optional[
+            Union[float, Tuple[float, float], Tuple[float, None]]
+        ] = None
 
     def get_access_token(self) -> str:
         """Returns an access token to be used for accessing resources.
