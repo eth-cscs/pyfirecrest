@@ -42,3 +42,4 @@ Custom types of the library
 ***************************
 .. automodule:: firecrest.types
     :members:
+    :undoc-members:
