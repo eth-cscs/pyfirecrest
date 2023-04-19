@@ -28,6 +28,7 @@ dependencies = [
     "requests>=2.14.0",
     "PyJWT>=2.4.0",
     "typer[all]~=0.7.0",
+    "httpx>=0.24.0"
 ]
 
 [project.urls]
