@@ -12,6 +12,14 @@ The ``Firecrest`` class
     :show-inheritance:
 
 
+The ``AsyncFirecrest`` class
+****************************
+.. autoclass:: firecrest.AsyncFirecrest
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 The ``ExternalUpload`` class
 ****************************
 .. autoclass:: firecrest.ExternalUpload
