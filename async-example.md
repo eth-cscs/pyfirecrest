@@ -12,7 +12,7 @@ python -m pip install .
 Here is an example of how to use the `AsyncFirecrest` client with asyncio.
 
 ```python
-import firecrest as fc
+import firecrest
 import asyncio
 import logging
 
@@ -54,7 +54,7 @@ async def workflow(client, i):
 
 async def main():
     auth = firecrest.ClientCredentialsAuth(client_id, client_secret, token_uri)
-    client = Firecrest(firecrest_url, authorization=auth)
+    client = firecrest.AsyncFirecrest(firecrest_url, authorization=auth)
 
     # Set up the desired polling rate for each microservice. The float number
     # represents the number of seconds between consecutive requests in each
