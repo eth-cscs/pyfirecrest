@@ -55,6 +55,19 @@ async def workflow(client, i):
 async def main():
     auth = firecrest.ClientCredentialsAuth(client_id, client_secret, token_uri)
     client = Firecrest(firecrest_url, authorization=auth)
+
+    # Set up the desired polling rate for each microservice. The float number
+    # represents the number of seconds between consecutive requests in each
+    # microservice. Default is 5 seconds for now.
+    client.time_between_calls = {
+        "compute": 5,
+        "reservation": 5,
+        "status": 5,
+        "storage": 5,
+        "tasks": 5,
+        "utilities": 5,
+    }
+
     workflows = [workflow(client, i) for i in range(5)]
     await asyncio.gather(*workflows)
 
