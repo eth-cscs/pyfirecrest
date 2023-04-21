@@ -6,21 +6,21 @@
 #
 from __future__ import annotations
 
+import asyncio
 from io import BufferedWriter
 import itertools
 import logging
 import pathlib
 import requests
-import shlex
 import shutil
-import subprocess
 import sys
-import time
-from typing import ContextManager, Optional, List, TYPE_CHECKING
+from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List, Union, TYPE_CHECKING
 import urllib.request
 
+import firecrest.FirecrestException as fe
+import firecrest.types as t
 if TYPE_CHECKING:
-    from firecrest.BasicClient import Firecrest
+    from firecrest.AsyncClient import AsyncFirecrest
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore
@@ -33,7 +33,7 @@ else:
 logger = logging.getLogger(__name__)
 
 
-class ExternalStorage:
+class AsyncExternalStorage:
     """External storage object.
     """
 
@@ -41,7 +41,7 @@ class ExternalStorage:
 
     def __init__(
         self,
-        client: Firecrest,
+        client: AsyncFirecrest,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -56,7 +56,7 @@ class ExternalStorage:
         self._responses = previous_responses
 
     @property
-    def client(self) -> Firecrest:
+    def client(self) -> AsyncFirecrest:
         """Returns the client that will be used to get information for the task.
         """
         return self._client
@@ -67,9 +67,9 @@ class ExternalStorage:
         """
         return self._task_id
 
-    def _update(self) -> None:
+    async def _update(self) -> None:
         if self._status not in self._final_states:
-            task = self._client._task_safe(self._task_id, self._responses)
+            task = await self._client._task_safe(self._task_id, self._responses)
             self._status = task["status"]
             self._data = task["data"]
             logger.info(f"Task {self._task_id} has status {self._status}")
@@ -80,34 +80,34 @@ class ExternalStorage:
                     self._object_storage_data = task["data"]
 
     @property
-    def status(self) -> str:
+    async def status(self) -> str:
         """Returns status of the task that is associated with this transfer.
 
         :calls: GET `/tasks/{taskid}`
         """
-        self._update()
+        await self._update()
         return self._status  # type: ignore
 
     @property
-    def in_progress(self) -> bool:
+    async def in_progress(self) -> bool:
         """Returns `False` when the transfer has been completed (succesfully or with errors), otherwise `True`.
 
         :calls: GET `/tasks/{taskid}`
         """
-        self._update()
+        await self._update()
         return self._status not in self._final_states
 
     @property
-    def data(self) -> Optional[dict]:
+    async def data(self) -> Optional[dict]:
         """Returns the task information from the latest response.
 
         :calls: GET `/tasks/{taskid}`
         """
-        self._update()
+        await self._update()
         return self._data
 
     @property
-    def object_storage_data(self):
+    async def object_storage_data(self):
         """Returns the necessary information for the external transfer.
         The call is blocking and in cases of large file transfers it might take a long time.
 
@@ -115,18 +115,18 @@ class ExternalStorage:
         :rtype: dictionary or string
         """
         if not self._object_storage_data:
-            self._update()
+            await self._update()
 
         while not self._object_storage_data:
             t = next(self._sleep_time)
             logger.info(f"Sleeping for {t} sec")
-            time.sleep(t)
-            self._update()
+            asyncio.sleep(t)
+            await self._update()
 
         return self._object_storage_data
 
 
-class ExternalUpload(ExternalStorage):
+class AsyncExternalUpload(AsyncExternalStorage):
     """
     This class handles the external upload from a file.
 
@@ -155,7 +155,7 @@ class ExternalUpload(ExternalStorage):
 
     def __init__(
         self,
-        client: Firecrest,
+        client: AsyncFirecrest,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -164,28 +164,32 @@ class ExternalUpload(ExternalStorage):
         self._final_states = {"114", "115"}
         logger.info(f"Creating ExternalUpload object for task {task_id}")
 
-    def finish_upload(self) -> None:
+    async def finish_upload(self) -> None:
         """Finish the upload process.
         This call will upload the file to the staging area.
         Check with the method `status` or `in_progress` to see the status of the transfer.
         The transfer from the staging area to the systems's filesystem can take several seconds to start to start.
         """
-        c = self.object_storage_data["command"]  # typer: ignore
+        c = (await self.object_storage_data)["command"]  # typer: ignore
         # LOCAL FIX FOR MAC
         # c = c.replace("192.168.220.19", "localhost")
         logger.info(f"Uploading the file to the staging area with the command: {c}")
-        command = subprocess.run(
-            shlex.split(c), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        proc = await asyncio.create_subprocess_shell(
+            c,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
-        if command.returncode != 0:
+
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
             exc = Exception(
-                f"Failed to finish upload with error: {command.stderr.decode('utf-8')}"
+                f"Failed to finish upload with error: {stderr.decode('utf-8')}"
             )
             logger.critical(exc)
             raise exc
 
 
-class ExternalDownload(ExternalStorage):
+class AsyncExternalDownload(AsyncExternalStorage):
     """
     This class handles the external download from a file.
 
@@ -208,7 +212,7 @@ class ExternalDownload(ExternalStorage):
 
     def __init__(
         self,
-        client: Firecrest,
+        client: AsyncFirecrest,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -217,19 +221,19 @@ class ExternalDownload(ExternalStorage):
         self._final_states = {"117", "118"}
         logger.info(f"Creating ExternalDownload object for task {task_id}")
 
-    def invalidate_object_storage_link(self) -> None:
+    async def invalidate_object_storage_link(self) -> None:
         """Invalidate the temporary URL for downloading.
 
         :calls: POST `/storage/xfer-external/invalidate`
         """
-        self._client._invalidate(self._task_id)
+        await self._client._invalidate(self._task_id)
 
-    def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:
+    async def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:
         """Finish the download process.
 
         :param target_path: the local path to save the file
         """
-        url = self.object_storage_data
+        url = await self.object_storage_data
         logger.info(f"Downloading the file from {url} and saving to {target_path}")
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")

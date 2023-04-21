@@ -20,6 +20,7 @@ from typing import Any, ContextManager, Optional, overload, Sequence, List
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
+from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore
@@ -1122,7 +1123,7 @@ class AsyncFirecrest:
 
     async def external_upload(
         self, machine: str, source_path: str, target_path: str
-    ) -> ExternalUpload:
+    ) -> AsyncExternalUpload:
         """Non blocking call for the upload of larger files.
 
         :param machine: the machine where the filesystem belongs to
@@ -1136,11 +1137,11 @@ class AsyncFirecrest:
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         json_response = self._json_response([resp], 201)["task_id"]
-        return ExternalUpload(self, json_response, [resp])
+        return AsyncExternalUpload(self, json_response, [resp])
 
     async def external_download(
         self, machine: str, source_path: str
-    ) -> ExternalDownload:
+    ) -> AsyncExternalDownload:
         """Non blocking call for the download of larger files.
 
         :param machine: the machine where the filesystem belongs to
@@ -1152,7 +1153,7 @@ class AsyncFirecrest:
             additional_headers={"X-Machine-Name": machine},
             data={"sourcePath": source_path},
         )
-        return ExternalDownload(
+        return AsyncExternalDownload(
             self, self._json_response([resp], 201)["task_id"], [resp]
         )
 
