@@ -327,7 +327,7 @@ class Firecrest:
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
 
-    @_retry_requests
+    @_retry_requests  # type: ignore
     def _get_request(
         self, endpoint, additional_headers=None, params=None
     ) -> requests.Response:
@@ -346,7 +346,7 @@ class Firecrest:
         )
         return resp
 
-    @_retry_requests
+    @_retry_requests  # type: ignore
     def _post_request(
         self, endpoint, additional_headers=None, data=None, files=None
     ) -> requests.Response:
@@ -366,7 +366,7 @@ class Firecrest:
         )
         return resp
 
-    @_retry_requests
+    @_retry_requests  # type: ignore
     def _put_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
@@ -385,7 +385,7 @@ class Firecrest:
         )
         return resp
 
-    @_retry_requests
+    @_retry_requests  # type: ignore
     def _delete_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
