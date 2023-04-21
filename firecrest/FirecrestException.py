@@ -91,6 +91,14 @@ class UnexpectedStatusException(FirecrestException):
         return f"{super().__str__()}: expected status {self._expected_status_code}"
 
 
+class NoJSONException(FirecrestException):
+    """Exception raised when JSON in not included in the response
+    """
+
+    def __str__(self):
+        return f"{super().__str__()}: JSON is not included in the response"
+
+
 class StorageDownloadException(FirecrestException):
     """Exception raised by a failed external download
     """

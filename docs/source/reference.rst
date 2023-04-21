@@ -5,7 +5,7 @@ The wrapper includes the ``Firecrest`` class, which is in practice a very basic 
 Together with the authorisation class it takes care of the token and makes the appropriate calls for each action.
 
 The ``Firecrest`` class
-*****************************
+***********************
 .. autoclass:: firecrest.Firecrest
     :members:
     :undoc-members:
@@ -29,9 +29,17 @@ The ``ExternalDownload`` class
     :undoc-members:
     :show-inheritance:
 
+
 The ``ClientCredentialsAuth`` class
-*********************************************
+***********************************
 .. autoclass:: firecrest.ClientCredentialsAuth
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+Custom types of the library
+***************************
+.. automodule:: firecrest.types
+    :members:
+    :undoc-members:

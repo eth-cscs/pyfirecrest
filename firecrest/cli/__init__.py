@@ -65,7 +65,8 @@ console = Console(theme=Theme(custom_theme))
 client: fc.Firecrest = None  # type: ignore
 logger = logging.getLogger(__name__)
 
-def examine_exeption(e):
+
+def examine_exeption(e: Exception) -> None:
     msg = f"{__app_name__}: Operation failed"
     if isinstance(e, fc.ClientsCredentialsException):
         msg += ": could not fetch token"
@@ -515,8 +516,12 @@ def head(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    lines: str = typer.Option(None, "-n", "--lines", help="Print count lines of each of the specified files."),
-    bytes: str = typer.Option(None, "-c", "--bytes", help="Print bytes of each of the specified files."),
+    lines: int = typer.Option(
+        None, "-n", "--lines", help="Print count lines of each of the specified files."
+    ),
+    bytes: int = typer.Option(
+        None, "-c", "--bytes", help="Print bytes of each of the specified files."
+    ),
 ):
     """Display the beginning of a specified file.
     By default the first 10 lines will be returned.
@@ -537,14 +542,19 @@ def head(
         examine_exeption(e)
         raise typer.Exit(code=1)
 
+
 @app.command(rich_help_panel="Utilities commands")
 def tail(
     machine: str = typer.Argument(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    lines: str = typer.Option(None, "-n", "--lines", help="Print count lines of each of the specified files."),
-    bytes: str = typer.Option(None, "-c", "--bytes", help="Print bytes of each of the specified files."),
+    lines: int = typer.Option(
+        None, "-n", "--lines", help="Print count lines of each of the specified files."
+    ),
+    bytes: int = typer.Option(
+        None, "-c", "--bytes", help="Print bytes of each of the specified files."
+    ),
 ):
     """Display the end of a specified file.
     By default the last 10 lines will be returned.
@@ -1093,10 +1103,12 @@ def main(
         None, "-v", "--verbose", help="Enable verbose mode."
     ),
     timeout: Optional[float] = typer.Option(
-        None, help="How many seconds to wait for the FirecREST server to send data before giving up."
+        None,
+        help="How many seconds to wait for the FirecREST server to send data before giving up.",
     ),
     auth_timeout: Optional[float] = typer.Option(
-        None, help="How many seconds to wait for the authorization server to send data before giving up."
+        None,
+        help="How many seconds to wait for the authorization server to send data before giving up.",
     ),
     debug: Optional[bool] = typer.Option(None, help="Enable debug mode."),
 ):

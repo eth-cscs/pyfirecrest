@@ -4,6 +4,9 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+from __future__ import annotations
+
+from io import BufferedWriter, BytesIO
 import itertools
 import jwt
 import logging
@@ -12,14 +15,21 @@ import requests
 import shlex
 import shutil
 import subprocess
+import sys
 import time
+from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
 import urllib.request
 
 import firecrest.FirecrestException as fe
+import firecrest.types as t
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore
 
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -40,34 +50,37 @@ class ExternalStorage:
     """External storage object.
     """
 
-    def __init__(self, client, task_id, previous_responses=None):
+    _final_states: set[str]
+
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
+    ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         self._client = client
         self._task_id = task_id
         self._in_progress = True
-        self._status = None
+        self._status: Optional[str] = None
         self._data = None
         self._object_storage_data = None
         self._sleep_time = itertools.cycle([1, 5, 10])
         self._responses = previous_responses
 
     @property
-    def client(self):
+    def client(self) -> Firecrest:
         """Returns the client that will be used to get information for the task.
-
-        :rtype: Firecrest Object
         """
         return self._client
 
     @property
-    def task_id(self):
+    def task_id(self) -> str:
         """Returns the FirecREST task ID that is associated with this transfer.
-
-        :rtype: string
         """
         return self._task_id
 
-    def _update(self):
+    def _update(self) -> None:
         if self._status not in self._final_states:
             task = self._client._task_safe(self._task_id, self._responses)
             self._status = task["status"]
@@ -80,31 +93,28 @@ class ExternalStorage:
                     self._object_storage_data = task["data"]
 
     @property
-    def status(self):
+    def status(self) -> str:
         """Returns status of the task that is associated with this transfer.
 
         :calls: GET `/tasks/{taskid}`
-        :rtype: string
         """
         self._update()
-        return self._status
+        return self._status  # type: ignore
 
     @property
-    def in_progress(self):
+    def in_progress(self) -> bool:
         """Returns `False` when the transfer has been completed (succesfully or with errors), otherwise `True`.
 
         :calls: GET `/tasks/{taskid}`
-        :rtype: boolean
         """
         self._update()
         return self._status not in self._final_states
 
     @property
-    def data(self):
+    def data(self) -> Optional[dict]:
         """Returns the task information from the latest response.
 
         :calls: GET `/tasks/{taskid}`
-        :rtype: dictionary
         """
         self._update()
         return self._data
@@ -153,26 +163,27 @@ class ExternalUpload(ExternalStorage):
     +--------+--------------------------------------------------------------------+
 
     :param client: FirecREST client associated with the transfer
-    :type client: Firecrest
     :param task_id: FirecrREST task associated with the transfer
-    :type task_id: string
     """
 
-    def __init__(self, client, task_id, previous_responses=None):
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
+    ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
         logger.info(f"Creating ExternalUpload object for task {task_id}")
 
-    def finish_upload(self):
+    def finish_upload(self) -> None:
         """Finish the upload process.
         This call will upload the file to the staging area.
         Check with the method `status` or `in_progress` to see the status of the transfer.
         The transfer from the staging area to the systems's filesystem can take several seconds to start to start.
-
-        :rtype: None
         """
-        c = self.object_storage_data["command"]
+        c = self.object_storage_data["command"]  # typer: ignore
         # LOCAL FIX FOR MAC
         # c = c.replace("192.168.220.19", "localhost")
         logger.info(f"Uploading the file to the staging area with the command: {c}")
@@ -205,40 +216,39 @@ class ExternalDownload(ExternalStorage):
     +--------+--------------------------------------------------------------------+
 
     :param client: FirecREST client associated with the transfer
-    :type client: Firecrest
     :param task_id: FirecrREST task associated with the transfer
-    :type task_id: string
     """
 
-    def __init__(self, client, task_id, previous_responses=None):
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
+    ) -> None:
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"117", "118"}
         logger.info(f"Creating ExternalDownload object for task {task_id}")
 
-    def invalidate_object_storage_link(self):
+    def invalidate_object_storage_link(self) -> None:
         """Invalidate the temporary URL for downloading.
 
         :calls: POST `/storage/xfer-external/invalidate`
-        :rtype: None
         """
         self._client._invalidate(self._task_id)
 
-    def finish_download(self, target_path):
+    def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:
         """Finish the download process.
 
         :param target_path: the local path to save the file
-        :type target_path: string or binary stream
-        :rtype: None
         """
         url = self.object_storage_data
         logger.info(f"Downloading the file from {url} and saving to {target_path}")
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")
-        context = (
-            open(target_path, "wb")
-            if isinstance(target_path, str)
-            or isinstance(target_path, pathlib.PosixPath)
+        context: ContextManager[BufferedWriter] = (
+            open(target_path, "wb")  # type: ignore
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
             else nullcontext(target_path)
         )
         with urllib.request.urlopen(url) as response, context as out_file:
@@ -249,38 +259,37 @@ class Firecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v1.
     Necessary parameters are the firecrest URL and an authorization object.
-    This object is responsible of handling the credentials and the only
-    requirement for it is that it has a method get_access_token() that returns
-    a valid access token.
 
     :param firecrest_url: FirecREST's URL
-    :type firecrest_url: string
-    :param authorization: the authorization object
-    :type authorization: object
-    :param verify: either a boolean, in which case it controls whether requests will verify the server’s TLS certificate, or a string, in which case it must be a path to a CA bundle to use (default True)
-    :type verify: boolean or string, optional
+    :param authorization: the authorization object. This object is responsible of handling the credentials and the only requirement for it is that it has a method get_access_token() that returns a valid access token.
+    :param verify: either a boolean, in which case it controls whether requests will verify the server’s TLS certificate, or a string, in which case it must be a path to a CA bundle to use
     :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
-    :type sa_role: string, optional
     """
 
     def __init__(
-        self, firecrest_url, authorization, verify=None, sa_role="firecrest-sa"
-    ):
+        self,
+        firecrest_url: str,
+        authorization: Any,
+        verify: Optional[str | bool] = None,
+        sa_role: str = "firecrest-sa",
+    ) -> None:
         self._firecrest_url = firecrest_url
         self._authorization = authorization
         # This should be used only for blocking operations that require multiple requests,
         # not for external upload/download
-        self._current_method_requests = []
+        self._current_method_requests: List[requests.Response] = []
         self._verify = verify
         self._sa_role = sa_role
-        #: It will be passed to all the requests that will be made.
+        #: This attribute will be passed to all the requests that will be made.
         #: How many seconds to wait for the server to send data before giving up.
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout = None
+        self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
 
-    def _get_request(self, endpoint, additional_headers=None, params=None):
+    def _get_request(
+        self, endpoint, additional_headers=None, params=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -296,7 +305,9 @@ class Firecrest:
         )
         return resp
 
-    def _post_request(self, endpoint, additional_headers=None, data=None, files=None):
+    def _post_request(
+        self, endpoint, additional_headers=None, data=None, files=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -313,7 +324,9 @@ class Firecrest:
         )
         return resp
 
-    def _put_request(self, endpoint, additional_headers=None, data=None):
+    def _put_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -329,7 +342,9 @@ class Firecrest:
         )
         return resp
 
-    def _delete_request(self, endpoint, additional_headers=None, data=None):
+    def _delete_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> requests.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -345,11 +360,35 @@ class Firecrest:
         )
         return resp
 
-    def _json_response(self, responses, expected_status_code):
+    @overload
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: Literal[False] = ...,
+    ) -> dict:
+        ...
+
+    @overload
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: Literal[True],
+    ) -> Optional[dict]:
+        ...
+
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: bool = False,
+    ):
         # Will examine only the last response
         response = responses[-1]
         status_code = response.status_code
         # handle_response(response)
+        exc: fe.FirecrestException
         for h in fe.ERROR_HEADERS:
             if h in response.headers:
                 logger.critical(f"Header '{h}' is included in the response")
@@ -383,11 +422,20 @@ class Firecrest:
         try:
             ret = response.json()
         except json.decoder.JSONDecodeError:
-            ret = None
+            if allow_none_result:
+                ret = None
+            else:
+                exc = fe.NoJSONException(responses)
+                logger.critical(exc)
+                raise exc
 
         return ret
 
-    def _tasks(self, task_ids=None, responses=None):
+    def _tasks(
+        self,
+        task_ids: Optional[List[str]] = None,
+        responses: Optional[List[requests.Response]] = None,
+    ) -> dict[str, t.Task]:
         """Return a dictionary of FirecREST tasks and their last update.
         When `task_ids` is an empty list or contains more than one element the
         `/tasks` endpoint will be called. Otherwise `/tasks/{taskid}`.
@@ -395,11 +443,8 @@ class Firecrest:
         but `/tasks/{taskid}` will raise an exception.
 
         :param task_ids: list of task IDs. When empty all tasks are returned.
-        :type task_ids: list
         :param responses: list of responses that are associated with these tasks (only relevant for error)
-        :type responses: list
         :calls: GET `/tasks` or `/tasks/{taskid}`
-        :rtype: dictionary
         """
         task_ids = [] if task_ids is None else task_ids
         responses = [] if responses is None else responses
@@ -417,12 +462,15 @@ class Firecrest:
         else:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
-    def _task_safe(self, task_id, responses=None):
+    def _task_safe(
+        self, task_id: str, responses: Optional[List[requests.Response]] = None
+    ) -> t.Task:
         if responses is None:
             responses = self._current_method_requests
 
         task = self._tasks([task_id], responses)[task_id]
         status = int(task["status"])
+        exc: fe.FirecrestException
         if status == 115:
             logger.critical("Task has error status code 115")
             exc = fe.StorageUploadException(responses)
@@ -443,16 +491,18 @@ class Firecrest:
 
         return task
 
-    def _invalidate(self, task_id, responses=None):
+    def _invalidate(
+        self, task_id: str, responses: Optional[List[requests.Response]] = None
+    ):
         responses = [] if responses is None else responses
         resp = self._post_request(
             endpoint="/storage/xfer-external/invalidate",
             additional_headers={"X-Task-Id": task_id},
         )
         responses.append(resp)
-        return self._json_response(responses, 201)
+        return self._json_response(responses, 201, allow_none_result=True)
 
-    def _poll_tasks(self, task_id, final_status, sleep_time):
+    def _poll_tasks(self, task_id: str, final_status, sleep_time):
         logger.info(f"Polling task {task_id} until status is {final_status}")
         resp = self._task_safe(task_id)
         while resp["status"] < final_status:
@@ -467,72 +517,63 @@ class Firecrest:
         return resp["data"]
 
     # Status
-    def all_services(self):
+    def all_services(self) -> List[t.Service]:
         """Returns a list containing all available micro services with a name, description, and status.
 
         :calls: GET `/status/services`
-        :rtype: list of dictionaries (one for each service)
         """
         resp = self._get_request(endpoint="/status/services")
         return self._json_response([resp], 200)["out"]
 
-    def service(self, service_name):
+    def service(self, service_name: str) -> t.Service:
         """Returns information about a micro service.
         Returns the name, description, and status.
 
         :param service_name: the service name
-        :type service_name: string
         :calls: GET `/status/services/{service_name}`
-        :rtype: list of dictionaries (one for each service)
         """
         resp = self._get_request(endpoint=f"/status/services/{service_name}")
-        return self._json_response([resp], 200)
+        return self._json_response([resp], 200)  # type: ignore
 
-    def all_systems(self):
+    def all_systems(self) -> List[t.System]:
         """Returns a list containing all available systems and response status.
 
         :calls: GET `/status/systems`
-        :rtype: list of dictionaries (one for each system)
         """
         resp = self._get_request(endpoint="/status/systems")
         return self._json_response([resp], 200)["out"]
 
-    def system(self, system_name):
+    def system(self, system_name: str) -> t.System:
         """Returns information about a system.
         Returns the name, description, and status.
 
         :param system_name: the system name
-        :type system_name: string
         :calls: GET `/status/systems/{system_name}`
-        :rtype: list of dictionaries (one for each system)
         """
         resp = self._get_request(endpoint=f"/status/systems/{system_name}")
         return self._json_response([resp], 200)["out"]
 
-    def parameters(self):
-        """Returns list of parameters that can be configured in environment files.
+    def parameters(self) -> t.Parameters:
+        """Returns configuration parameters of the FirecREST deployment that is associated with the client.
 
         :calls: GET `/status/parameters`
-        :rtype: list of parameters
         """
         resp = self._get_request(endpoint="/status/parameters")
         return self._json_response([resp], 200)["out"]
 
     # Utilities
-    def list_files(self, machine, target_path, show_hidden=None):
+    def list_files(
+        self, machine: str, target_path: str, show_hidden: bool = False
+    ) -> List[t.LsFile]:
         """Returns a list of files in a directory.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param show_hidden: show hidden files
-        :type show_hidden: boolean, optional
         :calls: GET `/utilities/ls`
-        :rtype: list of files
         """
-        params = {"targetPath": f"{target_path}"}
-        if show_hidden == True:
+        params: dict[str, Any] = {"targetPath": f"{target_path}"}
+        if show_hidden is True:
             params["showhidden"] = show_hidden
 
         resp = self._get_request(
@@ -542,19 +583,15 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def mkdir(self, machine, target_path, p=None):
+    def mkdir(self, machine: str, target_path: str, p: Optional[bool] = None) -> None:
         """Creates a new directory.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param p: no error if existing, make parent directories as needed
-        :type p: boolean, optional
         :calls: POST `/utilities/mkdir`
-        :rtype: None
         """
-        data = {"targetPath": target_path}
+        data: dict[str, Any] = {"targetPath": target_path}
         if p:
             data["p"] = p
 
@@ -565,17 +602,13 @@ class Firecrest:
         )
         self._json_response([resp], 201)
 
-    def mv(self, machine, source_path, target_path):
+    def mv(self, machine: str, source_path: str, target_path: str) -> None:
         """Rename/move a file, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param source_path: the absolute source path
-        :type source_path: string
         :param target_path: the absolute target path
-        :type target_path: string
         :calls: PUT `/utilities/rename`
-        :rtype: None
         """
         resp = self._put_request(
             endpoint="/utilities/rename",
@@ -584,17 +617,13 @@ class Firecrest:
         )
         self._json_response([resp], 200)
 
-    def chmod(self, machine, target_path, mode):
+    def chmod(self, machine: str, target_path: str, mode: str) -> None:
         """Changes the file mod bits of a given file according to the specified mode.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param mode: same as numeric mode of linux chmod tool
-        :type mode: string
         :calls: PUT `/utilities/chmod`
-        :rtype: None
         """
         resp = self._put_request(
             endpoint="/utilities/chmod",
@@ -603,20 +632,21 @@ class Firecrest:
         )
         self._json_response([resp], 200)
 
-    def chown(self, machine, target_path, owner=None, group=None):
+    def chown(
+        self,
+        machine: str,
+        target_path: str,
+        owner: Optional[str] = None,
+        group: Optional[str] = None,
+    ) -> None:
         """Changes the user and/or group ownership of a given file.
         If only owner or group information is passed, only that information will be updated.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param owner: owner ID for target
-        :type owner: string, optional
         :param group: group ID for target
-        :type group: string, optional
         :calls: PUT `/utilities/chown`
-        :rtype: None
         """
         if owner is None and group is None:
             return
@@ -635,17 +665,13 @@ class Firecrest:
         )
         self._json_response([resp], 200)
 
-    def copy(self, machine, source_path, target_path):
+    def copy(self, machine: str, source_path: str, target_path: str) -> None:
         """Copies file from `source_path` to `target_path`.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param source_path: the absolute source path
-        :type source_path: string
         :param target_path: the absolute target path
-        :type target_path: string
         :calls: POST `/utilities/copy`
-        :rtype: None
         """
         resp = self._post_request(
             endpoint="/utilities/copy",
@@ -654,15 +680,12 @@ class Firecrest:
         )
         self._json_response([resp], 201)
 
-    def file_type(self, machine, target_path):
+    def file_type(self, machine: str, target_path: str) -> str:
         """Uses the `file` linux application to determine the type of a file.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :calls: GET `/utilities/file`
-        :rtype: string
         """
         resp = self._get_request(
             endpoint="/utilities/file",
@@ -671,20 +694,18 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def stat(self, machine, target_path, dereference=False):
+    def stat(
+        self, machine: str, target_path: str, dereference: bool = False
+    ) -> t.StatFile:
         """Uses the stat linux application to determine the status of a file on the machine's filesystem.
         The result follows: https://docs.python.org/3/library/os.html#os.stat_result.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param dereference: follow link (default False)
-        :type dereference: boolean, optional
         :calls: GET `/utilities/stat`
-        :rtype: string
         """
-        params = {"targetPath": target_path}
+        params: dict[str, Any] = {"targetPath": target_path}
         if dereference:
             params["dereference"] = dereference
 
@@ -695,17 +716,13 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def symlink(self, machine, target_path, link_path):
+    def symlink(self, machine: str, target_path: str, link_path: str) -> None:
         """Creates a symbolic link.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute path that the symlink will point to
-        :type target_path: string
         :param link_path: the absolute path to the new symlink
-        :type link_path: string
         :calls: POST `/utilities/symlink`
-        :rtype: None
         """
         resp = self._post_request(
             endpoint="/utilities/symlink",
@@ -714,60 +731,57 @@ class Firecrest:
         )
         self._json_response([resp], 201)
 
-    def simple_download(self, machine, source_path, target_path):
+    def simple_download(
+        self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO
+    ) -> None:
         """Blocking call to download a small file.
         The maximun size of file that is allowed can be found from the parameters() call.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param source_path: the absolute source path
-        :type source_path: string
         :param target_path: the target path in the local filesystem or binary stream
-        :type target_path: string or binary stream
         :calls: GET `/utilities/download`
-        :rtype: None
         """
         resp = self._get_request(
             endpoint="/utilities/download",
             additional_headers={"X-Machine-Name": machine},
             params={"sourcePath": source_path},
         )
-        self._json_response([resp], 200)
-        context = (
-            open(target_path, "wb")
-            if isinstance(target_path, str)
-            or isinstance(target_path, pathlib.PosixPath)
+        self._json_response([resp], 200, allow_none_result=True)
+        context: ContextManager[BytesIO] = (
+            open(target_path, "wb")  # type: ignore
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
             else nullcontext(target_path)
         )
         with context as f:
             f.write(resp.content)
 
-    def simple_upload(self, machine, source_path, target_path, filename=None):
+    def simple_upload(
+        self,
+        machine: str,
+        source_path: str | pathlib.Path | BytesIO,
+        target_path: str,
+        filename: Optional[str] = None,
+    ) -> None:
         """Blocking call to upload a small file.
         The file that will be uploaded will have the same name as the source_path.
         The maximum size of file that is allowed can be found from the parameters() call.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param source_path: the source path of the file or binary stream
-        :type source_path: string or binary stream
         :param target_path: the absolute target path of the directory where the file will be uploaded
-        :type target_path: string
         :param filename: naming target file to filename (default is same as the local one)
-        :type filename: string
         :calls: POST `/utilities/upload`
-        :rtype: None
         """
-        context = (
-            open(source_path, "rb")
-            if isinstance(source_path, str)
-            or isinstance(source_path, pathlib.PosixPath)
+        context: ContextManager[BytesIO] = (
+            open(source_path, "rb")  # type: ignore
+            if isinstance(source_path, str) or isinstance(source_path, pathlib.Path)
             else nullcontext(source_path)
         )
         with context as f:
             # Set filename
             if filename is not None:
-                f = (filename, f)
+                f = (filename, f)  # type: ignore
 
             resp = self._post_request(
                 endpoint="/utilities/upload",
@@ -778,32 +792,26 @@ class Firecrest:
 
         self._json_response([resp], 201)
 
-    def simple_delete(self, machine, target_path):
+    def simple_delete(self, machine: str, target_path: str) -> None:
         """Blocking call to delete a small file.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :calls: DELETE `/utilities/rm`
-        :rtype: None
         """
         resp = self._delete_request(
             endpoint="/utilities/rm",
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path},
         )
-        self._json_response([resp], 204)
+        self._json_response([resp], 204, allow_none_result=True)
 
-    def checksum(self, machine, target_path):
+    def checksum(self, machine: str, target_path: str) -> str:
         """Calculate the SHA256 (256-bit) checksum of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :calls: GET `/utilities/checksum`
-        :rtype: string
         """
         resp = self._get_request(
             endpoint="/utilities/checksum",
@@ -812,7 +820,13 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def head(self, machine, target_path, bytes=None, lines=None):
+    def head(
+        self,
+        machine: str,
+        target_path: str,
+        bytes: Optional[int] = None,
+        lines: Optional[int] = None,
+    ) -> str:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
         Bytes and lines cannot be specified simultaneously.
@@ -820,28 +834,25 @@ class Firecrest:
         This variable is available in the parameters command.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param lines: the number of lines to be displayed
-        :type lines: integer, optional
         :param bytes: the number of bytes to be displayed
-        :type bytes: integer, optional
         :calls: GET `/utilities/head`
-        :rtype: string
         """
         resp = self._get_request(
             endpoint="/utilities/head",
             additional_headers={"X-Machine-Name": machine},
-            params={
-                "targetPath": target_path,
-                "lines": lines,
-                "bytes": bytes,
-            },
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
         )
         return self._json_response([resp], 200)["output"]
 
-    def tail(self, machine, target_path, bytes=None, lines=None):
+    def tail(
+        self,
+        machine: str,
+        target_path: str,
+        bytes: Optional[int] = None,
+        lines: Optional[int] = None,
+    ) -> str:
         """Display the last part of a specified file.
         By default 10 lines will be returned.
         Bytes and lines cannot be specified simultaneously.
@@ -849,38 +860,26 @@ class Firecrest:
         This variable is available in the parameters command.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :param lines: the number of lines to be displayed
-        :type lines: integer, optional
         :param bytes: the number of bytes to be displayed
-        :type bytes: integer, optional
         :calls: GET `/utilities/head`
-        :rtype: string
         """
         resp = self._get_request(
             endpoint="/utilities/tail",
             additional_headers={"X-Machine-Name": machine},
-            params={
-                "targetPath": target_path,
-                "lines": lines,
-                "bytes": bytes,
-            },
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
         )
         return self._json_response([resp], 200)["output"]
 
-    def view(self, machine, target_path):
+    def view(self, machine: str, target_path: str) -> str:
         """View the content of a specified file.
         The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
         This variable is available in the parameters command.
 
         :param machine: the machine name where the filesystem belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string
         :calls: GET `/utilities/checksum`
-        :rtype: string
         """
         resp = self._get_request(
             endpoint="/utilities/view",
@@ -889,11 +888,9 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def whoami(self):
+    def whoami(self) -> Optional[str]:
         """Returns the username that FirecREST will be using to perform the other calls.
         Will return `None` if the token is not valid.
-
-        :rtype: string or None
         """
 
         # FIXME This needs to be added as an endpoint in FirecREST,
@@ -918,7 +915,7 @@ class Firecrest:
             return None
 
     # Compute
-    def _submit_request(self, machine, job_script, local_file, account=None):
+    def _submit_request(self, machine: str, job_script, local_file, account=None):
         if local_file:
             with open(job_script, "rb") as f:
                 if account:
@@ -946,7 +943,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
-    def _squeue_request(self, machine, jobs=None):
+    def _squeue_request(self, machine: str, jobs=None):
         jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
@@ -960,7 +957,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def _acct_request(self, machine, jobs=None, start_time=None, end_time=None):
+    def _acct_request(self, machine: str, jobs=None, start_time=None, end_time=None):
         jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
@@ -980,21 +977,22 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def submit(self, machine, job_script, local_file=True, account=None):
+    def submit(
+        self,
+        machine: str,
+        job_script: str,
+        local_file: Optional[bool] = True,
+        account: Optional[str] = None,
+    ) -> t.JobSubmit:
         """Submits a batch script to SLURM on the target system
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
-        :type job_script: string
         :param local_file: batch file can be local (default) or on the machine's filesystem
-        :type local_file: boolean, optional
         :param account: submit the job with this project account
-        :type account: string, optional
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary
         """
         self._current_method_requests = []
         json_response = self._submit_request(machine, job_script, local_file, account)
@@ -1003,26 +1001,26 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def poll(self, machine, jobs=None, start_time=None, end_time=None):
+    def poll(
+        self,
+        machine: str,
+        jobs: Optional[Sequence[str | int]] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+    ) -> List[t.JobAcct]:
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param jobs: list of the IDs of the jobs
-        :type jobs: list of strings/integers, optional
         :param start_time: Start time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
-        :type start_time: string, optional
         :param end_time: End time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
-        :type end_time: string, optional
         :calls: GET `/compute/acct`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary
         """
         self._current_method_requests = []
-        jobs = jobs if jobs else []
-        jobids = [str(j) for j in jobs]
+        jobids = [str(j) for j in jobs] if jobs else []
         json_response = self._acct_request(machine, jobids, start_time, end_time)
         logger.info(f"Job polling task: {json_response['task_id']}")
         res = self._poll_tasks(
@@ -1034,18 +1032,17 @@ class Firecrest:
         else:
             return res
 
-    def poll_active(self, machine, jobs=None):
+    def poll_active(
+        self, machine: str, jobs: Optional[Sequence[str | int]] = None
+    ) -> List[t.JobQueue]:
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param jobs: list of the IDs of the jobs
-        :type jobs: list of strings/integers, optional
         :calls: GET `/compute/jobs`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary
         """
         self._current_method_requests = []
         jobs = jobs if jobs else []
@@ -1057,18 +1054,15 @@ class Firecrest:
         )
         return list(dict_result.values())
 
-    def cancel(self, machine, job_id):
+    def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
         This call uses the `scancel` command.
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
-        :param job_id: the absolute target path (default [])
-        :type job_id: list of strings/integers, optional
+        :param job_id: the ID of the job
         :calls: DELETE `/compute/jobs/{job_id}`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary
         """
         self._current_method_requests = []
         resp = self._delete_request(
@@ -1118,37 +1112,29 @@ class Firecrest:
 
     def submit_move_job(
         self,
-        machine,
-        source_path,
-        target_path,
-        job_name=None,
-        time=None,
-        stage_out_job_id=None,
-        account=None,
-    ):
+        machine: str,
+        source_path: str,
+        target_path: str,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
+    ) -> t.JobSubmit:
         """Move files between internal CSCS file systems.
         Rename/Move source_path to target_path.
         Possible to stage-out jobs providing the SLURM ID of a production job.
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param source_path: the absolute source path
-        :type source_path: string
         :param target_path: the absolute target path
-        :type target_path: string,
         :param job_name: job name
-        :type job_name: string, optional
         :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
-        :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
-        :type stage_out_job_id: string, optional
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
-        :type account: string, optional
         :calls: POST `/storage/xfer-internal/mv`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/mv"
@@ -1169,37 +1155,29 @@ class Firecrest:
 
     def submit_copy_job(
         self,
-        machine,
-        source_path,
-        target_path,
-        job_name=None,
-        time=None,
-        stage_out_job_id=None,
-        account=None,
-    ):
+        machine: str,
+        source_path: str,
+        target_path: str,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
+    ) -> t.JobSubmit:
         """Copy files between internal CSCS file systems.
         Copy source_path to target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param source_path: the absolute source path
-        :type source_path: string
         :param target_path: the absolute target path
-        :type target_path: string,
         :param job_name: job name
-        :type job_name: string, optional
         :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
-        :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
-        :type stage_out_job_id: string, optional
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
-        :type account: string, optional
         :calls: POST `/storage/xfer-internal/cp`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/cp"
@@ -1220,37 +1198,29 @@ class Firecrest:
 
     def submit_rsync_job(
         self,
-        machine,
-        source_path,
-        target_path,
-        job_name=None,
-        time=None,
-        stage_out_job_id=None,
-        account=None,
-    ):
+        machine: str,
+        source_path: str,
+        target_path: str,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
+    ) -> t.JobSubmit:
         """Transfer files between internal CSCS file systems.
         Transfer source_path to target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param source_path: the absolute source path
-        :type source_path: string
         :param target_path: the absolute target path
-        :type target_path: string,
         :param job_name: job name
-        :type job_name: string, optional
         :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
-        :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
-        :type stage_out_job_id: string, optional
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
-        :type account: string, optional
         :calls: POST `/storage/xfer-internal/rsync`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rsync"
@@ -1271,34 +1241,27 @@ class Firecrest:
 
     def submit_delete_job(
         self,
-        machine,
-        target_path,
-        job_name=None,
-        time=None,
-        stage_out_job_id=None,
-        account=None,
-    ):
+        machine: str,
+        target_path: str,
+        job_name: Optional[str] = None,
+        time: Optional[str] = None,
+        stage_out_job_id: Optional[str] = None,
+        account: Optional[str] = None,
+    ) -> t.JobSubmit:
         """Remove files in internal CSCS file systems.
         Remove file in target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
         More info about internal transfer: https://user.cscs.ch/storage/data_transfer/internal_transfer/
 
         :param machine: the machine name where the scheduler belongs to
-        :type machine: string
         :param target_path: the absolute target path
-        :type target_path: string,
         :param job_name: job name
-        :type job_name: string, optional
         :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
-        :type time: string, optional
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
-        :type stage_out_job_id: string, optional
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
-        :type account: string, optional
         :calls: POST `/storage/xfer-internal/rm`
 
                 GET `/tasks/{taskid}`
-        :rtype: dictionary with the jobid of the submitted job
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rm"
@@ -1317,17 +1280,15 @@ class Firecrest:
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    def external_upload(self, machine, source_path, target_path):
+    def external_upload(
+        self, machine: str, source_path: str, target_path: str
+    ) -> ExternalUpload:
         """Non blocking call for the upload of larger files.
 
         :param machine: the machine where the filesystem belongs to
-        :type machine: string
         :param source_path: the source path in the local filesystem
-        :type source_path: string
         :param target_path: the target path in the machine's filesystem
-        :type target_path: string
         :returns: an ExternalUpload object
-        :rtype: ExternalUpload
         """
         resp = self._post_request(
             endpoint="/storage/xfer-external/upload",
@@ -1337,15 +1298,12 @@ class Firecrest:
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
 
-    def external_download(self, machine, source_path):
+    def external_download(self, machine: str, source_path: str) -> ExternalDownload:
         """Non blocking call for the download of larger files.
 
         :param machine: the machine where the filesystem belongs to
-        :type machine: string
         :param source_path: the source path in the local filesystem
-        :type source_path: string
         :returns: an ExternalDownload object
-        :rtype: ExternalDownload
         """
         resp = self._post_request(
             endpoint="/storage/xfer-external/download",
@@ -1357,13 +1315,11 @@ class Firecrest:
         )
 
     # Reservation
-    def all_reservations(self, machine):
+    def all_reservations(self, machine: str) -> List[dict]:
         """List all active reservations and their status
 
         :param machine: the machine name
-        :type machine: string
         :calls: GET `/reservations`
-        :rtype: list of dictionaries (one for each reservation)
         """
         resp = self._get_request(
             endpoint="/reservations", additional_headers={"X-Machine-Name": machine}
@@ -1372,32 +1328,24 @@ class Firecrest:
 
     def create_reservation(
         self,
-        machine,
-        reservation,
-        account,
-        number_of_nodes,
-        node_type,
-        start_time,
-        end_time,
-    ):
+        machine: str,
+        reservation: str,
+        account: str,
+        number_of_nodes: str,
+        node_type: str,
+        start_time: str,
+        end_time: str,
+    ) -> None:
         """Creates a new reservation with {reservation} name for a given SLURM groupname
 
         :param machine: the machine name
-        :type machine: string
         :param reservation: the reservation name
-        :type reservation: string
         :param account: the account in SLURM to which the reservation is made for
-        :type account: string
         :param number_of_nodes: number of nodes needed for the reservation
-        :type number_of_nodes: string
         :param node_type: type of node
-        :type node_type: string
         :param start_time: start time for reservation (YYYY-MM-DDTHH:MM:SS)
-        :type start_time: string
         :param end_time: end time for reservation (YYYY-MM-DDTHH:MM:SS)
-        :type end_time: string
         :calls: POST `/reservations`
-        :rtype: None
         """
         data = {
             "reservation": reservation,
@@ -1416,32 +1364,24 @@ class Firecrest:
 
     def update_reservation(
         self,
-        machine,
-        reservation,
-        account,
-        number_of_nodes,
-        node_type,
-        start_time,
-        end_time,
-    ):
+        machine: str,
+        reservation: str,
+        account: str,
+        number_of_nodes: str,
+        node_type: str,
+        start_time: str,
+        end_time: str,
+    ) -> None:
         """Updates an already created reservation named {reservation}
 
         :param machine: the machine name
-        :type machine: string
         :param reservation: the reservation name
-        :type reservation: string
         :param account: the account in SLURM to which the reservation is made for
-        :type account: string
         :param number_of_nodes: number of nodes needed for the reservation
-        :type number_of_nodes: string
         :param node_type: type of node
-        :type node_type: string
         :param start_time: start time for reservation (YYYY-MM-DDTHH:MM:SS)
-        :type start_time: string
         :param end_time: end time for reservation (YYYY-MM-DDTHH:MM:SS)
-        :type end_time: string
         :calls: PUT `/reservations/{reservation}`
-        :rtype: None
         """
         data = {
             "account": account,
@@ -1457,18 +1397,15 @@ class Firecrest:
         )
         self._json_response([resp], 200)
 
-    def delete_reservation(self, machine, reservation):
+    def delete_reservation(self, machine: str, reservation: str) -> None:
         """Deletes an already created reservation named {reservation}
 
         :param machine: the machine name
-        :type machine: string
         :param reservation: the reservation name
-        :type reservation: string
         :calls: DELETE `/reservations/{reservation}`
-        :rtype: None
         """
         resp = self._delete_request(
             endpoint=f"/reservations/{reservation}",
             additional_headers={"X-Machine-Name": machine},
         )
-        self._json_response([resp], 204)
+        self._json_response([resp], 204, allow_none_result=True)
