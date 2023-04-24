@@ -1,6 +1,6 @@
 # Examples for asyncio with pyfirecrest
 
-## In order to install this version of the library
+## How to install this version of the library
 
 ```bash
 git clone -b async_client https://github.com/ekouts/pyfirecrest-fork.git pyfirecrest
@@ -8,6 +8,8 @@ cd pyfirecrest
 # You need an environment of python>=3.7
 python -m pip install .
 ```
+
+### Simple asynchronous workflow with the new client
 
 Here is an example of how to use the `AsyncFirecrest` client with asyncio.
 
@@ -74,4 +76,23 @@ async def main():
 
 asyncio.run(main())
 
+```
+
+
+### External transfers with `AsyncFirecrest`
+
+The uploads and downloads work as before but you have to keep in mind which methods are coroutines.
+
+```python
+# Download
+down_obj = await client.external_download("cluster", "/remote/path/to/the/file")
+status = await down_obj.status
+print(status)
+await down_obj.finish_download("my_local_file")
+
+# Upload
+up_obj = await client.external_upload("cluster", "/path/to/local/file", "/remote/path/to/filesystem")
+await up_obj.finish_upload()
+status = await up_obj.status
+print(status)
 ```
