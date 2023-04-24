@@ -323,7 +323,7 @@ class Firecrest:
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
         self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
-        #: Number of retries in case the rate limit is reached. When it set to `None`, the
+        #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
 
