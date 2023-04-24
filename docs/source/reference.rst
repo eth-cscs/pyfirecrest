@@ -29,9 +29,27 @@ The ``ExternalUpload`` class
     :show-inheritance:
 
 
+The ``AsyncExternalUpload`` class
+*********************************
+.. autoclass:: firecrest.AsyncExternalUpload
+    :inherited-members:
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 The ``ExternalDownload`` class
 ******************************
 .. autoclass:: firecrest.ExternalDownload
+    :inherited-members:
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+The ``AsyncExternalDownload`` class
+***********************************
+.. autoclass:: firecrest.AsyncExternalDownload
     :inherited-members:
     :members:
     :undoc-members:
