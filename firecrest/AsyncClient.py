@@ -138,12 +138,12 @@ class AsyncFirecrest:
     async def _get_request(self, endpoint, additional_headers=None, params=None):
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
-
         async with self._locks[microservice]:
             await self._stall_request(microservice)
+            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            if additional_headers:
+                headers.update(additional_headers)
+
             logger.info(f"Making GET request to {endpoint}")
             resp = await self._session.get(
                 url=url, headers=headers, params=params, timeout=self.timeout
@@ -159,12 +159,12 @@ class AsyncFirecrest:
     ):
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
-
         async with self._locks[microservice]:
             await self._stall_request(microservice)
+            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            if additional_headers:
+                headers.update(additional_headers)
+
             logger.info(f"Making POST request to {endpoint}")
             resp = await self._session.post(
                 url=url, headers=headers, data=data, files=files, timeout=self.timeout
@@ -178,12 +178,12 @@ class AsyncFirecrest:
     async def _put_request(self, endpoint, additional_headers=None, data=None):
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
-
         async with self._locks[microservice]:
             await self._stall_request(microservice)
+            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            if additional_headers:
+                headers.update(additional_headers)
+
             logger.info(f"Making PUT request to {endpoint}")
             resp = await self._session.post(
                 url=url, headers=headers, data=data, timeout=self.timeout
@@ -199,12 +199,12 @@ class AsyncFirecrest:
     ) -> requests.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
-
         async with self._locks[microservice]:
             await self._stall_request(microservice)
+            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            if additional_headers:
+                headers.update(additional_headers)
+
             logger.info(f"Making DELETE request to {endpoint}")
             # TODO: httpx doesn't support data in delete
             resp = requests.delete(
