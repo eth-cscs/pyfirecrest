@@ -45,6 +45,36 @@ def handle_response(response):
         print("-")
 
 
+class ComputeTask:
+    """Helper object for blocking methods that require multiple requests
+    """
+
+    def __init__(
+            self,
+            client: AsyncFirecrest,
+            task_id: str,
+            previous_responses: Optional[List[requests.Response]] = None
+    ) -> None:
+        self._responses = [] if previous_responses is None else previous_responses
+        self._client = client
+        self._task_id = task_id
+        self._sleep_time = itertools.cycle([1, 5, 10])
+
+
+    async def poll_task(self, final_status) -> None:
+        logger.info(f"Polling task {self._task_id} until status is {final_status}")
+        resp = await self._client._task_safe(self._task_id, self._responses)
+        while resp["status"] < final_status:
+            t = next(self._sleep_time)
+            logger.info(
+                f'Status of {self._task_id} is {resp["status"]}, sleeping for {t} sec'
+            )
+            resp = await self._client._task_safe(self._task_id, self._responses)
+
+        logger.info(f'Status of {self._task_id} is {resp["status"]}')
+        return resp["data"]
+
+
 class AsyncFirecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v1.
@@ -190,7 +220,8 @@ class AsyncFirecrest:
         if self._next_request_ts[microservice] is not None:
             while time.time() <= self._next_request_ts[microservice]:
                 logger.debug(
-                    f"going to sleep for "
+                    f"`{microservice}` microservice has received too many requests. "
+                    f"Going to sleep for "
                     f"~{self._next_request_ts[microservice] - time.time()} sec"
                 )
                 await asyncio.sleep(self._next_request_ts[microservice] - time.time())
@@ -777,8 +808,7 @@ class AsyncFirecrest:
                 data=data,
             )
 
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 201)
+        return self._json_response([resp], 201)
 
     async def _squeue_request(self, machine: str, jobs=None):
         jobs = [] if jobs is None else jobs
@@ -791,8 +821,7 @@ class AsyncFirecrest:
             additional_headers={"X-Machine-Name": machine},
             params=params,
         )
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 200)
+        return self._json_response([resp], 200)
 
     async def _acct_request(
         self, machine: str, jobs=None, start_time=None, end_time=None
@@ -813,8 +842,7 @@ class AsyncFirecrest:
             additional_headers={"X-Machine-Name": machine},
             params=params,
         )
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 200)
+        return self._json_response([resp], 200)
 
     async def submit(
         self,
@@ -833,14 +861,34 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
-        json_response = await self._submit_request(
-            machine, job_script, local_file, account
-        )
+        if local_file:
+            with open(job_script, "rb") as f:
+                if account:
+                    data = {"account": account}
+                else:
+                    data = None
+
+                resp = await self._post_request(
+                    endpoint="/compute/jobs/upload",
+                    additional_headers={"X-Machine-Name": machine},
+                    files={"file": f},
+                    data=data,
+                )
+        else:
+            data = {"targetPath": job_script}
+            if account:
+                data["account"] = account
+
+            resp = await self._post_request(
+                endpoint="/compute/jobs/path",
+                additional_headers={"X-Machine-Name": machine},
+                data=data,
+            )
+
+        json_response = self._json_response([resp], 201)
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        return await t.poll_task("200")
 
     async def poll(
         self,
@@ -860,13 +908,26 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
         jobids = [str(j) for j in jobs] if jobs else []
-        json_response = await self._acct_request(machine, jobids, start_time, end_time)
-        logger.info(f"Job polling task: {json_response['task_id']}")
-        res = await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        params = {}
+        if jobids:
+            params["jobs"] = ",".join(jobids)
+
+        if start_time:
+            params["starttime"] = start_time
+
+        if end_time:
+            params["endtime"] = end_time
+
+        resp = await self._get_request(
+            endpoint="/compute/acct",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
+        json_response = self._json_response([resp], 200)
+        logger.info(f"Job polling task: {json_response['task_id']}")
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        res = await t.poll_task("200")
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
             return list(res.values())
@@ -885,14 +946,21 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
-        json_response = await self._squeue_request(machine, jobids)
-        logger.info(f"Job active polling task: {json_response['task_id']}")
-        dict_result = await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        params = {}
+        if jobs:
+            params = {"jobs": ",".join([str(j) for j in jobids])}
+
+        resp = await self._get_request(
+            endpoint="/compute/jobs",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
+        json_response = self._json_response([resp], 200)
+        logger.info(f"Job active polling task: {json_response['task_id']}")
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        dict_result = await t.poll_task("200")
         return list(dict_result.values())
 
     async def cancel(self, machine: str, job_id: str | int) -> str:
@@ -905,17 +973,14 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
         resp = await self._delete_request(
             endpoint=f"/compute/jobs/{job_id}",
             additional_headers={"X-Machine-Name": machine},
         )
-        self._current_method_requests.append(resp)
-        json_response = self._json_response(self._current_method_requests, 200)
+        json_response = self._json_response([resp], 200)
         logger.info(f"Job cancellation task: {json_response['task_id']}")
-        return await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        return await t.poll_task("200")
 
     # Storage
     async def _internal_transfer(
@@ -928,6 +993,7 @@ class AsyncFirecrest:
         time,
         stage_out_job_id,
         account,
+        ret_response
     ):
         data = {"targetPath": target_path}
         if source_path:
@@ -948,8 +1014,8 @@ class AsyncFirecrest:
         resp = await self._post_request(
             endpoint=endpoint, additional_headers={"X-Machine-Name": machine}, data=data
         )
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 201)
+        ret_response.append(resp)
+        return self._json_response([resp], 201)
 
     async def submit_move_job(
         self,
@@ -977,7 +1043,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp = []
         endpoint = "/storage/xfer-internal/mv"
         json_response = await self._internal_transfer(
             endpoint,
@@ -988,11 +1054,11 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
+            resp
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
     async def submit_copy_job(
         self,
@@ -1020,7 +1086,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp = []
         endpoint = "/storage/xfer-internal/cp"
         json_response = await self._internal_transfer(
             endpoint,
@@ -1031,11 +1097,11 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
+            resp
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
     async def submit_rsync_job(
         self,
@@ -1063,7 +1129,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp = []
         endpoint = "/storage/xfer-internal/rsync"
         json_response = await self._internal_transfer(
             endpoint,
@@ -1074,11 +1140,11 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
+            resp
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
     async def submit_delete_job(
         self,
@@ -1104,7 +1170,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp = []
         endpoint = "/storage/xfer-internal/rm"
         json_response = await self._internal_transfer(
             endpoint,
@@ -1115,11 +1181,11 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
+            resp
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return await self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
     async def external_upload(
         self, machine: str, source_path: str, target_path: str
