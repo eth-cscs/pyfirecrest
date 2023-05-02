@@ -266,6 +266,43 @@ class Firecrest:
     :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
     """
 
+    TOO_MANY_REQUESTS_CODE = 429
+
+    def _retry_requests(func):
+        def wrapper(*args, **kwargs):
+            client = args[0]
+            num_retries = 0
+            resp = func(*args, **kwargs)
+            while True:
+                if resp.status_code != client.TOO_MANY_REQUESTS_CODE:
+                    break
+                elif (
+                    client.num_retries_rate_limit is not None
+                    and num_retries >= client.num_retries_rate_limit
+                ):
+                    logger.debug(
+                        f"Rate limit is reached and the request has "
+                        f"been retried already {num_retries} times"
+                    )
+                    break
+                else:
+                    reset = resp.headers.get(
+                        "Retry-After",
+                        default=resp.headers.get("RateLimit-Reset", default=10),
+                    )
+                    logger.info(
+                        f"Rate limit is reached, will sleep for "
+                        f"{reset} seconds and try again"
+                    )
+                    reset = int(reset)
+                    time.sleep(reset)
+                    resp = func(*args, **kwargs)
+                    num_retries += 1
+
+            return resp
+
+        return wrapper
+
     def __init__(
         self,
         firecrest_url: str,
@@ -286,7 +323,11 @@ class Firecrest:
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
         self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
+        #: Number of retries in case the rate limit is reached. When it is set to `None`, the
+        #: client will keep trying until it gets a different status code than 429.
+        self.num_retries_rate_limit: Optional[int] = None
 
+    @_retry_requests  # type: ignore
     def _get_request(
         self, endpoint, additional_headers=None, params=None
     ) -> requests.Response:
@@ -305,6 +346,7 @@ class Firecrest:
         )
         return resp
 
+    @_retry_requests  # type: ignore
     def _post_request(
         self, endpoint, additional_headers=None, data=None, files=None
     ) -> requests.Response:
@@ -324,6 +366,7 @@ class Firecrest:
         )
         return resp
 
+    @_retry_requests  # type: ignore
     def _put_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
@@ -342,6 +385,7 @@ class Firecrest:
         )
         return resp
 
+    @_retry_requests  # type: ignore
     def _delete_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
