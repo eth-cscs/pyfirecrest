@@ -1064,6 +1064,11 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         """
         self._current_method_requests = []
+        if isinstance(jobs, str):
+            logger.warning(
+                f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
+            )
+
         jobids = [str(j) for j in jobs] if jobs else []
         json_response = self._acct_request(machine, jobids, start_time, end_time)
         logger.info(f"Job polling task: {json_response['task_id']}")
