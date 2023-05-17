@@ -1094,6 +1094,11 @@ class Firecrest:
                 GET `/tasks/{taskid}`
         """
         self._current_method_requests = []
+        if isinstance(jobs, str):
+            logger.warning(
+                f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
+            )
+
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._squeue_request(machine, jobids)
