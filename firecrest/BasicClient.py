@@ -1147,7 +1147,7 @@ class Firecrest:
             data["sourcePath"] = source_path
 
         if job_name:
-            data["jobname"] = job_name
+            data["jobName"] = job_name
 
         if time:
             data["time"] = time
