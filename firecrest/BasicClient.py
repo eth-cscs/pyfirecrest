@@ -6,7 +6,6 @@
 #
 from __future__ import annotations
 
-from io import BufferedWriter, BytesIO
 import itertools
 import jwt
 import logging
@@ -17,14 +16,16 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
 import urllib.request
+
+from contextlib import nullcontext
+from io import BufferedWriter, BytesIO
+from requests.compat import json  # type: ignore
+from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
+from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
-
-from contextlib import nullcontext
-from requests.compat import json  # type: ignore
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -237,12 +238,31 @@ class ExternalDownload(ExternalStorage):
         """
         self._client._invalidate(self._task_id)
 
+    @property
+    def object_storage_link(self) -> str:
+        """Get the direct download url for the file. The response from the FirecREST api
+        changed after version 1.13.0, so make sure to set to older version, if you are
+        using an older deployment.
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        if self._client._api_version > Version("1.13.0"):
+            print('here?')
+            return self.object_storage_data["url"]
+        else:
+            print('there?', self._client._api_version)
+            return self.object_storage_data
+
     def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:
-        """Finish the download process.
+        """Finish the download process. The response from the FirecREST api changed after
+        version 1.13.0, so make sure to set to older version, if you are using an older
+        deployment.
 
         :param target_path: the local path to save the file
+
+        :calls: GET `/tasks/{taskid}`
         """
-        url = self.object_storage_data
+        url = self.object_storage_link
         logger.info(f"Downloading the file from {url} and saving to {target_path}")
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")
@@ -326,6 +346,13 @@ class Firecrest:
         #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
+        self._api_version: Version = parse("1.13.0")
+
+    def set_api_version(self, api_version: str) -> None:
+        """Set the version of the api of firecrest. By default it will be assumed that you are
+        using version 1.13.0 or compatible. The version is parsed by the `packaging` library.
+        """
+        self._api_version = parse(api_version)
 
     @_retry_requests  # type: ignore
     def _get_request(

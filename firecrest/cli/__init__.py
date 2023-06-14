@@ -633,7 +633,7 @@ def download(
                 "Moving file to the staging area... It is safe to "
                 "cancel the command and follow up through the task."
             ):
-                console.out(f"Download the file from:\n{down_obj.object_storage_data}")
+                console.out(f"Download the file from:\n{down_obj.object_storage_link}")
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1099,6 +1099,12 @@ def main(
         help="URL of the token request in the authorization server (e.g. https://auth.com/auth/.../openid-connect/token).",
         envvar="AUTH_TOKEN_URL",
     ),
+    api_version: str = typer.Option(
+        None,
+        help="Set the version of the api of firecrest. By default it will be assumed that you are using version 1.13.0 or "
+             "compatible. The version is parsed by the `packaging` library.",
+        envvar="FIRECREST_API_VERSION",
+    ),
     verbose: Optional[bool] = typer.Option(
         None, "-v", "--verbose", help="Enable verbose mode."
     ),
@@ -1126,6 +1132,9 @@ def main(
     auth_obj.timeout = auth_timeout
     client = fc.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
     client.timeout = timeout
+    if api_version:
+        client.set_api_version(api_version)
+
     if debug:
         logging.basicConfig(
             level=logging.DEBUG,
