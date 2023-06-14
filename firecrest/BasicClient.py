@@ -247,10 +247,8 @@ class ExternalDownload(ExternalStorage):
         :calls: GET `/tasks/{taskid}`
         """
         if self._client._api_version > Version("1.13.0"):
-            print('here?')
             return self.object_storage_data["url"]
         else:
-            print('there?', self._client._api_version)
             return self.object_storage_data
 
     def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:

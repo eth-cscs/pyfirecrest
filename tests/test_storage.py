@@ -247,12 +247,13 @@ def storage_tasks_callback(request, uri, response_headers):
             status_code = 200
         else:
             ret = {
-                "data": {
-                    "source": "/path/to/remote/source",
-                    "system_name": "machine",
-                    "url": "https://object_storage_link.com"
-                },
-                "description": "Started upload from filesystem to Object Storage",
+                "task": {
+                    "data": {
+                        "source": "/path/to/remote/source",
+                        "system_name": "machine",
+                        "url": "https://object_storage_link.com"
+                    },
+                    "description": "Started upload from filesystem to Object Storage",
                     "hash_id": taskid,
                     "last_modify": "2021-12-04T11:52:10",
                     "service": "storage",
@@ -260,7 +261,9 @@ def storage_tasks_callback(request, uri, response_headers):
                     "task_id": taskid,
                     "task_url": f"TASK_IP/tasks/{taskid}",
                     "user": "username",
+                }
             }
+            status_code = 200
     elif taskid == "external_upload_id":
         if external_upload_retry < 1:
             external_upload_retry += 1
@@ -599,15 +602,14 @@ def test_cli_external_download(valid_credentials):
     global external_download_retry
     external_download_retry = 0
     args = valid_credentials + [
+        "--api-version=1.14.0",
         "download",
         "--type=external",
-        "--api-version=1.14.0"
         "cluster1",
         "/path/to/remote/source",
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
-    print(stdout)
     assert result.exit_code == 0
     assert (
         "Follow the status of the transfer asynchronously with that task ID:" in stdout
@@ -621,9 +623,9 @@ def test_cli_external_download_legacy(valid_credentials):
     global external_download_retry
     external_download_retry = 0
     args = valid_credentials + [
+        "--api-version=1.13.0",
         "download",
         "--type=external",
-        "--api-version=1.13.0"
         "cluster1",
         "/path/to/remote/sourcelegacy",
     ]
@@ -654,10 +656,10 @@ def test_cli_external_upload(valid_credentials):
     external_upload_retry = 0
     args = valid_credentials + [
         "upload",
+        "--type=external",
         "cluster1",
         "/path/to/local/source",
         "/path/to/remote/destination",
-        "--type=external",
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
