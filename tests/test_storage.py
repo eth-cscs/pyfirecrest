@@ -82,7 +82,14 @@ def external_download_callback(request, uri, response_headers):
     #     ]
 
     # I couldn't find a better way to get the params from the request
-    if b"sourcePath=%2Fpath%2Fto%2Fremote%2Fsource" in request.body:
+    if b"sourcePath=%2Fpath%2Fto%2Fremote%2Fsourcelegacy" in request.body:
+        ret = {
+            "success": "Task created",
+            "task_id": "external_download_id_legacy",
+            "task_url": "TASK_IP/tasks/external_download_id_legacy",
+        }
+        status_code = 201
+    elif b"sourcePath=%2Fpath%2Fto%2Fremote%2Fsource" in request.body:
         ret = {
             "success": "Task created",
             "task_id": "external_download_id",
@@ -190,7 +197,7 @@ def storage_tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
-    elif taskid == "external_download_id":
+    elif taskid == "external_download_id" or taskid == "external_download_id_legacy":
         if external_download_retry < 1:
             external_download_retry += 1
             ret = {
@@ -223,10 +230,29 @@ def storage_tasks_callback(request, uri, response_headers):
                 }
             }
             status_code = 200
+        elif taskid == "external_download_id_legacy":
+            ret = {
+                "task": {
+                    "data": "https://object_storage_link_legacy.com",
+                    "description": "Started upload from filesystem to Object Storage",
+                    "hash_id": taskid,
+                    "last_modify": "2021-12-04T11:52:10",
+                    "service": "storage",
+                    "status": "117",
+                    "task_id": taskid,
+                    "task_url": f"TASK_IP/tasks/{taskid}",
+                    "user": "username",
+                }
+            }
+            status_code = 200
         else:
             ret = {
                 "task": {
-                    "data": "https://object_storage_link.com",
+                    "data": {
+                        "source": "/path/to/remote/source",
+                        "system_name": "machine",
+                        "url": "https://object_storage_link.com"
+                    },
                     "description": "Started upload from filesystem to Object Storage",
                     "hash_id": taskid,
                     "last_modify": "2021-12-04T11:52:10",
@@ -555,9 +581,20 @@ def test_internal_transfer_invalid_client(invalid_client):
 def test_external_download(valid_client):
     global external_download_retry
     external_download_retry = 0
+    valid_client.set_api_version("1.14.0")
     obj = valid_client.external_download("cluster1", "/path/to/remote/source")
     assert isinstance(obj, ExternalDownload)
     assert obj._task_id == "external_download_id"
+    assert obj.client == valid_client
+
+
+def test_external_download_legacy(valid_client):
+    global external_download_retry
+    external_download_retry = 0
+    valid_client.set_api_version("1.13.0")
+    obj = valid_client.external_download("cluster1", "/path/to/remote/sourcelegacy")
+    assert isinstance(obj, ExternalDownload)
+    assert obj._task_id == "external_download_id_legacy"
     assert obj.client == valid_client
 
 
@@ -565,10 +602,11 @@ def test_cli_external_download(valid_credentials):
     global external_download_retry
     external_download_retry = 0
     args = valid_credentials + [
+        "--api-version=1.14.0",
         "download",
+        "--type=external",
         "cluster1",
         "/path/to/remote/source",
-        "--type=external",
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -579,6 +617,27 @@ def test_cli_external_download(valid_credentials):
     assert "external_download_id" in stdout
     assert "Download the file from:" in stdout
     assert "https://object_storage_link.com" in stdout
+
+
+def test_cli_external_download_legacy(valid_credentials):
+    global external_download_retry
+    external_download_retry = 0
+    args = valid_credentials + [
+        "--api-version=1.13.0",
+        "download",
+        "--type=external",
+        "cluster1",
+        "/path/to/remote/sourcelegacy",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert (
+        "Follow the status of the transfer asynchronously with that task ID:" in stdout
+    )
+    assert "external_download_id_legacy" in stdout
+    assert "Download the file from:" in stdout
+    assert "https://object_storage_link_legacy.com" in stdout
 
 
 def test_external_upload(valid_client):
@@ -597,10 +656,10 @@ def test_cli_external_upload(valid_credentials):
     external_upload_retry = 0
     args = valid_credentials + [
         "upload",
+        "--type=external",
         "cluster1",
         "/path/to/local/source",
         "/path/to/remote/destination",
-        "--type=external",
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
