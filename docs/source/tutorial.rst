@@ -268,3 +268,42 @@ Here is an example of the code that will handle those failures.
         # You might also get regular exceptions in some cases. For example when you are
         # trying to upload a file that doesn't exist in your local filesystem.
         pass
+
+CLI support
+-----------
+
+After version 1.3.0, pyFirecREST comes together with a CLI but for now it can only be used with the `f7t.ClientCredentialsAuth` authentication class.
+
+You will need to set the environment variables `FIRECREST_CLIENT_ID`, `FIRECREST_CLIENT_SECRET` and `AUTH_TOKEN_URL` to set up the Client Credentials client, as well as `FIRECREST_URL` with the URL for the FirecREST instance you are using.
+
+After that you can explore the capabilities of the CLI with the `--help` option:
+```bash
+firecrest --help
+firecrest ls --help
+firecrest submit --help
+firecrest upload --help
+firecrest download --help
+firecrest submit-template --help
+```
+
+Some basic examples:
+```bash
+# Get the available systems
+firecrest systems
+
+# Get the parameters of different microservices of FirecREST
+firecrest parameters
+
+# List files of directory
+firecrest ls cluster1 /home
+
+# Submit a job
+firecrest submit cluster script.sh
+
+# Upload a "small" file (you can check the maximum size in `UTILITIES_MAX_FILE_SIZE` from the `parameters` command)
+firecrest upload --type=direct cluster local_file.txt /path/to/cluster/fs
+
+# Upload a "large" file
+firecrest upload --type=external cluster local_file.txt /path/to/cluster/fs
+# You will have to finish the upload with a second command that will be given in the output
+```

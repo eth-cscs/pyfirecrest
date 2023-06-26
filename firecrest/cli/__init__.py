@@ -1153,3 +1153,5 @@ def main(
             format="%(message)s",
             handlers=[RichHandler(console=console)],
         )
+
+typer_click_object = typer.main.get_command(app)
