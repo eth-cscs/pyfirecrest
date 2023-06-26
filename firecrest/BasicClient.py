@@ -870,6 +870,7 @@ class Firecrest:
         target_path: str,
         bytes: Optional[int] = None,
         lines: Optional[int] = None,
+        reverse: Optional[bool] = False,
     ) -> str:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
@@ -886,7 +887,7 @@ class Firecrest:
         resp = self._get_request(
             endpoint="/utilities/head",
             additional_headers={"X-Machine-Name": machine},
-            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes, "reverse": reverse},
         )
         return self._json_response([resp], 200)["output"]
 
@@ -896,6 +897,7 @@ class Firecrest:
         target_path: str,
         bytes: Optional[int] = None,
         lines: Optional[int] = None,
+        reverse: Optional[bool] = False,
     ) -> str:
         """Display the last part of a specified file.
         By default 10 lines will be returned.
@@ -912,7 +914,7 @@ class Firecrest:
         resp = self._get_request(
             endpoint="/utilities/tail",
             additional_headers={"X-Machine-Name": machine},
-            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes, "reverse": reverse},
         )
         return self._json_response([resp], 200)["output"]
 

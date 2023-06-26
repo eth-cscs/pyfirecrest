@@ -522,6 +522,9 @@ def head(
     bytes: int = typer.Option(
         None, "-c", "--bytes", help="Print bytes of each of the specified files."
     ),
+    reverse: bool = typer.Option(
+        False, help="Print bytes of each of the specified files."
+    ),
 ):
     """Display the beginning of a specified file.
     By default the first 10 lines will be returned.
@@ -537,7 +540,7 @@ def head(
         raise typer.Exit(code=1)
 
     try:
-        console.print(client.head(machine, path, bytes, lines))
+        console.print(client.head(machine, path, bytes, lines, reverse))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -555,6 +558,9 @@ def tail(
     bytes: int = typer.Option(
         None, "-c", "--bytes", help="Print bytes of each of the specified files."
     ),
+    reverse: bool = typer.Option(
+        False, help="Print bytes of each of the specified files."
+    ),
 ):
     """Display the end of a specified file.
     By default the last 10 lines will be returned.
@@ -570,7 +576,7 @@ def tail(
         raise typer.Exit(code=1)
 
     try:
-        console.print(client.tail(machine, path, bytes, lines))
+        console.print(client.tail(machine, path, bytes, lines, reverse))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
