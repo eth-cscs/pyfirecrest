@@ -274,36 +274,38 @@ CLI support
 
 After version 1.3.0, pyFirecREST comes together with a CLI but for now it can only be used with the `f7t.ClientCredentialsAuth` authentication class.
 
-You will need to set the environment variables `FIRECREST_CLIENT_ID`, `FIRECREST_CLIENT_SECRET` and `AUTH_TOKEN_URL` to set up the Client Credentials client, as well as `FIRECREST_URL` with the URL for the FirecREST instance you are using.
+You will need to set the environment variables ``FIRECREST_CLIENT_ID``, ``FIRECREST_CLIENT_SECRET`` and ``AUTH_TOKEN_URL`` to set up the Client Credentials client, as well as ``FIRECREST_URL`` with the URL for the FirecREST instance you are using.
 
 After that you can explore the capabilities of the CLI with the `--help` option:
-```bash
-firecrest --help
-firecrest ls --help
-firecrest submit --help
-firecrest upload --help
-firecrest download --help
-firecrest submit-template --help
-```
+
+.. code-block:: bash
+
+    firecrest --help
+    firecrest ls --help
+    firecrest submit --help
+    firecrest upload --help
+    firecrest download --help
+    firecrest submit-template --help
 
 Some basic examples:
-```bash
-# Get the available systems
-firecrest systems
 
-# Get the parameters of different microservices of FirecREST
-firecrest parameters
+.. code-block:: bash
 
-# List files of directory
-firecrest ls cluster1 /home
+    # Get the available systems
+    firecrest systems
 
-# Submit a job
-firecrest submit cluster script.sh
+    # Get the parameters of different microservices of FirecREST
+    firecrest parameters
 
-# Upload a "small" file (you can check the maximum size in `UTILITIES_MAX_FILE_SIZE` from the `parameters` command)
-firecrest upload --type=direct cluster local_file.txt /path/to/cluster/fs
+    # List files of directory
+    firecrest ls cluster1 /home
 
-# Upload a "large" file
-firecrest upload --type=external cluster local_file.txt /path/to/cluster/fs
-# You will have to finish the upload with a second command that will be given in the output
-```
+    # Submit a job
+    firecrest submit cluster script.sh
+
+    # Upload a "small" file (you can check the maximum size in `UTILITIES_MAX_FILE_SIZE` from the `parameters` command)
+    firecrest upload --type=direct cluster local_file.txt /path/to/cluster/fs
+
+    # Upload a "large" file
+    firecrest upload --type=external cluster local_file.txt /path/to/cluster/fs
+    # You will have to finish the upload with a second command that will be given in the output
