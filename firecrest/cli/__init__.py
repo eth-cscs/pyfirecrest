@@ -520,14 +520,14 @@ def head(
         None,
         "-n",
         "--lines",
-        help="Print count lines of each of the specified files; with a leading '-', print all but the last NUM lines of each file",
+        help="Print NUM lines of each of the specified files; with a leading '-', print all but the last NUM lines of each file",
         metavar="[-]NUM",
     ),
     bytes: str = typer.Option(
         None,
         "-c",
         "--bytes",
-        help="Print bytes of each of the specified files; with a leading '-', print all but the last NUM bytes of each file",
+        help="Print NUM bytes of each of the specified files; with a leading '-', print all but the last NUM bytes of each file",
         metavar="[-]NUM",
     ),
 ):
@@ -551,7 +551,7 @@ def head(
         if lines and lines.startswith("-"):
             lines_arg = lines[1:]
             skip_ending = True
-        elif bytes:
+        elif bytes and bytes.startswith("-"):
             bytes_arg = bytes[1:]
             skip_ending = True
 
@@ -571,14 +571,14 @@ def tail(
         None,
         "-n",
         "--lines",
-        help="output the last NUM lines; or use +NUM to output starting with line NUM",
+        help="Output the last NUM lines; or use +NUM to output starting with line NUM",
         metavar="[+]NUM",
     ),
     bytes: str = typer.Option(
         None,
         "-c",
         "--bytes",
-        help="output the last NUM bytes; or use +NUM to output starting with byte NUM",
+        help="Output the last NUM bytes; or use +NUM to output starting with byte NUM",
         metavar="[+]NUM",
     ),
 ):
@@ -602,7 +602,7 @@ def tail(
         if lines and lines.startswith("+"):
             lines_arg = lines[1:]
             skip_beginning = True
-        elif bytes:
+        elif bytes and bytes.startswith("-"):
             bytes_arg = bytes[1:]
             skip_beginning = True
 
