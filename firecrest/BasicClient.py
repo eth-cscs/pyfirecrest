@@ -893,8 +893,8 @@ class Firecrest:
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
+        bytes: Optional[str] = None,
+        lines: Optional[str] = None,
         skip_ending: Optional[bool] = False,
     ) -> str:
         """Display the beginning of a specified file.
@@ -926,8 +926,8 @@ class Firecrest:
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
+        bytes: Optional[str] = None,
+        lines: Optional[str] = None,
         skip_beginning: Optional[bool] = False,
     ) -> str:
         """Display the last part of a specified file.
