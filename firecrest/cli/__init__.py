@@ -602,7 +602,7 @@ def tail(
         if lines and lines.startswith("+"):
             lines_arg = lines[1:]
             skip_beginning = True
-        elif bytes and bytes.startswith("-"):
+        elif bytes and bytes.startswith("+"):
             bytes_arg = bytes[1:]
             skip_beginning = True
 
