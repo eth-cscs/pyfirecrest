@@ -19,6 +19,7 @@ You can also clone it from `Github <https://github.com/eth-cscs/pyfirecrest>`__ 
    authorization
    tutorial
    reference
+   cli_reference
 
 Contact
 =======
