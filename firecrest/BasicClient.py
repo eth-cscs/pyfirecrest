@@ -957,13 +957,20 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def whoami(self) -> Optional[str]:
+    def whoami(self, machine=None) -> Optional[str]:
         """Returns the username that FirecREST will be using to perform the other calls.
-        Will return `None` if the token is not valid.
-        """
+        In the case the machine name is passed in the arguments, a call is made to the respective endpoint and the command whoami is run on the machine.
+        Otherwise, the library decodes the token and will return `None` if the token is not valid.
 
-        # FIXME This needs to be added as an endpoint in FirecREST,
-        # now it's making a guess and it could be wrong.
+        :calls: GET `/utilities/whoami`
+        """
+        if machine:
+            resp = self._get_request(
+                endpoint="/utilities/whoami",
+                additional_headers={"X-Machine-Name": machine},
+            )
+            return self._json_response([resp], 200)["output"]
+
         try:
             decoded = jwt.decode(
                 self._authorization.get_access_token(),
