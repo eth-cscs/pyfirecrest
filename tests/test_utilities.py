@@ -532,6 +532,25 @@ def head_tail_callback(request, uri, response_headers):
     return [status_code, response_headers, json.dumps(ret)]
 
 
+def whoami_callback(request, uri, response_headers):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
+        return [
+            400,
+            response_headers,
+            '{"description": "Error on whoami operation", "error": "Machine does not exist"}',
+        ]
+
+    return [
+        200,
+        response_headers,
+        '{"description": "Success on whoami operation.", "output": "username"}'
+    ]
+
+
 @pytest.fixture(autouse=True)
 def setup_callbacks():
     httpretty.enable(allow_net_connect=False, verbose=True)
@@ -610,6 +629,10 @@ def setup_callbacks():
 
     httpretty.register_uri(
         httpretty.GET, "http://firecrest.cscs.ch/utilities/tail", body=head_tail_callback
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, "http://firecrest.cscs.ch/utilities/whoami", body=whoami_callback
     )
 
     httpretty.register_uri(
@@ -1299,3 +1322,17 @@ def test_view_invalid_machine(valid_client):
 def test_view_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.view("cluster1", "/path/to/file")
+
+
+def test_whoami(valid_client):
+    assert valid_client.whoami('cluster1') == "username"
+
+
+def test_whoami_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.whoami('cluster2')
+
+
+def test_whoami_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.whoami('cluster1')

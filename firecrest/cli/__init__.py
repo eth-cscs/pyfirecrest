@@ -1107,7 +1107,7 @@ def main(
     api_version: str = typer.Option(
         None,
         help="Set the version of the api of firecrest. By default it will be assumed that you are using version 1.13.0 or "
-             "compatible. The version is parsed by the `packaging` library.",
+        "compatible. The version is parsed by the `packaging` library.",
         envvar="FIRECREST_API_VERSION",
     ),
     verbose: Optional[bool] = typer.Option(
@@ -1158,5 +1158,6 @@ def main(
             format="%(message)s",
             handlers=[RichHandler(console=console)],
         )
+
 
 typer_click_object = typer.main.get_command(app)
