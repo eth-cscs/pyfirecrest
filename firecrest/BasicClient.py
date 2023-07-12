@@ -345,6 +345,7 @@ class Firecrest:
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("1.13.0")
+        self._session = requests.Session()
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be assumed that you are
@@ -362,7 +363,7 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making GET request to {endpoint}")
-        resp = requests.get(
+        resp = self._session.get(
             url=url,
             headers=headers,
             params=params,
@@ -381,7 +382,7 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making POST request to {endpoint}")
-        resp = requests.post(
+        resp = self._session.post(
             url=url,
             headers=headers,
             data=data,
@@ -401,7 +402,7 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making PUT request to {endpoint}")
-        resp = requests.put(
+        resp = self._session.put(
             url=url,
             headers=headers,
             data=data,
@@ -420,7 +421,7 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making DELETE request to {endpoint}")
-        resp = requests.delete(
+        resp = self._session.delete(
             url=url,
             headers=headers,
             data=data,
