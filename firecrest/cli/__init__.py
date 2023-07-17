@@ -613,11 +613,16 @@ def tail(
 
 
 @app.command(rich_help_panel="Utilities commands")
-def whoami():
-    """Return the username that FirecREST will be using to perform the other calls
+def whoami(
+    machine: Optional[str] = typer.Argument(
+        None, help="The machine name where the `whoami` command will run."
+    ),
+):
+    """Return the username that FirecREST will be using to perform the other calls.
+    If no machine name is passed the username will be deduced from the token.
     """
     try:
-        console.print(client.whoami())
+        console.print(client.whoami(machine))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
