@@ -516,11 +516,19 @@ def head(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    lines: int = typer.Option(
-        None, "-n", "--lines", help="Print count lines of each of the specified files."
+    lines: str = typer.Option(
+        None,
+        "-n",
+        "--lines",
+        help="Print NUM lines of each of the specified files; with a leading '-', print all but the last NUM lines of each file",
+        metavar="[-]NUM",
     ),
-    bytes: int = typer.Option(
-        None, "-c", "--bytes", help="Print bytes of each of the specified files."
+    bytes: str = typer.Option(
+        None,
+        "-c",
+        "--bytes",
+        help="Print NUM bytes of each of the specified files; with a leading '-', print all but the last NUM bytes of each file",
+        metavar="[-]NUM",
     ),
 ):
     """Display the beginning of a specified file.
@@ -537,7 +545,17 @@ def head(
         raise typer.Exit(code=1)
 
     try:
-        console.print(client.head(machine, path, bytes, lines))
+        lines_arg = lines
+        bytes_arg = bytes
+        skip_ending = False
+        if lines and lines.startswith("-"):
+            lines_arg = lines[1:]
+            skip_ending = True
+        elif bytes and bytes.startswith("-"):
+            bytes_arg = bytes[1:]
+            skip_ending = True
+
+        console.print(client.head(machine, path, bytes_arg, lines_arg, skip_ending))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -549,11 +567,19 @@ def tail(
         ..., help="The machine name where the filesystem belongs to."
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    lines: int = typer.Option(
-        None, "-n", "--lines", help="Print count lines of each of the specified files."
+    lines: str = typer.Option(
+        None,
+        "-n",
+        "--lines",
+        help="Output the last NUM lines; or use +NUM to output starting with line NUM",
+        metavar="[+]NUM",
     ),
-    bytes: int = typer.Option(
-        None, "-c", "--bytes", help="Print bytes of each of the specified files."
+    bytes: str = typer.Option(
+        None,
+        "-c",
+        "--bytes",
+        help="Output the last NUM bytes; or use +NUM to output starting with byte NUM",
+        metavar="[+]NUM",
     ),
 ):
     """Display the end of a specified file.
@@ -570,7 +596,17 @@ def tail(
         raise typer.Exit(code=1)
 
     try:
-        console.print(client.tail(machine, path, bytes, lines))
+        lines_arg = lines
+        bytes_arg = bytes
+        skip_beginning = False
+        if lines and lines.startswith("+"):
+            lines_arg = lines[1:]
+            skip_beginning = True
+        elif bytes and bytes.startswith("+"):
+            bytes_arg = bytes[1:]
+            skip_beginning = True
+
+        console.print(client.tail(machine, path, bytes_arg, lines_arg, skip_beginning))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1102,7 +1138,7 @@ def main(
     api_version: str = typer.Option(
         None,
         help="Set the version of the api of firecrest. By default it will be assumed that you are using version 1.13.0 or "
-             "compatible. The version is parsed by the `packaging` library.",
+        "compatible. The version is parsed by the `packaging` library.",
         envvar="FIRECREST_API_VERSION",
     ),
     verbose: Optional[bool] = typer.Option(
@@ -1153,5 +1189,6 @@ def main(
             format="%(message)s",
             handlers=[RichHandler(console=console)],
         )
+
 
 typer_click_object = typer.main.get_command(app)
