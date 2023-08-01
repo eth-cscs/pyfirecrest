@@ -17,7 +17,26 @@ import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncClient import AsyncFirecrest
 
+import itertools
+import jwt
+import logging
+import pathlib
+import requests
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+
+from contextlib import nullcontext
+from io import BufferedWriter, BytesIO
 from requests.compat import json  # type: ignore
+from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
+from packaging.version import Version, parse
+
+import firecrest.FirecrestException as fe
+import firecrest.types as t
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -47,6 +66,229 @@ def make_sync(func):
 
 
 class Firecrest(AsyncFirecrest):
+    _final_states: set[str]
+
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
+    ) -> None:
+        previous_responses = [] if previous_responses is None else previous_responses
+        self._client = client
+        self._task_id = task_id
+        self._in_progress = True
+        self._status: Optional[str] = None
+        self._data = None
+        self._object_storage_data = None
+        self._sleep_time = itertools.cycle([1, 5, 10])
+        self._responses = previous_responses
+
+    @property
+    def client(self) -> Firecrest:
+        """Returns the client that will be used to get information for the task.
+        """
+        return self._client
+
+    @property
+    def task_id(self) -> str:
+        """Returns the FirecREST task ID that is associated with this transfer.
+        """
+        return self._task_id
+
+    def _update(self) -> None:
+        if self._status not in self._final_states:
+            task = self._client._task_safe(self._task_id, self._responses)
+            self._status = task["status"]
+            self._data = task["data"]
+            logger.info(f"Task {self._task_id} has status {self._status}")
+            if not self._object_storage_data:
+                if self._status == "111":
+                    self._object_storage_data = task["data"]["msg"]
+                elif self._status == "117":
+                    self._object_storage_data = task["data"]
+
+    @property
+    def status(self) -> str:
+        """Returns status of the task that is associated with this transfer.
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        self._update()
+        return self._status  # type: ignore
+
+    @property
+    def in_progress(self) -> bool:
+        """Returns `False` when the transfer has been completed (succesfully or with errors), otherwise `True`.
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        self._update()
+        return self._status not in self._final_states
+
+    @property
+    def data(self) -> Optional[dict]:
+        """Returns the task information from the latest response.
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        self._update()
+        return self._data
+
+    @property
+    def object_storage_data(self):
+        """Returns the necessary information for the external transfer.
+        The call is blocking and in cases of large file transfers it might take a long time.
+
+        :calls: GET `/tasks/{taskid}`
+        :rtype: dictionary or string
+        """
+        if not self._object_storage_data:
+            self._update()
+
+        while not self._object_storage_data:
+            t = next(self._sleep_time)
+            logger.info(f"Sleeping for {t} sec")
+            time.sleep(t)
+            self._update()
+
+        return self._object_storage_data
+
+
+class ExternalUpload(ExternalStorage):
+    """
+    This class handles the external upload from a file.
+
+    Tracks the progress of the upload through the status of the associated task.
+    Final states: *114* and *115*.
+
+    +--------+--------------------------------------------------------------------+
+    | Status | Description                                                        |
+    +========+====================================================================+
+    | 110    | Waiting for Form URL from Object Storage to be retrieved           |
+    +--------+--------------------------------------------------------------------+
+    | 111    | Form URL from Object Storage received                              |
+    +--------+--------------------------------------------------------------------+
+    | 112    | Object Storage confirms that upload to Object Storage has finished |
+    +--------+--------------------------------------------------------------------+
+    | 113    | Download from Object Storage to server has started                 |
+    +--------+--------------------------------------------------------------------+
+    | 114    | Download from Object Storage to server has finished                |
+    +--------+--------------------------------------------------------------------+
+    | 115    | Download from Object Storage error                                 |
+    +--------+--------------------------------------------------------------------+
+
+    :param client: FirecREST client associated with the transfer
+    :param task_id: FirecrREST task associated with the transfer
+    """
+
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
+    ) -> None:
+        previous_responses = [] if previous_responses is None else previous_responses
+        super().__init__(client, task_id, previous_responses)
+        self._final_states = {"114", "115"}
+        logger.info(f"Creating ExternalUpload object for task {task_id}")
+
+    def finish_upload(self) -> None:
+        """Finish the upload process.
+        This call will upload the file to the staging area.
+        Check with the method `status` or `in_progress` to see the status of the transfer.
+        The transfer from the staging area to the systems's filesystem can take several seconds to start to start.
+        """
+        c = self.object_storage_data["command"]  # typer: ignore
+        # LOCAL FIX FOR MAC
+        # c = c.replace("192.168.220.19", "localhost")
+        logger.info(f"Uploading the file to the staging area with the command: {c}")
+        command = subprocess.run(
+            shlex.split(c), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if command.returncode != 0:
+            exc = Exception(
+                f"Failed to finish upload with error: {command.stderr.decode('utf-8')}"
+            )
+            logger.critical(exc)
+            raise exc
+
+
+class ExternalDownload(ExternalStorage):
+    """
+    This class handles the external download from a file.
+
+    Tracks the progress of the download through the status of the associated task.
+    Final states: *117* and *118*.
+
+    +--------+--------------------------------------------------------------------+
+    | Status | Description                                                        |
+    +========+====================================================================+
+    | 116    | Started upload from filesystem to Object Storage                   |
+    +--------+--------------------------------------------------------------------+
+    | 117    | Upload from filesystem to Object Storage has finished successfully |
+    +--------+--------------------------------------------------------------------+
+    | 118    | Upload from filesystem to Object Storage has finished with errors  |
+    +--------+--------------------------------------------------------------------+
+
+    :param client: FirecREST client associated with the transfer
+    :param task_id: FirecrREST task associated with the transfer
+    """
+
+    def __init__(
+        self,
+        client: Firecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
+    ) -> None:
+        previous_responses = [] if previous_responses is None else previous_responses
+        super().__init__(client, task_id, previous_responses)
+        self._final_states = {"117", "118"}
+        logger.info(f"Creating ExternalDownload object for task {task_id}")
+
+    def invalidate_object_storage_link(self) -> None:
+        """Invalidate the temporary URL for downloading.
+
+        :calls: POST `/storage/xfer-external/invalidate`
+        """
+        self._client._invalidate(self._task_id)
+
+    @property
+    def object_storage_link(self) -> str:
+        """Get the direct download url for the file. The response from the FirecREST api
+        changed after version 1.13.0, so make sure to set to older version, if you are
+        using an older deployment.
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        if self._client._api_version > Version("1.13.0"):
+            return self.object_storage_data["url"]
+        else:
+            return self.object_storage_data
+
+    def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:
+        """Finish the download process. The response from the FirecREST api changed after
+        version 1.13.0, so make sure to set to older version, if you are using an older
+        deployment.
+
+        :param target_path: the local path to save the file
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        url = self.object_storage_link
+        logger.info(f"Downloading the file from {url} and saving to {target_path}")
+        # LOCAL FIX FOR MAC
+        # url = url.replace("192.168.220.19", "localhost")
+        context: ContextManager[BufferedWriter] = (
+            open(target_path, "wb")  # type: ignore
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
+            else nullcontext(target_path)
+        )
+        with urllib.request.urlopen(url) as response, context as out_file:
+            shutil.copyfileobj(response, out_file)
+
+
+class Firecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v1.
     Necessary parameters are the firecrest URL and an authorization object.
@@ -83,6 +325,309 @@ class Firecrest(AsyncFirecrest):
 
     # Status
     @make_sync
+    TOO_MANY_REQUESTS_CODE = 429
+
+    def _retry_requests(func):
+        def wrapper(*args, **kwargs):
+            client = args[0]
+            num_retries = 0
+            resp = func(*args, **kwargs)
+            while True:
+                if resp.status_code != client.TOO_MANY_REQUESTS_CODE:
+                    break
+                elif (
+                    client.num_retries_rate_limit is not None
+                    and num_retries >= client.num_retries_rate_limit
+                ):
+                    logger.debug(
+                        f"Rate limit is reached and the request has "
+                        f"been retried already {num_retries} times"
+                    )
+                    break
+                else:
+                    reset = resp.headers.get(
+                        "Retry-After",
+                        default=resp.headers.get("RateLimit-Reset", default=10),
+                    )
+                    logger.info(
+                        f"Rate limit is reached, will sleep for "
+                        f"{reset} seconds and try again"
+                    )
+                    reset = int(reset)
+                    time.sleep(reset)
+                    resp = func(*args, **kwargs)
+                    num_retries += 1
+
+            return resp
+
+        return wrapper
+
+    def __init__(
+        self,
+        firecrest_url: str,
+        authorization: Any,
+        verify: Optional[str | bool] = None,
+        sa_role: str = "firecrest-sa",
+    ) -> None:
+        self._firecrest_url = firecrest_url
+        self._authorization = authorization
+        # This should be used only for blocking operations that require multiple requests,
+        # not for external upload/download
+        self._current_method_requests: List[requests.Response] = []
+        self._verify = verify
+        self._sa_role = sa_role
+        #: This attribute will be passed to all the requests that will be made.
+        #: How many seconds to wait for the server to send data before giving up.
+        #: After that time a `requests.exceptions.Timeout` error will be raised.
+        #:
+        #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
+        self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
+        #: Number of retries in case the rate limit is reached. When it is set to `None`, the
+        #: client will keep trying until it gets a different status code than 429.
+        self.num_retries_rate_limit: Optional[int] = None
+        self._api_version: Version = parse("1.13.0")
+        self._session = requests.Session()
+
+    def set_api_version(self, api_version: str) -> None:
+        """Set the version of the api of firecrest. By default it will be assumed that you are
+        using version 1.13.0 or compatible. The version is parsed by the `packaging` library.
+        """
+        self._api_version = parse(api_version)
+
+    @_retry_requests  # type: ignore
+    def _get_request(
+        self, endpoint, additional_headers=None, params=None
+    ) -> requests.Response:
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        logger.info(f"Making GET request to {endpoint}")
+        resp = self._session.get(
+            url=url,
+            headers=headers,
+            params=params,
+            verify=self._verify,
+            timeout=self.timeout,
+        )
+        return resp
+
+    @_retry_requests  # type: ignore
+    def _post_request(
+        self, endpoint, additional_headers=None, data=None, files=None
+    ) -> requests.Response:
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        logger.info(f"Making POST request to {endpoint}")
+        resp = self._session.post(
+            url=url,
+            headers=headers,
+            data=data,
+            files=files,
+            verify=self._verify,
+            timeout=self.timeout,
+        )
+        return resp
+
+    @_retry_requests  # type: ignore
+    def _put_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> requests.Response:
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        logger.info(f"Making PUT request to {endpoint}")
+        resp = self._session.put(
+            url=url,
+            headers=headers,
+            data=data,
+            verify=self._verify,
+            timeout=self.timeout,
+        )
+        return resp
+
+    @_retry_requests  # type: ignore
+    def _delete_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> requests.Response:
+        url = f"{self._firecrest_url}{endpoint}"
+        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+        if additional_headers:
+            headers.update(additional_headers)
+
+        logger.info(f"Making DELETE request to {endpoint}")
+        resp = self._session.delete(
+            url=url,
+            headers=headers,
+            data=data,
+            verify=self._verify,
+            timeout=self.timeout,
+        )
+        return resp
+
+    @overload
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: Literal[False] = ...,
+    ) -> dict:
+        ...
+
+    @overload
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: Literal[True],
+    ) -> Optional[dict]:
+        ...
+
+    def _json_response(
+        self,
+        responses: List[requests.Response],
+        expected_status_code: int,
+        allow_none_result: bool = False,
+    ):
+        # Will examine only the last response
+        response = responses[-1]
+        status_code = response.status_code
+        # handle_response(response)
+        exc: fe.FirecrestException
+        for h in fe.ERROR_HEADERS:
+            if h in response.headers:
+                logger.critical(f"Header '{h}' is included in the response")
+                exc = fe.HeaderException(responses)
+                logger.critical(exc)
+                raise exc
+
+        if status_code == 401:
+            logger.critical(f"Status of the response is 401")
+            exc = fe.UnauthorizedException(responses)
+            logger.critical(exc)
+            raise exc
+        elif status_code == 404:
+            logger.critical(f"Status of the response is 404")
+            exc = fe.NotFound(responses)
+            logger.critical(exc)
+            raise exc
+        elif status_code >= 400:
+            logger.critical(f"Status of the response is {status_code}")
+            exc = fe.FirecrestException(responses)
+            logger.critical(exc)
+            raise exc
+        elif status_code != expected_status_code:
+            logger.critical(
+                f"Unexpected status of last request {status_code}, it should have been {expected_status_code}"
+            )
+            exc = fe.UnexpectedStatusException(responses, expected_status_code)
+            logger.critical(exc)
+            raise exc
+
+        try:
+            ret = response.json()
+        except json.decoder.JSONDecodeError:
+            if allow_none_result:
+                ret = None
+            else:
+                exc = fe.NoJSONException(responses)
+                logger.critical(exc)
+                raise exc
+
+        return ret
+
+    def _tasks(
+        self,
+        task_ids: Optional[List[str]] = None,
+        responses: Optional[List[requests.Response]] = None,
+    ) -> dict[str, t.Task]:
+        """Return a dictionary of FirecREST tasks and their last update.
+        When `task_ids` is an empty list or contains more than one element the
+        `/tasks` endpoint will be called. Otherwise `/tasks/{taskid}`.
+        When the `/tasks` is called the method will not give an error for invalid IDs,
+        but `/tasks/{taskid}` will raise an exception.
+
+        :param task_ids: list of task IDs. When empty all tasks are returned.
+        :param responses: list of responses that are associated with these tasks (only relevant for error)
+        :calls: GET `/tasks` or `/tasks/{taskid}`
+        """
+        task_ids = [] if task_ids is None else task_ids
+        responses = [] if responses is None else responses
+        endpoint = "/tasks/"
+        if len(task_ids) == 1:
+            endpoint += task_ids[0]
+
+        resp = self._get_request(endpoint=endpoint)
+        responses.append(resp)
+        taskinfo = self._json_response(responses, 200)
+        if len(task_ids) == 0:
+            return taskinfo["tasks"]
+        elif len(task_ids) == 1:
+            return {task_ids[0]: taskinfo["task"]}
+        else:
+            return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
+
+    def _task_safe(
+        self, task_id: str, responses: Optional[List[requests.Response]] = None
+    ) -> t.Task:
+        if responses is None:
+            responses = self._current_method_requests
+
+        task = self._tasks([task_id], responses)[task_id]
+        status = int(task["status"])
+        exc: fe.FirecrestException
+        if status == 115:
+            logger.critical("Task has error status code 115")
+            exc = fe.StorageUploadException(responses)
+            logger.critical(exc)
+            raise exc
+
+        if status == 118:
+            logger.critical("Task has error status code 118")
+            exc = fe.StorageDownloadException(responses)
+            logger.critical(exc)
+            raise exc
+
+        if status >= 400:
+            logger.critical(f"Task has error status code {status}")
+            exc = fe.FirecrestException(responses)
+            logger.critical(exc)
+            raise exc
+
+        return task
+
+    def _invalidate(
+        self, task_id: str, responses: Optional[List[requests.Response]] = None
+    ):
+        responses = [] if responses is None else responses
+        resp = self._post_request(
+            endpoint="/storage/xfer-external/invalidate",
+            additional_headers={"X-Task-Id": task_id},
+        )
+        responses.append(resp)
+        return self._json_response(responses, 201, allow_none_result=True)
+
+    def _poll_tasks(self, task_id: str, final_status, sleep_time):
+        logger.info(f"Polling task {task_id} until status is {final_status}")
+        resp = self._task_safe(task_id)
+        while resp["status"] < final_status:
+            t = next(sleep_time)
+            logger.info(
+                f'Status of {task_id} is {resp["status"]}, sleeping for {t} sec'
+            )
+            time.sleep(t)
+            resp = self._task_safe(task_id)
+
+        logger.info(f'Status of {task_id} is {resp["status"]}')
+        return resp["data"]
+
+    # Status
     def all_services(self) -> List[t.Service]:
         """Returns a list containing all available micro services with a name, description, and status.
 
@@ -101,6 +646,9 @@ class Firecrest(AsyncFirecrest):
         return super().service(service_name)
 
     @make_sync
+        resp = self._get_request(endpoint=f"/status/services/{service_name}")
+        return self._json_response([resp], 200)  # type: ignore
+
     def all_systems(self) -> List[t.System]:
         """Returns a list containing all available systems and response status.
 
@@ -141,6 +689,17 @@ class Firecrest(AsyncFirecrest):
         return super().list_files(machine, target_path, show_hidden)
 
     @make_sync
+        params: dict[str, Any] = {"targetPath": f"{target_path}"}
+        if show_hidden is True:
+            params["showhidden"] = show_hidden
+
+        resp = self._get_request(
+            endpoint="/utilities/ls",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        return self._json_response([resp], 200)["output"]
+
     def mkdir(self, machine: str, target_path: str, p: Optional[bool] = None) -> None:
         """Creates a new directory.
 
@@ -152,6 +711,17 @@ class Firecrest(AsyncFirecrest):
         return super().mkdir(machine, target_path, p)
 
     @make_sync
+        data: dict[str, Any] = {"targetPath": target_path}
+        if p:
+            data["p"] = p
+
+        resp = self._post_request(
+            endpoint="/utilities/mkdir",
+            additional_headers={"X-Machine-Name": machine},
+            data=data,
+        )
+        self._json_response([resp], 201)
+
     def mv(self, machine: str, source_path: str, target_path: str) -> None:
         """Rename/move a file, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem.
 
@@ -194,6 +764,20 @@ class Firecrest(AsyncFirecrest):
         return super().chown(machine, target_path, owner, group)
 
     @make_sync
+        data = {"targetPath": target_path}
+        if owner:
+            data["owner"] = owner
+
+        if group:
+            data["group"] = group
+
+        resp = self._put_request(
+            endpoint="/utilities/chown",
+            additional_headers={"X-Machine-Name": machine},
+            data=data,
+        )
+        self._json_response([resp], 200)
+
     def copy(self, machine: str, source_path: str, target_path: str) -> None:
         """Copies file from `source_path` to `target_path`.
 
@@ -229,6 +813,17 @@ class Firecrest(AsyncFirecrest):
         return super().stat(machine, target_path, dereference)
 
     @make_sync
+        params: dict[str, Any] = {"targetPath": target_path}
+        if dereference:
+            params["dereference"] = dereference
+
+        resp = self._get_request(
+            endpoint="/utilities/stat",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        return self._json_response([resp], 200)["output"]
+
     def symlink(self, machine: str, target_path: str, link_path: str) -> None:
         """Creates a symbolic link.
 
@@ -254,6 +849,20 @@ class Firecrest(AsyncFirecrest):
         return super().simple_download(machine, source_path, target_path)
 
     @make_sync
+        resp = self._get_request(
+            endpoint="/utilities/download",
+            additional_headers={"X-Machine-Name": machine},
+            params={"sourcePath": source_path},
+        )
+        self._json_response([resp], 200, allow_none_result=True)
+        context: ContextManager[BytesIO] = (
+            open(target_path, "wb")  # type: ignore
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
+            else nullcontext(target_path)
+        )
+        with context as f:
+            f.write(resp.content)
+
     def simple_upload(
         self,
         machine: str,
@@ -274,6 +883,25 @@ class Firecrest(AsyncFirecrest):
         return super().simple_upload(machine, source_path, target_path, filename)
 
     @make_sync
+        context: ContextManager[BytesIO] = (
+            open(source_path, "rb")  # type: ignore
+            if isinstance(source_path, str) or isinstance(source_path, pathlib.Path)
+            else nullcontext(source_path)
+        )
+        with context as f:
+            # Set filename
+            if filename is not None:
+                f = (filename, f)  # type: ignore
+
+            resp = self._post_request(
+                endpoint="/utilities/upload",
+                additional_headers={"X-Machine-Name": machine},
+                data={"targetPath": target_path},
+                files={"file": f},
+            )
+
+        self._json_response([resp], 201)
+
     def simple_delete(self, machine: str, target_path: str) -> None:
         """Blocking call to delete a small file.
 
@@ -284,6 +912,13 @@ class Firecrest(AsyncFirecrest):
         return super().simple_delete(machine, target_path)
 
     @make_sync
+        resp = self._delete_request(
+            endpoint="/utilities/rm",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path},
+        )
+        self._json_response([resp], 204, allow_none_result=True)
+
     def checksum(self, machine: str, target_path: str) -> str:
         """Calculate the SHA256 (256-bit) checksum of a specified file.
 
@@ -300,6 +935,9 @@ class Firecrest(AsyncFirecrest):
         target_path: str,
         bytes: Optional[int] = None,
         lines: Optional[int] = None,
+        bytes: Optional[str] = None,
+        lines: Optional[str] = None,
+        skip_ending: Optional[bool] = False,
     ) -> str:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
@@ -316,12 +954,30 @@ class Firecrest(AsyncFirecrest):
         return super().head(machine, target_path, bytes, lines)
 
     @make_sync
+        :param skip_ending: the output will be the whole file, without the last NUM bytes/lines of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing -NUM to the `head` command.
+        :calls: GET `/utilities/head`
+        """
+        resp = self._get_request(
+            endpoint="/utilities/head",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+                "skip_ending": skip_ending,
+            },
+        )
+        return self._json_response([resp], 200)["output"]
+
     def tail(
         self,
         machine: str,
         target_path: str,
         bytes: Optional[int] = None,
         lines: Optional[int] = None,
+        bytes: Optional[str] = None,
+        lines: Optional[str] = None,
+        skip_beginning: Optional[bool] = False,
     ) -> str:
         """Display the last part of a specified file.
         By default 10 lines will be returned.
@@ -338,6 +994,21 @@ class Firecrest(AsyncFirecrest):
         return super().tail(machine, target_path, bytes, lines)
 
     @make_sync
+        :param skip_beginning: the output will start with byte/line NUM of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing +NUM to the `tail` command.
+        :calls: GET `/utilities/head`
+        """
+        resp = self._get_request(
+            endpoint="/utilities/tail",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+                "skip_beginning": skip_beginning,
+            },
+        )
+        return self._json_response([resp], 200)["output"]
+
     def view(self, machine: str, target_path: str) -> str:
         """View the content of a specified file.
         The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
@@ -357,6 +1028,102 @@ class Firecrest(AsyncFirecrest):
         return super().whoami()
 
     @make_sync
+    def whoami(self, machine=None) -> Optional[str]:
+        """Returns the username that FirecREST will be using to perform the other calls.
+        In the case the machine name is passed in the arguments, a call is made to the respective endpoint and the command whoami is run on the machine.
+        Otherwise, the library decodes the token and will return `None` if the token is not valid.
+
+        :calls: GET `/utilities/whoami`
+        """
+        if machine:
+            resp = self._get_request(
+                endpoint="/utilities/whoami",
+                additional_headers={"X-Machine-Name": machine},
+            )
+            return self._json_response([resp], 200)["output"]
+
+        try:
+            decoded = jwt.decode(
+                self._authorization.get_access_token(),
+                options={"verify_signature": False},
+            )
+            try:
+                if self._sa_role in decoded["realm_access"]["roles"]:
+                    clientId = decoded["clientId"]
+                    username = decoded["resource_access"][clientId]["roles"][0]
+                    return username
+
+                return decoded["preferred_username"]
+            except KeyError:
+                return decoded["preferred_username"]
+
+        except Exception:
+            # Invalid token, cannot retrieve username
+            return None
+
+    # Compute
+    def _submit_request(self, machine: str, job_script, local_file, account=None):
+        if local_file:
+            with open(job_script, "rb") as f:
+                if account:
+                    data = {"account": account}
+                else:
+                    data = None
+
+                resp = self._post_request(
+                    endpoint="/compute/jobs/upload",
+                    additional_headers={"X-Machine-Name": machine},
+                    files={"file": f},
+                    data=data,
+                )
+        else:
+            data = {"targetPath": job_script}
+            if account:
+                data["account"] = account
+
+            resp = self._post_request(
+                endpoint="/compute/jobs/path",
+                additional_headers={"X-Machine-Name": machine},
+                data=data,
+            )
+
+        self._current_method_requests.append(resp)
+        return self._json_response(self._current_method_requests, 201)
+
+    def _squeue_request(self, machine: str, jobs=None):
+        jobs = [] if jobs is None else jobs
+        params = {}
+        if jobs:
+            params = {"jobs": ",".join([str(j) for j in jobs])}
+
+        resp = self._get_request(
+            endpoint="/compute/jobs",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        self._current_method_requests.append(resp)
+        return self._json_response(self._current_method_requests, 200)
+
+    def _acct_request(self, machine: str, jobs=None, start_time=None, end_time=None):
+        jobs = [] if jobs is None else jobs
+        params = {}
+        if jobs:
+            params["jobs"] = ",".join(jobs)
+
+        if start_time:
+            params["starttime"] = start_time
+
+        if end_time:
+            params["endtime"] = end_time
+
+        resp = self._get_request(
+            endpoint="/compute/acct",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        self._current_method_requests.append(resp)
+        return self._json_response(self._current_method_requests, 200)
+
     def submit(
         self,
         machine: str,
@@ -398,6 +1165,24 @@ class Firecrest(AsyncFirecrest):
         return super().poll(machine, jobs, start_time, end_time)
 
     @make_sync
+        self._current_method_requests = []
+        if isinstance(jobs, str):
+            logger.warning(
+                f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
+            )
+
+        jobids = [str(j) for j in jobs] if jobs else []
+        json_response = self._acct_request(machine, jobids, start_time, end_time)
+        logger.info(f"Job polling task: {json_response['task_id']}")
+        res = self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
+        # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
+        if isinstance(res, dict):
+            return list(res.values())
+        else:
+            return res
+
     def poll_active(
         self, machine: str, jobs: Optional[Sequence[str | int]] = None
     ) -> List[t.JobQueue]:
@@ -413,6 +1198,21 @@ class Firecrest(AsyncFirecrest):
         return super().poll_active(machine, jobs)
 
     @make_sync
+        self._current_method_requests = []
+        if isinstance(jobs, str):
+            logger.warning(
+                f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
+            )
+
+        jobs = jobs if jobs else []
+        jobids = [str(j) for j in jobs]
+        json_response = self._squeue_request(machine, jobids)
+        logger.info(f"Job active polling task: {json_response['task_id']}")
+        dict_result = self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
+        return list(dict_result.values())
+
     def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
         This call uses the `scancel` command.
@@ -427,6 +1227,39 @@ class Firecrest(AsyncFirecrest):
 
     # Storage
     @make_sync
+    def _internal_transfer(
+        self,
+        endpoint,
+        machine,
+        source_path,
+        target_path,
+        job_name,
+        time,
+        stage_out_job_id,
+        account,
+    ):
+        data = {"targetPath": target_path}
+        if source_path:
+            data["sourcePath"] = source_path
+
+        if job_name:
+            data["jobName"] = job_name
+
+        if time:
+            data["time"] = time
+
+        if stage_out_job_id:
+            data["stageOutJobId"] = stage_out_job_id
+
+        if account:
+            data["account"] = account
+
+        resp = self._post_request(
+            endpoint=endpoint, additional_headers={"X-Machine-Name": machine}, data=data
+        )
+        self._current_method_requests.append(resp)
+        return self._json_response(self._current_method_requests, 201)
+
     def submit_move_job(
         self,
         machine: str,
@@ -654,3 +1487,8 @@ class Firecrest(AsyncFirecrest):
         :calls: DELETE `/reservations/{reservation}`
         """
         return super().delete_reservation(machine, reservation)
+        resp = self._delete_request(
+            endpoint=f"/reservations/{reservation}",
+            additional_headers={"X-Machine-Name": machine},
+        )
+        self._json_response([resp], 204, allow_none_result=True)

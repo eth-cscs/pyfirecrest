@@ -29,6 +29,7 @@ dependencies = [
     "PyJWT>=2.4.0",
     "typer[all]~=0.7.0",
     "httpx>=0.24.0"
+    "packaging>=23.1"
 ]
 
 [project.urls]
@@ -52,6 +53,7 @@ docs = [
     "sphinx-rtd-theme>=1.0",
     "myst-parser>=0.16",
     "sphinx-autobuild>=2021.0",
+    "sphinx-click==3.0.2"
 ]
 
 [tool.mypy]
