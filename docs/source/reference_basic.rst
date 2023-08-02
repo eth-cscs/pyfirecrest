@@ -1,5 +1,5 @@
-Reference
-=========
+The basic client
+================
 
 The wrapper includes the ``Firecrest`` class, which is in practice a very basic client.
 Together with the authorisation class it takes care of the token and makes the appropriate calls for each action.
@@ -7,14 +7,6 @@ Together with the authorisation class it takes care of the token and makes the a
 The ``Firecrest`` class
 ***********************
 .. autoclass:: firecrest.Firecrest
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-The ``AsyncFirecrest`` class
-****************************
-.. autoclass:: firecrest.AsyncFirecrest
     :members:
     :undoc-members:
     :show-inheritance:
@@ -29,27 +21,9 @@ The ``ExternalUpload`` class
     :show-inheritance:
 
 
-The ``AsyncExternalUpload`` class
-*********************************
-.. autoclass:: firecrest.AsyncExternalUpload
-    :inherited-members:
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 The ``ExternalDownload`` class
 ******************************
 .. autoclass:: firecrest.ExternalDownload
-    :inherited-members:
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-The ``AsyncExternalDownload`` class
-***********************************
-.. autoclass:: firecrest.AsyncExternalDownload
     :inherited-members:
     :members:
     :undoc-members:
