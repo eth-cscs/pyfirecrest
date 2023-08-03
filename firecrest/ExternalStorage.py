@@ -224,12 +224,29 @@ class ExternalDownload(ExternalStorage):
         """
         self._client._invalidate(self._task_id)
 
+    @property
+    def object_storage_link(self) -> str:
+        """Get the direct download url for the file. The response from the FirecREST api
+        changed after version 1.13.0, so make sure to set to older version, if you are
+        using an older deployment.
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        if self._client._api_version > Version("1.13.0"):
+            return self.object_storage_data["url"]
+        else:
+            return self.object_storage_data
+
     def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:
-        """Finish the download process.
+        """Finish the download process. The response from the FirecREST api changed after
+        version 1.13.0, so make sure to set to older version, if you are using an older
+        deployment.
 
         :param target_path: the local path to save the file
+
+        :calls: GET `/tasks/{taskid}`
         """
-        url = self.object_storage_data
+        url = self.object_storage_link
         logger.info(f"Downloading the file from {url} and saving to {target_path}")
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")

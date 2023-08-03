@@ -6,17 +6,6 @@
 #
 from __future__ import annotations
 
-import asyncio
-from io import BytesIO
-import logging
-import pathlib
-import sys
-from typing import Optional, Sequence, List, Union
-
-import firecrest.FirecrestException as fe
-import firecrest.types as t
-from firecrest.AsyncClient import AsyncFirecrest
-
 import itertools
 import jwt
 import logging
@@ -37,6 +26,7 @@ from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
+from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -58,14 +48,10 @@ def handle_response(response):
         print("-")
 
 
-def make_sync(func):
-    def wrapper(*args, **kwargs):
-        return asyncio.run(func(*args, **kwargs))
+class ExternalStorage:
+    """External storage object.
+    """
 
-    return wrapper
-
-
-class Firecrest(AsyncFirecrest):
     _final_states: set[str]
 
     def __init__(
@@ -299,32 +285,6 @@ class Firecrest:
     :param sa_role: this corresponds to the `F7T_AUTH_ROLE` configuration parameter of the site. If you don't know how FirecREST is setup it's better to leave the default.
     """
 
-    # @make_sync
-    # def _tasks(
-    #     self,
-    #     task_ids: Optional[List[str]] = None,
-    #     responses: Optional[List[requests.Response]] = None,
-    # ) -> dict[str, t.Task]:
-    #     """Return a dictionary of FirecREST tasks and their last update.
-    #     When `task_ids` is an empty list or contains more than one element the
-    #     `/tasks` endpoint will be called. Otherwise `/tasks/{taskid}`.
-    #     When the `/tasks` is called the method will not give an error for invalid IDs,
-    #     but `/tasks/{taskid}` will raise an exception.
-
-    #     :param task_ids: list of task IDs. When empty all tasks are returned.
-    #     :param responses: list of responses that are associated with these tasks (only relevant for error)
-    #     :calls: GET `/tasks` or `/tasks/{taskid}`
-    #     """
-    #     return asyncio.run(super()._tasks(task_ids, responses))
-
-    # @make_sync
-    # def _invalidate(
-    #     self, task_id: str, responses: Optional[List[requests.Response]] = None
-    # ):
-    #     return super()._invalidate(task_id, responses)
-
-    # Status
-    @make_sync
     TOO_MANY_REQUESTS_CODE = 429
 
     def _retry_requests(func):
@@ -633,9 +593,9 @@ class Firecrest:
 
         :calls: GET `/status/services`
         """
-        return super().all_services()
+        resp = self._get_request(endpoint="/status/services")
+        return self._json_response([resp], 200)["out"]
 
-    @make_sync
     def service(self, service_name: str) -> t.Service:
         """Returns information about a micro service.
         Returns the name, description, and status.
@@ -643,9 +603,6 @@ class Firecrest:
         :param service_name: the service name
         :calls: GET `/status/services/{service_name}`
         """
-        return super().service(service_name)
-
-    @make_sync
         resp = self._get_request(endpoint=f"/status/services/{service_name}")
         return self._json_response([resp], 200)  # type: ignore
 
@@ -654,9 +611,9 @@ class Firecrest:
 
         :calls: GET `/status/systems`
         """
-        return super().all_systems()
+        resp = self._get_request(endpoint="/status/systems")
+        return self._json_response([resp], 200)["out"]
 
-    @make_sync
     def system(self, system_name: str) -> t.System:
         """Returns information about a system.
         Returns the name, description, and status.
@@ -664,18 +621,18 @@ class Firecrest:
         :param system_name: the system name
         :calls: GET `/status/systems/{system_name}`
         """
-        return super().system(system_name)
+        resp = self._get_request(endpoint=f"/status/systems/{system_name}")
+        return self._json_response([resp], 200)["out"]
 
-    @make_sync
     def parameters(self) -> t.Parameters:
         """Returns configuration parameters of the FirecREST deployment that is associated with the client.
 
         :calls: GET `/status/parameters`
         """
-        return super().parameters()
+        resp = self._get_request(endpoint="/status/parameters")
+        return self._json_response([resp], 200)["out"]
 
     # Utilities
-    @make_sync
     def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False
     ) -> List[t.LsFile]:
@@ -686,9 +643,6 @@ class Firecrest:
         :param show_hidden: show hidden files
         :calls: GET `/utilities/ls`
         """
-        return super().list_files(machine, target_path, show_hidden)
-
-    @make_sync
         params: dict[str, Any] = {"targetPath": f"{target_path}"}
         if show_hidden is True:
             params["showhidden"] = show_hidden
@@ -708,9 +662,6 @@ class Firecrest:
         :param p: no error if existing, make parent directories as needed
         :calls: POST `/utilities/mkdir`
         """
-        return super().mkdir(machine, target_path, p)
-
-    @make_sync
         data: dict[str, Any] = {"targetPath": target_path}
         if p:
             data["p"] = p
@@ -730,9 +681,13 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: PUT `/utilities/rename`
         """
-        return super().mv(machine, source_path, target_path)
+        resp = self._put_request(
+            endpoint="/utilities/rename",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "sourcePath": source_path},
+        )
+        self._json_response([resp], 200)
 
-    @make_sync
     def chmod(self, machine: str, target_path: str, mode: str) -> None:
         """Changes the file mod bits of a given file according to the specified mode.
 
@@ -741,9 +696,12 @@ class Firecrest:
         :param mode: same as numeric mode of linux chmod tool
         :calls: PUT `/utilities/chmod`
         """
-        return super().chmod(machine, target_path, mode)
-
-    make_sync
+        resp = self._put_request(
+            endpoint="/utilities/chmod",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "mode": mode},
+        )
+        self._json_response([resp], 200)
 
     def chown(
         self,
@@ -761,9 +719,9 @@ class Firecrest:
         :param group: group ID for target
         :calls: PUT `/utilities/chown`
         """
-        return super().chown(machine, target_path, owner, group)
+        if owner is None and group is None:
+            return
 
-    @make_sync
         data = {"targetPath": target_path}
         if owner:
             data["owner"] = owner
@@ -786,9 +744,13 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: POST `/utilities/copy`
         """
-        return super().copy(machine, source_path, target_path)
+        resp = self._post_request(
+            endpoint="/utilities/copy",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "sourcePath": source_path},
+        )
+        self._json_response([resp], 201)
 
-    @make_sync
     def file_type(self, machine: str, target_path: str) -> str:
         """Uses the `file` linux application to determine the type of a file.
 
@@ -796,9 +758,13 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: GET `/utilities/file`
         """
-        return super().copy(machine, target_path)
+        resp = self._get_request(
+            endpoint="/utilities/file",
+            additional_headers={"X-Machine-Name": machine},
+            params={"targetPath": target_path},
+        )
+        return self._json_response([resp], 200)["output"]
 
-    @make_sync
     def stat(
         self, machine: str, target_path: str, dereference: bool = False
     ) -> t.StatFile:
@@ -810,9 +776,6 @@ class Firecrest:
         :param dereference: follow link (default False)
         :calls: GET `/utilities/stat`
         """
-        return super().stat(machine, target_path, dereference)
-
-    @make_sync
         params: dict[str, Any] = {"targetPath": target_path}
         if dereference:
             params["dereference"] = dereference
@@ -832,9 +795,13 @@ class Firecrest:
         :param link_path: the absolute path to the new symlink
         :calls: POST `/utilities/symlink`
         """
-        return super().symlink(machine, target_path, link_path)
+        resp = self._post_request(
+            endpoint="/utilities/symlink",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "linkPath": link_path},
+        )
+        self._json_response([resp], 201)
 
-    @make_sync
     def simple_download(
         self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO
     ) -> None:
@@ -846,9 +813,6 @@ class Firecrest:
         :param target_path: the target path in the local filesystem or binary stream
         :calls: GET `/utilities/download`
         """
-        return super().simple_download(machine, source_path, target_path)
-
-    @make_sync
         resp = self._get_request(
             endpoint="/utilities/download",
             additional_headers={"X-Machine-Name": machine},
@@ -880,9 +844,6 @@ class Firecrest:
         :param filename: naming target file to filename (default is same as the local one)
         :calls: POST `/utilities/upload`
         """
-        return super().simple_upload(machine, source_path, target_path, filename)
-
-    @make_sync
         context: ContextManager[BytesIO] = (
             open(source_path, "rb")  # type: ignore
             if isinstance(source_path, str) or isinstance(source_path, pathlib.Path)
@@ -909,9 +870,6 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: DELETE `/utilities/rm`
         """
-        return super().simple_delete(machine, target_path)
-
-    @make_sync
         resp = self._delete_request(
             endpoint="/utilities/rm",
             additional_headers={"X-Machine-Name": machine},
@@ -926,15 +884,17 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: GET `/utilities/checksum`
         """
-        return super().checksum(machine, target_path)
+        resp = self._get_request(
+            endpoint="/utilities/checksum",
+            additional_headers={"X-Machine-Name": machine},
+            params={"targetPath": target_path},
+        )
+        return self._json_response([resp], 200)["output"]
 
-    @make_sync
     def head(
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
         bytes: Optional[str] = None,
         lines: Optional[str] = None,
         skip_ending: Optional[bool] = False,
@@ -949,11 +909,6 @@ class Firecrest:
         :param target_path: the absolute target path
         :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
-        :calls: GET `/utilities/head`
-        """
-        return super().head(machine, target_path, bytes, lines)
-
-    @make_sync
         :param skip_ending: the output will be the whole file, without the last NUM bytes/lines of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing -NUM to the `head` command.
         :calls: GET `/utilities/head`
         """
@@ -973,8 +928,6 @@ class Firecrest:
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
         bytes: Optional[str] = None,
         lines: Optional[str] = None,
         skip_beginning: Optional[bool] = False,
@@ -989,11 +942,6 @@ class Firecrest:
         :param target_path: the absolute target path
         :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
-        :calls: GET `/utilities/head`
-        """
-        return super().tail(machine, target_path, bytes, lines)
-
-    @make_sync
         :param skip_beginning: the output will start with byte/line NUM of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing +NUM to the `tail` command.
         :calls: GET `/utilities/head`
         """
@@ -1018,16 +966,13 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: GET `/utilities/checksum`
         """
-        return super().view(machine, target_path)
+        resp = self._get_request(
+            endpoint="/utilities/view",
+            additional_headers={"X-Machine-Name": machine},
+            params={"targetPath": target_path},
+        )
+        return self._json_response([resp], 200)["output"]
 
-    @make_sync
-    def whoami(self) -> Optional[str]:
-        """Returns the username that FirecREST will be using to perform the other calls.
-        Will return `None` if the token is not valid.
-        """
-        return super().whoami()
-
-    @make_sync
     def whoami(self, machine=None) -> Optional[str]:
         """Returns the username that FirecREST will be using to perform the other calls.
         In the case the machine name is passed in the arguments, a call is made to the respective endpoint and the command whoami is run on the machine.
@@ -1141,9 +1086,13 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().submit(machine, job_script, local_file, account)
+        self._current_method_requests = []
+        json_response = self._submit_request(machine, job_script, local_file, account)
+        logger.info(f"Job submission task: {json_response['task_id']}")
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
-    @make_sync
     def poll(
         self,
         machine: str,
@@ -1162,9 +1111,6 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().poll(machine, jobs, start_time, end_time)
-
-    @make_sync
         self._current_method_requests = []
         if isinstance(jobs, str):
             logger.warning(
@@ -1195,9 +1141,6 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().poll_active(machine, jobs)
-
-    @make_sync
         self._current_method_requests = []
         if isinstance(jobs, str):
             logger.warning(
@@ -1223,10 +1166,19 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().cancel(machine, job_id)
+        self._current_method_requests = []
+        resp = self._delete_request(
+            endpoint=f"/compute/jobs/{job_id}",
+            additional_headers={"X-Machine-Name": machine},
+        )
+        self._current_method_requests.append(resp)
+        json_response = self._json_response(self._current_method_requests, 200)
+        logger.info(f"Job cancellation task: {json_response['task_id']}")
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        )
 
     # Storage
-    @make_sync
     def _internal_transfer(
         self,
         endpoint,
@@ -1286,11 +1238,23 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().submit_move_job(
-            machine, source_path, target_path, job_name, time, stage_out_job_id, account
+        self._current_method_requests = []
+        endpoint = "/storage/xfer-internal/mv"
+        json_response = self._internal_transfer(
+            endpoint,
+            machine,
+            source_path,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
+        )
+        logger.info(f"Job submission task: {json_response['task_id']}")
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    @make_sync
     def submit_copy_job(
         self,
         machine: str,
@@ -1317,11 +1281,23 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().submit_copy_job(
-            machine, source_path, target_path, job_name, time, stage_out_job_id, account
+        self._current_method_requests = []
+        endpoint = "/storage/xfer-internal/cp"
+        json_response = self._internal_transfer(
+            endpoint,
+            machine,
+            source_path,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
+        )
+        logger.info(f"Job submission task: {json_response['task_id']}")
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    @make_sync
     def submit_rsync_job(
         self,
         machine: str,
@@ -1348,11 +1324,23 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().submit_rsync_job(
-            machine, source_path, target_path, job_name, time, stage_out_job_id, account
+        self._current_method_requests = []
+        endpoint = "/storage/xfer-internal/rsync"
+        json_response = self._internal_transfer(
+            endpoint,
+            machine,
+            source_path,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
+        )
+        logger.info(f"Job submission task: {json_response['task_id']}")
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    @make_sync
     def submit_delete_job(
         self,
         machine: str,
@@ -1377,11 +1365,23 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        return super().submit_delete_job(
-            machine, target_path, job_name, time, stage_out_job_id, account
+        self._current_method_requests = []
+        endpoint = "/storage/xfer-internal/rm"
+        json_response = self._internal_transfer(
+            endpoint,
+            machine,
+            None,
+            target_path,
+            job_name,
+            time,
+            stage_out_job_id,
+            account,
+        )
+        logger.info(f"Job submission task: {json_response['task_id']}")
+        return self._poll_tasks(
+            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
 
-    @make_sync
     def external_upload(
         self, machine: str, source_path: str, target_path: str
     ) -> ExternalUpload:
@@ -1392,9 +1392,14 @@ class Firecrest:
         :param target_path: the target path in the machine's filesystem
         :returns: an ExternalUpload object
         """
-        return super().external_upload(machine, source_path, target_path)
+        resp = self._post_request(
+            endpoint="/storage/xfer-external/upload",
+            additional_headers={"X-Machine-Name": machine},
+            data={"targetPath": target_path, "sourcePath": source_path},
+        )
+        json_response = self._json_response([resp], 201)["task_id"]
+        return ExternalUpload(self, json_response, [resp])
 
-    @make_sync
     def external_download(self, machine: str, source_path: str) -> ExternalDownload:
         """Non blocking call for the download of larger files.
 
@@ -1402,19 +1407,27 @@ class Firecrest:
         :param source_path: the source path in the local filesystem
         :returns: an ExternalDownload object
         """
-        return super().external_download(machine, source_path)
+        resp = self._post_request(
+            endpoint="/storage/xfer-external/download",
+            additional_headers={"X-Machine-Name": machine},
+            data={"sourcePath": source_path},
+        )
+        return ExternalDownload(
+            self, self._json_response([resp], 201)["task_id"], [resp]
+        )
 
     # Reservation
-    @make_sync
     def all_reservations(self, machine: str) -> List[dict]:
         """List all active reservations and their status
 
         :param machine: the machine name
         :calls: GET `/reservations`
         """
-        return super().all_reservations(machine)
+        resp = self._get_request(
+            endpoint="/reservations", additional_headers={"X-Machine-Name": machine}
+        )
+        return self._json_response([resp], 200)["success"]
 
-    @make_sync
     def create_reservation(
         self,
         machine: str,
@@ -1436,17 +1449,21 @@ class Firecrest:
         :param end_time: end time for reservation (YYYY-MM-DDTHH:MM:SS)
         :calls: POST `/reservations`
         """
-        return super().create_reservation(
-            machine,
-            reservation,
-            account,
-            number_of_nodes,
-            node_type,
-            start_time,
-            end_time,
+        data = {
+            "reservation": reservation,
+            "account": account,
+            "numberOfNodes": number_of_nodes,
+            "nodeType": node_type,
+            "starttime": start_time,
+            "endtime": end_time,
+        }
+        resp = self._post_request(
+            endpoint="/reservations",
+            additional_headers={"X-Machine-Name": machine},
+            data=data,
         )
+        self._json_response([resp], 201)
 
-    @make_sync
     def update_reservation(
         self,
         machine: str,
@@ -1468,17 +1485,20 @@ class Firecrest:
         :param end_time: end time for reservation (YYYY-MM-DDTHH:MM:SS)
         :calls: PUT `/reservations/{reservation}`
         """
-        return super().update_reservation(
-            machine,
-            reservation,
-            account,
-            number_of_nodes,
-            node_type,
-            start_time,
-            end_time,
+        data = {
+            "account": account,
+            "numberOfNodes": number_of_nodes,
+            "nodeType": node_type,
+            "starttime": start_time,
+            "endtime": end_time,
+        }
+        resp = self._put_request(
+            endpoint=f"/reservations/{reservation}",
+            additional_headers={"X-Machine-Name": machine},
+            data=data,
         )
+        self._json_response([resp], 200)
 
-    @make_sync
     def delete_reservation(self, machine: str, reservation: str) -> None:
         """Deletes an already created reservation named {reservation}
 
@@ -1486,7 +1506,6 @@ class Firecrest:
         :param reservation: the reservation name
         :calls: DELETE `/reservations/{reservation}`
         """
-        return super().delete_reservation(machine, reservation)
         resp = self._delete_request(
             endpoint=f"/reservations/{reservation}",
             additional_headers={"X-Machine-Name": machine},
