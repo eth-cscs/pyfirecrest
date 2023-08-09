@@ -344,12 +344,12 @@ class Firecrest:
         #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
-        self._api_version: Version = parse("1.13.0")
+        self._api_version: Version = parse("1.13.1")
         self._session = requests.Session()
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be assumed that you are
-        using version 1.13.0 or compatible. The version is parsed by the `packaging` library.
+        using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
 

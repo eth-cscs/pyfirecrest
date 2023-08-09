@@ -1142,7 +1142,7 @@ def main(
     ),
     api_version: str = typer.Option(
         None,
-        help="Set the version of the api of firecrest. By default it will be assumed that you are using version 1.13.0 or "
+        help="Set the version of the api of firecrest. By default it will be assumed that you are using version 1.13.1 or "
         "compatible. The version is parsed by the `packaging` library.",
         envvar="FIRECREST_API_VERSION",
     ),
