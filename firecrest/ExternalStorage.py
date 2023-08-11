@@ -18,6 +18,7 @@ import sys
 import time
 from typing import ContextManager, Optional, List, TYPE_CHECKING
 import urllib.request
+from packaging.version import Version
 
 if TYPE_CHECKING:
     from firecrest.BasicClient import Firecrest
@@ -257,3 +258,4 @@ class ExternalDownload(ExternalStorage):
         )
         with urllib.request.urlopen(url) as response, context as out_file:
             shutil.copyfileobj(response, out_file)
+
