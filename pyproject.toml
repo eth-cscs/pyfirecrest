@@ -28,7 +28,7 @@ dependencies = [
     "requests>=2.14.0",
     "PyJWT>=2.4.0",
     "typer[all]~=0.7.0",
-    "httpx>=0.24.0"
+    "httpx>=0.24.0",
     "packaging>=23.1"
 ]
 
@@ -47,6 +47,7 @@ test = [
     "flake8~=5.0",
     "mypy~=0.991",
     "types-requests~=2.28.11",
+    "pytest-httpserver~=1.0.6"
 ]
 docs = [
     "sphinx>=4.0",
