@@ -3,51 +3,77 @@ import httpretty
 import json
 import pytest
 import re
-import test_authoriation as auth
+import test_authorisation as auth
 
 from context import firecrest
 from firecrest import __app_name__, __version__, cli
 from typer.testing import CliRunner
+from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request
 
 
 runner = CliRunner()
 
 
 @pytest.fixture
-def valid_client():
+def fc_server(httpserver):
+    httpserver.expect_request(
+        re.compile("^/status/services.*"), method="GET"
+    ).respond_with_handler(services_handler)
+    httpserver.expect_request(
+        re.compile("^/status/systems.*"), method="GET"
+    ).respond_with_handler(systems_handler)
+    httpserver.expect_request("/status/parameters").respond_with_handler(
+        parameters_handler
+    )
+    return httpserver
+
+
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
+
+
+@pytest.fixture
+def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             return "VALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def valid_credentials():
+def valid_credentials(fc_server, auth_server):
     return [
-        "--firecrest-url=http://firecrest.cscs.ch",
+        f"--firecrest-url={fc_server.url_for('/')}",
         "--client-id=valid_id",
         "--client-secret=valid_secret",
-        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        f"--token-url={auth_server.url_for('/auth/token')}",
     ]
 
 
 @pytest.fixture
-def invalid_client():
+def invalid_client(fc_server):
     class InvalidAuthorization:
         def get_access_token(self):
             return "INVALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=InvalidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 
 
-def services_callback(request, uri, response_headers):
+def services_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {
         "description": "List of services with status and description.",
@@ -64,24 +90,28 @@ def services_callback(request, uri, response_headers):
             },
         ],
     }
-    if uri == "http://firecrest.cscs.ch/status/services":
-        return [200, response_headers, json.dumps(ret)]
+    ret_status = 200
+    uri = request.url
+    if not uri.endswith("/status/services"):
+        service = uri.split("/")[-1]
+        if service == "utilities":
+            ret = ret["out"][0]
+        elif service == "compute":
+            ret = ret["out"][1]
+        else:
+            ret = {"description": "Service does not exists"}
+            ret_status = 404
 
-    service = uri.split("/")[-1]
-    if service == "utilities":
-        ret = ret["out"][0]
-        return [200, response_headers, json.dumps(ret)]
-    elif service == "compute":
-        ret = ret["out"][1]
-        return [200, response_headers, json.dumps(ret)]
-    else:
-        ret = {"description": "Service does not exists"}
-        return [404, response_headers, json.dumps(ret)]
+    return Response(json.dumps(ret), status=ret_status, content_type="application/json")
 
 
-def systems_callback(request, uri, response_headers):
+def systems_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {
         "description": "List of systems with status and description.",
@@ -98,38 +128,44 @@ def systems_callback(request, uri, response_headers):
             },
         ],
     }
-    if uri == "http://firecrest.cscs.ch/status/systems":
-        return [200, response_headers, json.dumps(ret)]
+    ret_status = 200
+    uri = request.url
+    if not uri.endswith("/status/systems"):
+        system = uri.split("/")[-1]
+        if system == "cluster1":
+            ret = {
+                "description": "System information",
+                "out": {
+                    "description": "System ready",
+                    "status": "available",
+                    "system": "cluster1",
+                },
+            }
+            ret_status = 200
+        elif system == "cluster2":
+            ret = {
+                "description": "System information",
+                "out": {
+                    "description": "System ready",
+                    "status": "available",
+                    "system": "cluster2",
+                },
+            }
+            ret_status = 200
+        else:
+            ret = {"description": "System does not exists."}
+            ret_status = 400
 
-    service = uri.split("/")[-1]
-    if service == "cluster1":
-        ret = {
-            "description": "System information",
-            "out": {
-                "description": "System ready",
-                "status": "available",
-                "system": "cluster1",
-            },
-        }
-        return [200, response_headers, json.dumps(ret)]
-    elif service == "cluster2":
-        ret = {
-            "description": "System information",
-            "out": {
-                "description": "System ready",
-                "status": "available",
-                "system": "cluster2",
-            },
-        }
-        return [200, response_headers, json.dumps(ret)]
-    else:
-        ret = {"description": "System does not exists."}
-        return [404, response_headers, json.dumps(ret)]
+    return Response(json.dumps(ret), status=ret_status, content_type="application/json")
 
 
-def parameters_callback(request, uri, response_headers):
+def parameters_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {
         "description": "Firecrest's parameters",
@@ -154,41 +190,7 @@ def parameters_callback(request, uri, response_headers):
             ],
         },
     }
-    return [200, response_headers, json.dumps(ret)]
-
-
-@pytest.fixture(autouse=True)
-def setup_callbacks():
-    httpretty.enable(allow_net_connect=False, verbose=True)
-
-    httpretty.register_uri(
-        httpretty.GET,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/services.*"),
-        body=services_callback,
-    )
-
-    httpretty.register_uri(
-        httpretty.GET,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/status\/systems.*"),
-        body=systems_callback,
-    )
-
-    httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/status/parameters",
-        body=parameters_callback,
-    )
-
-    httpretty.register_uri(
-        httpretty.POST,
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
-        body=auth.auth_callback,
-    )
-
-    yield
-
-    httpretty.disable()
-    httpretty.reset()
+    return Response(json.dumps(ret), status=200, content_type="application/json")
 
 
 def test_all_services(valid_client):

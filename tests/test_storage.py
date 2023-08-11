@@ -3,7 +3,7 @@ import httpretty
 import json
 import pytest
 import re
-import test_authoriation as auth
+import test_authorisation as auth
 
 from context import firecrest
 
@@ -251,7 +251,7 @@ def storage_tasks_callback(request, uri, response_headers):
                     "data": {
                         "source": "/path/to/remote/source",
                         "system_name": "machine",
-                        "url": "https://object_storage_link.com"
+                        "url": "https://object_storage_link.com",
                     },
                     "description": "Started upload from filesystem to Object Storage",
                     "hash_id": taskid,

@@ -3,7 +3,7 @@ import httpretty
 import json
 import pytest
 import re
-import test_authoriation as auth
+import test_authorisation as auth
 
 from context import firecrest
 
@@ -512,15 +512,15 @@ def head_tail_callback(request, uri, response_headers):
     bytes = request.querystring.get("bytes", [None])[0]
     if target_path == "/path/to/file":
         if lines and int(lines) < 10:
-                result = int(lines)*"hello\n"
+            result = int(lines) * "hello\n"
         else:
-            result = 10*"hello\n"
+            result = 10 * "hello\n"
 
         if bytes:
             if is_tail_req:
-                result = result[-int(bytes):]
+                result = result[-int(bytes) :]
             else:
-                result = result[0:int(bytes)]
+                result = result[0 : int(bytes)]
 
         ret = {"description": "Success to head file.", "output": result}
         status_code = 200
@@ -547,7 +547,7 @@ def whoami_callback(request, uri, response_headers):
     return [
         200,
         response_headers,
-        '{"description": "Success on whoami operation.", "output": "username"}'
+        '{"description": "Success on whoami operation.", "output": "username"}',
     ]
 
 
@@ -624,11 +624,15 @@ def setup_callbacks():
     )
 
     httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/utilities/head", body=head_tail_callback
+        httpretty.GET,
+        "http://firecrest.cscs.ch/utilities/head",
+        body=head_tail_callback,
     )
 
     httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/utilities/tail", body=head_tail_callback
+        httpretty.GET,
+        "http://firecrest.cscs.ch/utilities/tail",
+        body=head_tail_callback,
     )
 
     httpretty.register_uri(
@@ -1230,8 +1234,8 @@ def test_view(valid_client):
 
 
 def test_head(valid_client):
-    assert valid_client.head("cluster1", "/path/to/file") == 10*"hello\n"
-    assert valid_client.head("cluster1", "/path/to/file", lines=2) == 2*"hello\n"
+    assert valid_client.head("cluster1", "/path/to/file") == 10 * "hello\n"
+    assert valid_client.head("cluster1", "/path/to/file", lines=2) == 2 * "hello\n"
     assert valid_client.head("cluster1", "/path/to/file", bytes=4) == "hell"
 
 
@@ -1270,8 +1274,8 @@ def test_cli_head(valid_credentials):
 
 
 def test_tail(valid_client):
-    assert valid_client.tail("cluster1", "/path/to/file") == 10*"hello\n"
-    assert valid_client.tail("cluster1", "/path/to/file", lines=2) == 2*"hello\n"
+    assert valid_client.tail("cluster1", "/path/to/file") == 10 * "hello\n"
+    assert valid_client.tail("cluster1", "/path/to/file", lines=2) == 2 * "hello\n"
     assert valid_client.tail("cluster1", "/path/to/file", bytes=5) == "ello\n"
 
 
@@ -1325,14 +1329,14 @@ def test_view_invalid_client(invalid_client):
 
 
 def test_whoami(valid_client):
-    assert valid_client.whoami('cluster1') == "username"
+    assert valid_client.whoami("cluster1") == "username"
 
 
 def test_whoami_invalid_machine(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.whoami('cluster2')
+        valid_client.whoami("cluster2")
 
 
 def test_whoami_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.whoami('cluster1')
+        invalid_client.whoami("cluster1")

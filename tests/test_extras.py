@@ -3,7 +3,7 @@ import httpretty
 import json
 import pytest
 import re
-import test_authoriation as auth
+import test_authorisation as auth
 
 from context import firecrest
 from typer.testing import CliRunner
