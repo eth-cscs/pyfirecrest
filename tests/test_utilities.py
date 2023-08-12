@@ -1,64 +1,73 @@
 import common
-import httpretty
 import json
 import pytest
-import re
 import test_authorisation as auth
 
 from context import firecrest
 
 from firecrest import __app_name__, __version__, cli
 from typer.testing import CliRunner
+from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request
 
 
 runner = CliRunner()
 
 
 @pytest.fixture
-def valid_client():
+def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             return "VALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def valid_credentials():
+def valid_credentials(fc_server, auth_server):
     return [
-        "--firecrest-url=http://firecrest.cscs.ch",
+        f"--firecrest-url={fc_server.url_for('/')}",
         "--client-id=valid_id",
         "--client-secret=valid_secret",
-        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        f"--token-url={auth_server.url_for('/auth/token')}",
     ]
 
 
 @pytest.fixture
-def invalid_client():
+def invalid_client(fc_server):
     class InvalidAuthorization:
         def get_access_token(self):
             return "INVALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=InvalidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 
 
-def ls_callback(request, uri, response_headers):
+def ls_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on ls operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Error on ls operation",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    targetPath = request.querystring.get("targetPath", [None])[0]
+    targetPath = request.args.get("targetPath")
     if targetPath == "/path/to/valid/dir":
         ret = {
             "description": "List of contents",
@@ -85,7 +94,7 @@ def ls_callback(request, uri, response_headers):
                 },
             ],
         }
-        showhidden = request.querystring.get("showhidden", [False])[0]
+        showhidden = request.args.get("showhidden", False)
         if showhidden:
             ret["output"].append(
                 {
@@ -100,57 +109,86 @@ def ls_callback(request, uri, response_headers):
                 }
             )
 
-        return [200, response_headers, json.dumps(ret)]
+        return Response(json.dumps(ret), status=200, content_type="application/json")
 
     if targetPath == "/path/to/invalid/dir":
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
-        return [400, response_headers, '{"description": "Error on ls operation"}']
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
+        ret = {"description": "Error on ls operation"}
+        return Response(
+            json.dumps(ret),
+            status=400,
+            headers=extra_headers,
+            content_type="application/json",
+        )
 
 
-def mkdir_callback(request, uri, response_headers):
+def mkdir_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on mkdir operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Error on mkdir operation",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.parsed_body["targetPath"][0]
-    p = request.parsed_body.get("p", [False])[0]
+    extra_headers = None
+    target_path = request.form["targetPath"]
+    p = request.form.get("p", False)
     if target_path == "path/to/valid/dir" or (
         target_path == "path/to/valid/dir/with/p" and p
     ):
         ret = {"description": "Success to mkdir file or directory.", "output": ""}
         status_code = 201
     else:
-        response_headers[
+        extra_headers[
             "X-Invalid-Path"
         ] = "sourcePath and/or targetPath are invalid paths"
         ret = {"description": "Error on mkdir operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def mv_callback(request, uri, response_headers):
+def mv_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on rename operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Error on rename operation",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    source_path = request.parsed_body["sourcePath"][0]
-    target_path = request.parsed_body["targetPath"][0]
-
+    source_path = request.form["sourcePath"]
+    target_path = request.form["targetPath"]
     if (
         source_path == "/path/to/valid/source"
         and target_path == "/path/to/valid/destination"
@@ -162,24 +200,35 @@ def mv_callback(request, uri, response_headers):
         ret = {"description": "Error on rename operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
 
 
-def chmod_callback(request, uri, response_headers):
+def chmod_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on chmod operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Error on chmod operation",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.parsed_body["targetPath"][0]
-    mode = request.parsed_body["mode"][0]
-
+    extra_headers = None
+    target_path = request.form["targetPath"]
+    mode = request.form["mode"]
     if target_path == "/path/to/valid/file" and mode == "777":
         ret = {
             "description": "Success to chmod file or directory.",
@@ -188,29 +237,43 @@ def chmod_callback(request, uri, response_headers):
         status_code = 200
     else:
         # FIXME: FirecREST sets the X-Invalid-Path even when the problem is the mode argument
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on chmod operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def chown_callback(request, uri, response_headers):
+def chown_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on chown operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Error on chown operation",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.parsed_body["targetPath"][0]
-    owner = request.parsed_body.get("owner", [""])[0]
-    group = request.parsed_body.get("group", [""])[0]
-
+    extra_headers = None
+    target_path = request.form["targetPath"]
+    owner = request.form.get("owner", "")
+    group = request.form.get("group", "")
     if target_path == "/path/to/file" and owner == "new_owner" and group == "new_group":
         ret = {
             "description": "Success to chown file or directory.",
@@ -218,28 +281,39 @@ def chown_callback(request, uri, response_headers):
         }
         status_code = 200
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on chown operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def copy_callback(request, uri, response_headers):
+def copy_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on copy operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on copy operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    source_path = request.parsed_body["sourcePath"][0]
-    target_path = request.parsed_body["targetPath"][0]
-
+    extra_headers = None
+    source_path = request.form["sourcePath"]
+    target_path = request.form["targetPath"]
     if (
         source_path == "/path/to/valid/source"
         and target_path == "/path/to/valid/destination"
@@ -247,26 +321,38 @@ def copy_callback(request, uri, response_headers):
         ret = {"description": "Success to copy file or directory.", "output": ""}
         status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on copy operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def file_type_callback(request, uri, response_headers):
+def file_type_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on file operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on file operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    targetPath = request.querystring.get("targetPath", [None])[0]
+    extra_headers = None
+    targetPath = request.args.get("targetPath")
     if targetPath == "/path/to/empty/file":
         ret = {"description": "Success to file file or directory.", "output": "empty"}
         status_code = 200
@@ -277,27 +363,39 @@ def file_type_callback(request, uri, response_headers):
         }
         status_code = 200
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on file operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def stat_callback(request, uri, response_headers):
+def stat_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on file operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on file operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    targetPath = request.querystring.get("targetPath", [None])[0]
-    deref = request.querystring.get("dereference", [False])[0]
+    extra_headers = None
+    targetPath = request.args.get("targetPath")
+    deref = request.args.get("dereference", False)
     if targetPath == "/path/to/link":
         if deref:
             ret = {
@@ -334,183 +432,260 @@ def stat_callback(request, uri, response_headers):
             }
             status_code = 200
     else:
-        response_headers["X-Not-Found"] = "sourcePath not found"
+        extra_headers = {"X-Not-Found": "sourcePath not found"}
         ret = {"description": "Error on stat operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def symlink_callback(request, uri, response_headers):
+def symlink_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on symlink operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on symlink operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.parsed_body["targetPath"][0]
-    link_path = request.parsed_body["linkPath"][0]
-
+    extra_headers = None
+    target_path = request.form["targetPath"]
+    link_path = request.form["linkPath"]
     if target_path == "/path/to/file" and link_path == "/path/to/link":
         ret = {"description": "Success to link file or directory.", "output": ""}
         status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on symlink operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def simple_download_callback(request, uri, response_headers):
+def simple_download_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on download operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on download operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    source_path = request.querystring.get("sourcePath", [None])[0]
+    source_path = request.args.get("sourcePath")
     if source_path == "/path/to/remote/source":
         ret = "Hello!\n"
         status_code = 200
-        return [status_code, response_headers, ret]
+        return Response(ret, status=status_code)
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on download operation"}
         status_code = 400
-        return [status_code, response_headers, json.dumps(ret)]
+        return Response(
+            json.dumps(ret),
+            status=status_code,
+            headers=extra_headers,
+            content_type="application/json",
+        )
 
 
-def simple_upload_callback(request, uri, response_headers):
+def simple_upload_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on download operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on download operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    # I couldn't find a better way to get the params from the request
-    if (
-        b'form-data; name="targetPath"\r\n\r\n/path/to/remote/destination'
-        in request.body
-    ):
+    if request.form["targetPath"] == "/path/to/remote/destination":
+        extra_headers = None
         ret = {"description": "File upload successful", "output": ""}
         status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on upload operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def simple_delete_callback(request, uri, response_headers):
+def simple_delete_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on download operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on download operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.parsed_body["targetPath"][0]
+    target_path = request.form["targetPath"]
     if target_path == "/path/to/file":
+        extra_headers = None
         ret = {"description": "File delete successful", "output": ""}
         status_code = 204
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on delete operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def checksum_callback(request, uri, response_headers):
+def checksum_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on checksum operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on checksum operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.querystring.get("targetPath", [None])[0]
+    target_path = request.args.get("targetPath")
     if target_path == "/path/to/file":
+        extra_headers = None
         ret = {
             "description": "Success to checksum file or directory.",
             "output": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         }
         status_code = 200
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on checksum operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def view_callback(request, uri, response_headers):
+def view_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on head operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on head operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.querystring.get("targetPath", [None])[0]
+    target_path = request.args.get("targetPath")
     if target_path == "/path/to/file":
+        extra_headers = None
         ret = {"description": "Success to head file or directory.", "output": "hello\n"}
         status_code = 200
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on head operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def head_tail_callback(request, uri, response_headers):
-    is_tail_req = "tail" in uri
-
+def head_tail_handler(request: Request):
+    is_tail_req = "tail" in request.url
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on head operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on head operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.querystring.get("targetPath", [None])[0]
-    lines = request.querystring.get("lines", [None])[0]
-    bytes = request.querystring.get("bytes", [None])[0]
+    target_path = request.args.get("targetPath")
+    lines = request.args.get("lines")
+    bytes = request.args.get("bytes")
     if target_path == "/path/to/file":
+        extra_headers = None
         if lines and int(lines) < 10:
             result = int(lines) * "hello\n"
         else:
@@ -525,130 +700,120 @@ def head_tail_callback(request, uri, response_headers):
         ret = {"description": "Success to head file.", "output": result}
         status_code = 200
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "Error on head operation"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def whoami_callback(request, uri, response_headers):
+def whoami_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Error on whoami operation", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {"description": "Error on whoami operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    return [
-        200,
-        response_headers,
-        '{"description": "Success on whoami operation.", "output": "username"}',
-    ]
-
-
-@pytest.fixture(autouse=True)
-def setup_callbacks():
-    httpretty.enable(allow_net_connect=False, verbose=True)
-
-    httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/utilities/ls", body=ls_callback
+    return Response(
+        json.dumps({"description": "Success on whoami operation.", "output": "username"}),
+        status=200,
+        content_type="application/json",
     )
 
-    httpretty.register_uri(
-        httpretty.POST, "http://firecrest.cscs.ch/utilities/mkdir", body=mkdir_callback
+
+@pytest.fixture
+def fc_server(httpserver):
+    httpserver.expect_request("/utilities/ls", method="GET").respond_with_handler(
+        ls_handler
     )
 
-    httpretty.register_uri(
-        httpretty.PUT, "http://firecrest.cscs.ch/utilities/rename", body=mv_callback
+    httpserver.expect_request("/utilities/mkdir", method="POST").respond_with_handler(
+        mkdir_handler
     )
 
-    httpretty.register_uri(
-        httpretty.PUT, "http://firecrest.cscs.ch/utilities/chmod", body=chmod_callback
+    httpserver.expect_request("/utilities/rename", method="PUT").respond_with_handler(
+        mv_handler
     )
 
-    httpretty.register_uri(
-        httpretty.PUT, "http://firecrest.cscs.ch/utilities/chown", body=chown_callback
+    httpserver.expect_request("/utilities/chmod", method="PUT").respond_with_handler(
+        chmod_handler
     )
 
-    httpretty.register_uri(
-        httpretty.POST, "http://firecrest.cscs.ch/utilities/copy", body=copy_callback
+    httpserver.expect_request("/utilities/chown", method="PUT").respond_with_handler(
+        chown_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/utilities/file",
-        body=file_type_callback,
+    httpserver.expect_request("/utilities/copy", method="POST").respond_with_handler(
+        copy_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/utilities/stat", body=stat_callback
+    httpserver.expect_request("/utilities/file", method="GET").respond_with_handler(
+        file_type_handler
     )
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "http://firecrest.cscs.ch/utilities/symlink",
-        body=symlink_callback,
+    httpserver.expect_request("/utilities/stat", method="GET").respond_with_handler(
+        stat_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/utilities/download",
-        body=simple_download_callback,
+    httpserver.expect_request("/utilities/symlink", method="POST").respond_with_handler(
+        symlink_handler
     )
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "http://firecrest.cscs.ch/utilities/upload",
-        body=simple_upload_callback,
+    httpserver.expect_request("/utilities/download", method="GET").respond_with_handler(
+        simple_download_handler
     )
 
-    httpretty.register_uri(
-        httpretty.DELETE,
-        "http://firecrest.cscs.ch/utilities/rm",
-        body=simple_delete_callback,
+    httpserver.expect_request("/utilities/upload", method="POST").respond_with_handler(
+        simple_upload_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/utilities/checksum",
-        body=checksum_callback,
+    httpserver.expect_request("/utilities/rm", method="DELETE").respond_with_handler(
+        simple_delete_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/utilities/view", body=view_callback
+    httpserver.expect_request("/utilities/checksum", method="GET").respond_with_handler(
+        checksum_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/utilities/head",
-        body=head_tail_callback,
+    httpserver.expect_request("/utilities/view", method="GET").respond_with_handler(
+        view_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/utilities/tail",
-        body=head_tail_callback,
+    httpserver.expect_request("/utilities/head", method="GET").respond_with_handler(
+        head_tail_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/utilities/whoami", body=whoami_callback
+    httpserver.expect_request("/utilities/tail", method="GET").respond_with_handler(
+        head_tail_handler
     )
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
-        body=auth.auth_callback,
+    httpserver.expect_request("/utilities/whoami", method="GET").respond_with_handler(
+        whoami_handler
     )
 
-    yield
+    return httpserver
 
-    httpretty.disable()
-    httpretty.reset()
+
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
 
 
 def test_list_files(valid_client):

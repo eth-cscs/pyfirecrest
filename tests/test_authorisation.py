@@ -1,4 +1,3 @@
-import httpretty
 import json
 import pytest
 
