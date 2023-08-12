@@ -15,12 +15,6 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def auth_server(httpserver):
-    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
-    return httpserver
-
-
-@pytest.fixture
 def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
