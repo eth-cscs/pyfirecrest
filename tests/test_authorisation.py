@@ -84,27 +84,15 @@ def auth_callback(request, uri, response_headers):
         return [400, response_headers, json.dumps(ret)]
 
 
-@pytest.fixture(autouse=True)
-def setup_callbacks():
-    httpretty.enable(allow_net_connect=False, verbose=True)
-
-    httpretty.register_uri(
-        httpretty.POST,
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
-        body=auth_callback,
-    )
-
-    yield
-
-    httpretty.disable()
-    httpretty.reset()
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth_handler)
+    return httpserver
 
 
-def test_client_credentials_valid():
+def test_client_credentials_valid(auth_server):
     auth_obj = firecrest.ClientCredentialsAuth(
-        "valid_id",
-        "valid_secret",
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        "valid_id", "valid_secret", auth_server.url_for("/auth/token")
     )
     assert auth_obj._min_token_validity == 10
     assert auth_obj.get_access_token() == "VALID_TOKEN"
@@ -115,7 +103,7 @@ def test_client_credentials_valid():
     auth_obj = firecrest.ClientCredentialsAuth(
         "valid_id",
         "valid_secret",
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        auth_server.url_for("/auth/token"),
         min_token_validity=20,
     )
     assert auth_obj.get_access_token() == "VALID_TOKEN"
@@ -124,11 +112,9 @@ def test_client_credentials_valid():
     assert auth_obj.get_access_token() == "token_2"
 
 
-def test_client_credentials_invalid_id():
+def test_client_credentials_invalid_id(auth_server):
     auth_obj = firecrest.ClientCredentialsAuth(
-        "invalid_id",
-        "valid_secret",
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        "invalid_id", "valid_secret", auth_server.url_for("/auth/token")
     )
     with pytest.raises(Exception) as exc_info:
         auth_obj.get_access_token()
@@ -136,11 +122,9 @@ def test_client_credentials_invalid_id():
     assert "Client credentials error" in str(exc_info.value)
 
 
-def test_client_credentials_invalid_secret():
+def test_client_credentials_invalid_secret(auth_server):
     auth_obj = firecrest.ClientCredentialsAuth(
-        "valid_id",
-        "invalid_secret",
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        "valid_id", "invalid_secret", auth_server.url_for("/auth/token")
     )
     with pytest.raises(Exception) as exc_info:
         auth_obj.get_access_token()

@@ -179,17 +179,14 @@ def tasks_handler(request: Request):
             status_code = 404
 
     return Response(
-        json.dumps(ret),
-        status=status_code,
-        content_type="application/json",
+        json.dumps(ret), status=status_code, content_type="application/json"
     )
 
 
 @pytest.fixture
 def fc_server(httpserver):
     httpserver.expect_request(
-        re.compile("^/tasks/.*"),
-        method="GET"
+        re.compile("^/tasks/.*"), method="GET"
     ).respond_with_handler(tasks_handler)
 
     return httpserver
