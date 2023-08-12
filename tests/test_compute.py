@@ -1,5 +1,4 @@
 import common
-import httpretty
 import json
 import pytest
 import re
@@ -8,40 +7,48 @@ import test_authorisation as auth
 from context import firecrest
 from firecrest import __app_name__, __version__, cli
 from typer.testing import CliRunner
+from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request
 
 
 runner = CliRunner()
 
 
 @pytest.fixture
-def valid_client():
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
+
+
+@pytest.fixture
+def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             return "VALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def valid_credentials():
+def valid_credentials(fc_server, auth_server):
     return [
-        "--firecrest-url=http://firecrest.cscs.ch",
+        f"--firecrest-url={fc_server.url_for('/')}",
         "--client-id=valid_id",
         "--client-secret=valid_secret",
-        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        f"--token-url={auth_server.url_for('/auth/token')}",
     ]
 
 
 @pytest.fixture
-def invalid_client():
+def invalid_client(fc_server):
     class InvalidAuthorization:
         def get_access_token(self):
             return "INVALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=InvalidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 
 
@@ -63,23 +70,30 @@ def non_slurm_script(tmp_path):
     return script
 
 
-httpretty.enable(allow_net_connect=False, verbose=True)
-
-
-def submit_path_callback(request, uri, response_headers):
+def submit_path_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Failed to submit job", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to submit job",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    target_path = request.parsed_body["targetPath"][0]
-    account = request.parsed_body.get("account", [None])[0]
+    target_path = request.form["targetPath"]
+    account = request.form.get("account", None)
+    extra_headers = None
     if target_path == "/path/to/workdir/script.sh":
         if account is None:
             ret = {
@@ -103,29 +117,43 @@ def submit_path_callback(request, uri, response_headers):
         }
         status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = f"{target_path} is an invalid path."
+        extra_headers = {"X-Invalid-Path": f"{target_path} is an invalid path."}
         ret = {"description": "Failed to submit job"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def submit_upload_callback(request, uri, response_headers):
+def submit_upload_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Failed to submit job", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to submit job",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    # I couldn't find a better way to get the params from the request
-    if b'form-data; name="file"; filename="script.sh"' in request.body:
-        if b"#!/bin/bash -l\n" in request.body:
-            if b"proj" in request.body:
+    extra_headers = None
+    if request.files["file"].filename == "script.sh":
+        if b"#!/bin/bash -l\n" in request.files["file"].read():
+            if request.form.get("account", None) == "proj":
                 ret = {
                     "success": "Task created",
                     "task_id": "submit_upload_job_id_proj_account",
@@ -146,26 +174,40 @@ def submit_upload_callback(request, uri, response_headers):
             }
             status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = f"path is an invalid path."
+        extra_headers = {"X-Invalid-Path": f"path is an invalid path."}
         ret = {"description": "Failed to submit job"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def queue_callback(request, uri, response_headers):
+def queue_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{ "description": "Failed to retrieve jobs information", "error": "Machine does not exists"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to retrieve jobs information",
+                    "error": "Machine does not exists",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    jobs = request.querystring.get("jobs", [""])[0].split(",")
+    jobs = request.args.get("jobs", "").split(",")
     if jobs == [""]:
         ret = {
             "success": "Task created",
@@ -194,22 +236,33 @@ def queue_callback(request, uri, response_headers):
         }
         status_code = 200
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
 
 
-def sacct_callback(request, uri, response_headers):
+def sacct_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Failed to retrieve account information", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to retrieve account information",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    jobs = request.querystring.get("jobs", [""])[0].split(",")
+    jobs = request.args.get("jobs", "").split(",")
     if jobs == [""]:
         ret = {
             "success": "Task created",
@@ -239,21 +292,33 @@ def sacct_callback(request, uri, response_headers):
         }
         status_code = 200
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
 
 
-def cancel_callback(request, uri, response_headers):
+def cancel_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Failed to delete job", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to delete job",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
+    uri = request.url
     jobid = uri.split("/")[-1]
     if jobid == "35360071":
         ret = {
@@ -277,7 +342,9 @@ def cancel_callback(request, uri, response_headers):
         }
         status_code = 200
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
 
 
 # Global variables for tasks
@@ -293,9 +360,13 @@ cancel_retry = 0
 cancel_result = 1
 
 
-def tasks_callback(request, uri, response_headers):
+def tasks_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     global submit_path_retry
     global submit_upload_retry
@@ -303,6 +374,7 @@ def tasks_callback(request, uri, response_headers):
     global queue_retry
     global cancel_retry
 
+    uri = request.url
     taskid = uri.split("/")[-1]
     if taskid == "tasks":
         # TODO: return all tasks
@@ -745,55 +817,45 @@ def tasks_callback(request, uri, response_headers):
             }
             status_code = 200
 
-    return [status_code, response_headers, json.dumps(ret)]
-
-
-@pytest.fixture(autouse=True)
-def setup_callbacks():
-    httpretty.enable(allow_net_connect=False, verbose=True)
-
-    httpretty.register_uri(
-        httpretty.POST,
-        "http://firecrest.cscs.ch/compute/jobs/path",
-        body=submit_path_callback,
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
     )
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "http://firecrest.cscs.ch/compute/jobs/upload",
-        body=submit_upload_callback,
+
+@pytest.fixture
+def fc_server(httpserver):
+    httpserver.expect_request("/compute/jobs/path", method="POST").respond_with_handler(
+        submit_path_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/compute/acct", body=sacct_callback
+    httpserver.expect_request(
+        "/compute/jobs/upload", method="POST"
+    ).respond_with_handler(submit_upload_handler)
+
+    httpserver.expect_request("/compute/acct", method="GET").respond_with_handler(
+        sacct_handler
     )
 
-    httpretty.register_uri(
-        httpretty.GET, "http://firecrest.cscs.ch/compute/jobs", body=queue_callback
+    httpserver.expect_request("/compute/jobs", method="GET").respond_with_handler(
+        queue_handler
     )
 
-    httpretty.register_uri(
-        httpretty.DELETE,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/compute\/jobs.*"),
-        body=cancel_callback,
-    )
+    httpserver.expect_request(
+        re.compile("^/compute/jobs.*"), method="DELETE"
+    ).respond_with_handler(cancel_handler)
 
-    httpretty.register_uri(
-        httpretty.GET,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/tasks.*"),
-        body=tasks_callback,
-    )
+    httpserver.expect_request(
+        re.compile("^/tasks/.*"),
+        method="GET"
+    ).respond_with_handler(tasks_handler)
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
-        body=auth.auth_callback,
-    )
+    return httpserver
 
-    yield
 
-    httpretty.disable()
-    httpretty.reset()
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
 
 
 def test_submit_remote(valid_client):

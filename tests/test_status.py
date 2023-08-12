@@ -1,5 +1,4 @@
 import common
-import httpretty
 import json
 import pytest
 import re
@@ -20,12 +19,15 @@ def fc_server(httpserver):
     httpserver.expect_request(
         re.compile("^/status/services.*"), method="GET"
     ).respond_with_handler(services_handler)
+
     httpserver.expect_request(
         re.compile("^/status/systems.*"), method="GET"
     ).respond_with_handler(systems_handler)
-    httpserver.expect_request("/status/parameters").respond_with_handler(
+
+    httpserver.expect_request("/status/parameters", method="GET").respond_with_handler(
         parameters_handler
     )
+
     return httpserver
 
 
