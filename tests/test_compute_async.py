@@ -1,14 +1,11 @@
-import common
-import json
 import pytest
 import re
 import test_authorisation as auth
+import test_compute as basic_compute
 
 from context import firecrest
 from firecrest import __app_name__, __version__
 from typer.testing import CliRunner
-from werkzeug.wrappers import Response
-from werkzeug.wrappers import Request
 
 
 runner = CliRunner()
@@ -24,12 +21,12 @@ def valid_client(fc_server):
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
     client.time_between_calls = {
-        "compute": 5,
-        "reservation": 5,
-        "status": 5,
-        "storage": 5,
-        "tasks": 5,
-        "utilities": 5,
+        "compute": 0,
+        "reservation": 0,
+        "status": 0,
+        "storage": 0,
+        "tasks": 0,
+        "utilities": 0,
     }
 
     return client
@@ -74,797 +71,40 @@ def non_slurm_script(tmp_path):
     return script
 
 
-def submit_path_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return Response(
-            json.dumps({"message": "Bad token; invalid JSON"}),
-            status=401,
-            content_type="application/json",
-        )
-
-    if request.headers["X-Machine-Name"] != "cluster1":
-        return Response(
-            json.dumps(
-                {
-                    "description": "Failed to submit job",
-                    "error": "Machine does not exist",
-                }
-            ),
-            status=400,
-            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
-            content_type="application/json",
-        )
-
-    target_path = request.form["targetPath"]
-    account = request.form.get("account", None)
-    extra_headers = None
-    if target_path == "/path/to/workdir/script.sh":
-        if account is None:
-            ret = {
-                "success": "Task created",
-                "task_id": "submit_path_job_id_default_account",
-                "task_url": "TASK_IP/tasks/submit_path_job_id_default_account",
-            }
-            status_code = 201
-        else:
-            ret = {
-                "success": "Task created",
-                "task_id": f"submit_path_job_id_{account}_account",
-                "task_url": f"TASK_IP/tasks/submit_path_job_id_{account}_account",
-            }
-            status_code = 201
-    elif target_path == "/path/to/non/slurm/file.sh":
-        ret = {
-            "success": "Task created",
-            "task_id": "submit_path_job_id_fail",
-            "task_url": "TASK_IP/tasks/submit_path_job_id_fail",
-        }
-        status_code = 201
-    else:
-        extra_headers = {"X-Invalid-Path": f"{target_path} is an invalid path."}
-        ret = {"description": "Failed to submit job"}
-        status_code = 400
-
-    return Response(
-        json.dumps(ret),
-        status=status_code,
-        headers=extra_headers,
-        content_type="application/json",
-    )
-
-
-def submit_upload_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return Response(
-            json.dumps({"message": "Bad token; invalid JSON"}),
-            status=401,
-            content_type="application/json",
-        )
-
-    if request.headers["X-Machine-Name"] != "cluster1":
-        return Response(
-            json.dumps(
-                {
-                    "description": "Failed to submit job",
-                    "error": "Machine does not exist",
-                }
-            ),
-            status=400,
-            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
-            content_type="application/json",
-        )
-
-    extra_headers = None
-    if request.files["file"].filename == "script.sh":
-        if b"#!/bin/bash -l\n" in request.files["file"].read():
-            if request.form.get("account", None) == "proj":
-                ret = {
-                    "success": "Task created",
-                    "task_id": "submit_upload_job_id_proj_account",
-                    "task_url": "TASK_IP/tasks/submit_upload_job_id_proj_account",
-                }
-            else:
-                ret = {
-                    "success": "Task created",
-                    "task_id": "submit_upload_job_id_default_account",
-                    "task_url": "TASK_IP/tasks/submit_upload_job_id_default_account",
-                }
-            status_code = 201
-        else:
-            ret = {
-                "success": "Task created",
-                "task_id": "submit_upload_job_id_fail",
-                "task_url": "TASK_IP/tasks/submit_upload_job_id_fail",
-            }
-            status_code = 201
-    else:
-        extra_headers = {"X-Invalid-Path": f"path is an invalid path."}
-        ret = {"description": "Failed to submit job"}
-        status_code = 400
-
-    return Response(
-        json.dumps(ret),
-        status=status_code,
-        headers=extra_headers,
-        content_type="application/json",
-    )
-
-
-def queue_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return Response(
-            json.dumps({"message": "Bad token; invalid JSON"}),
-            status=401,
-            content_type="application/json",
-        )
-
-    if request.headers["X-Machine-Name"] != "cluster1":
-        return Response(
-            json.dumps(
-                {
-                    "description": "Failed to retrieve jobs information",
-                    "error": "Machine does not exists",
-                }
-            ),
-            status=400,
-            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
-            content_type="application/json",
-        )
-
-    jobs = request.args.get("jobs", "").split(",")
-    if jobs == [""]:
-        ret = {
-            "success": "Task created",
-            "task_id": "queue_full_id",
-            "task_url": "TASK_IP/tasks/queue_full_id",
-        }
-        status_code = 200
-    elif jobs == ["352", "2", "334"]:
-        ret = {
-            "success": "Task created",
-            "task_id": "queue_352_2_334_id",
-            "task_url": "TASK_IP/tasks/queue_352_2_334_id",
-        }
-        status_code = 200
-    elif jobs == ["l"]:
-        ret = {
-            "description": "Failed to retrieve job information",
-            "error": "l is not a valid job ID",
-        }
-        status_code = 400
-    elif jobs == ["4"]:
-        ret = {
-            "success": "Task created",
-            "task_id": "queue_id_fail",
-            "task_url": "TASK_IP/tasks/queue_id_fail",
-        }
-        status_code = 200
-
-    return Response(
-        json.dumps(ret), status=status_code, content_type="application/json"
-    )
-
-
-def sacct_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return Response(
-            json.dumps({"message": "Bad token; invalid JSON"}),
-            status=401,
-            content_type="application/json",
-        )
-
-    if request.headers["X-Machine-Name"] != "cluster1":
-        return Response(
-            json.dumps(
-                {
-                    "description": "Failed to retrieve account information",
-                    "error": "Machine does not exist",
-                }
-            ),
-            status=400,
-            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
-            content_type="application/json",
-        )
-
-    jobs = request.args.get("jobs", "").split(",")
-    if jobs == [""]:
-        ret = {
-            "success": "Task created",
-            "task_id": "acct_full_id",
-            "task_url": "TASK_IP/tasks/acct_full_id",
-        }
-        status_code = 200
-    elif jobs == ["empty"]:
-        ret = {
-            "success": "Task created",
-            "task_id": "acct_empty_id",
-            "task_url": "TASK_IP/tasks/acct_empty_id",
-        }
-        status_code = 200
-    elif jobs == ["352", "2", "334"]:
-        ret = {
-            "success": "Task created",
-            "task_id": "acct_352_2_334_id",
-            "task_url": "TASK_IP/tasks/acct_352_2_334_id",
-        }
-        status_code = 200
-    elif jobs == ["l"]:
-        ret = {
-            "success": "Task created",
-            "task_id": "acct_352_2_334_id_fail",
-            "task_url": "TASK_IP/tasks/acct_352_2_334_id_fail",
-        }
-        status_code = 200
-
-    return Response(
-        json.dumps(ret), status=status_code, content_type="application/json"
-    )
-
-
-def cancel_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return Response(
-            json.dumps({"message": "Bad token; invalid JSON"}),
-            status=401,
-            content_type="application/json",
-        )
-
-    if request.headers["X-Machine-Name"] != "cluster1":
-        return Response(
-            json.dumps(
-                {
-                    "description": "Failed to delete job",
-                    "error": "Machine does not exist",
-                }
-            ),
-            status=400,
-            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
-            content_type="application/json",
-        )
-
-    uri = request.url
-    jobid = uri.split("/")[-1]
-    if jobid == "35360071":
-        ret = {
-            "success": "Task created",
-            "task_id": "cancel_job_id",
-            "task_url": "TASK_IP/tasks/cancel_job_id",
-        }
-        status_code = 200
-    elif jobid == "35360072":
-        ret = {
-            "success": "Task created",
-            "task_id": "cancel_job_id_permission_fail",
-            "task_url": "TASK_IP/tasks/cancel_job_id_permission_fail",
-        }
-        status_code = 200
-    else:
-        ret = {
-            "success": "Task created",
-            "task_id": "cancel_job_id_fail",
-            "task_url": "TASK_IP/tasks/cancel_job_id_fail",
-        }
-        status_code = 200
-
-    return Response(
-        json.dumps(ret), status=status_code, content_type="application/json"
-    )
-
-
-# Global variables for tasks
-submit_path_retry = 0
-submit_path_result = 1
-submit_upload_retry = 0
-submit_upload_result = 1
-acct_retry = 0
-acct_result = 1
-queue_retry = 0
-queue_result = 1
-cancel_retry = 0
-cancel_result = 1
-
-
-def tasks_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return Response(
-            json.dumps({"message": "Bad token; invalid JSON"}),
-            status=401,
-            content_type="application/json",
-        )
-
-    global submit_path_retry
-    global submit_upload_retry
-    global acct_retry
-    global queue_retry
-    global cancel_retry
-
-    uri = request.url
-    taskid = uri.split("/")[-1]
-    if taskid == "tasks":
-        # TODO: return all tasks
-        pass
-    elif taskid in (
-        "submit_path_job_id_default_account",
-        "submit_path_job_id_proj_account",
-        "submit_path_job_id_fail",
-    ):
-        if submit_path_retry < submit_path_result:
-            submit_path_retry += 1
-            ret = {
-                "task": {
-                    "data": "https://127.0.0.1:5003",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid in (
-            "submit_path_job_id_default_account",
-            "submit_path_job_id_proj_account",
-        ):
-            jobid = (
-                35335405 if taskid == "submit_path_job_id_default_account" else 35335406
-            )
-            ret = {
-                "task": {
-                    "data": {
-                        "job_data_err": "",
-                        "job_data_out": "",
-                        "job_file": "/path/to/workdir/script.sh",
-                        "job_file_err": "/path/to/workdir/slurm-35335405.out",
-                        "job_file_out": "/path/to/workdir/slurm-35335405.out",
-                        "jobid": jobid,
-                        "result": "Job submitted",
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        else:
-            ret = {
-                "task": {
-                    "data": "sbatch: error: This does not look like a batch script...",
-                    "description": "Finished with errors",
-                    "hash_id": "taskid",
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": "taskid",
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-    elif taskid in (
-        "submit_upload_job_id_default_account",
-        "submit_upload_job_id_proj_account",
-        "submit_upload_job_id_fail",
-    ):
-        if submit_upload_retry < submit_upload_result:
-            submit_upload_retry += 1
-            ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid in (
-            "submit_upload_job_id_default_account",
-            "submit_upload_job_id_proj_account",
-        ):
-            jobid = (
-                35342667
-                if taskid == "submit_upload_job_id_default_account"
-                else 35342668
-            )
-            ret = {
-                "task": {
-                    "data": {
-                        "job_data_err": "",
-                        "job_data_out": "",
-                        "job_file": f"/path/to/firecrest/{taskid}/script.sh",
-                        "job_file_err": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
-                        "job_file_out": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
-                        "jobid": jobid,
-                        "result": "Job submitted",
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        else:
-            ret = {
-                "task": {
-                    "data": "sbatch: error: This does not look like a batch script...",
-                    "description": "Finished with errors",
-                    "hash_id": "taskid",
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": "taskid",
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-    elif (
-        taskid == "acct_352_2_334_id"
-        or taskid == "acct_352_2_334_id_fail"
-        or taskid == "acct_full_id"
-        or taskid == "acct_empty_id"
-    ):
-        if acct_retry < acct_result:
-            acct_retry += 1
-            ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid == "acct_352_2_334_id":
-            ret = {
-                "task": {
-                    "data": [
-                        {
-                            "jobid": "352",
-                            "name": "firecrest_job_test",
-                            "nodelist": "nid0[6227-6229]",
-                            "nodes": "3",
-                            "partition": "normal",
-                            "start_time": "2021-11-29T16:31:07",
-                            "state": "COMPLETED",
-                            "time": "00:48:00",
-                            "time_left": "2021-11-29T16:31:47",
-                            "user": "username",
-                        },
-                        {
-                            "jobid": "334",
-                            "name": "firecrest_job_test2",
-                            "nodelist": "nid02401",
-                            "nodes": "1",
-                            "partition": "normal",
-                            "start_time": "2021-11-29T16:31:07",
-                            "state": "COMPLETED",
-                            "time": "00:17:12",
-                            "time_left": "2021-11-29T16:31:50",
-                            "user": "username",
-                        },
-                    ],
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid == "acct_full_id":
-            ret = {
-                "task": {
-                    "data": [
-                        {
-                            "jobid": "352",
-                            "name": "firecrest_job_test",
-                            "nodelist": "nid0[6227-6229]",
-                            "nodes": "3",
-                            "partition": "normal",
-                            "start_time": "2021-11-29T16:31:07",
-                            "state": "COMPLETED",
-                            "time": "00:48:00",
-                            "time_left": "2021-11-29T16:31:47",
-                            "user": "username",
-                        }
-                    ],
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid == "acct_empty_id":
-            ret = {
-                "task": {
-                    "data": {},
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        else:
-            ret = {
-                "task": {
-                    "data": "sacct: fatal: Bad job/step specified: l",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:47:22",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-    elif (
-        taskid == "queue_352_2_334_id"
-        or taskid == "queue_id_fail"
-        or taskid == "queue_full_id"
-    ):
-        if queue_retry < queue_result:
-            queue_retry += 1
-            ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid == "queue_352_2_334_id":
-            ret = {
-                "task": {
-                    "data": {
-                        "0": {
-                            "job_data_err": "",
-                            "job_data_out": "",
-                            "job_file": "(null)",
-                            "job_file_err": "stderr-file-not-found",
-                            "job_file_out": "stdout-file-not-found",
-                            "jobid": "352",
-                            "name": "interactive",
-                            "nodelist": "nid02357",
-                            "nodes": "1",
-                            "partition": "debug",
-                            "start_time": "6:38",
-                            "state": "RUNNING",
-                            "time": "2022-03-10T10:11:34",
-                            "time_left": "23:22",
-                            "user": "username",
-                        }
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid == "queue_full_id":
-            ret = {
-                "task": {
-                    "data": {
-                        "0": {
-                            "job_data_err": "",
-                            "job_data_out": "",
-                            "job_file": "(null)",
-                            "job_file_err": "stderr-file-not-found",
-                            "job_file_out": "stdout-file-not-found",
-                            "jobid": "352",
-                            "name": "interactive",
-                            "nodelist": "nid02357",
-                            "nodes": "1",
-                            "partition": "debug",
-                            "start_time": "6:38",
-                            "state": "RUNNING",
-                            "time": "2022-03-10T10:11:34",
-                            "time_left": "23:22",
-                            "user": "username",
-                        },
-                        "1": {
-                            "job_data_err": "",
-                            "job_data_out": "",
-                            "job_file": "(null)",
-                            "job_file_err": "stderr-file-not-found",
-                            "job_file_out": "stdout-file-not-found",
-                            "jobid": "356",
-                            "name": "interactive",
-                            "nodelist": "nid02351",
-                            "nodes": "1",
-                            "partition": "debug",
-                            "start_time": "6:38",
-                            "state": "RUNNING",
-                            "time": "2022-03-10T10:11:34",
-                            "time_left": "23:22",
-                            "user": "username",
-                        },
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        else:
-            ret = {
-                "task": {
-                    "data": "slurm_load_jobs error: Invalid job id specified",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:47:22",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-    elif (
-        taskid == "cancel_job_id"
-        or taskid == "cancel_job_id_fail"
-        or taskid == "cancel_job_id_permission_fail"
-    ):
-        if cancel_retry < cancel_result:
-            cancel_retry += 1
-            ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid == "cancel_job_id":
-            ret = {
-                "task": {
-                    "data": "",
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T10:42:06",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        elif taskid == "cancel_job_id_permission_fail":
-            ret = {
-                "task": {
-                    "data": "User does not have permission to cancel job",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T10:32:26",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-        else:
-            ret = {
-                "task": {
-                    "data": "scancel: error: Invalid job id tg",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T10:39:47",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
-                }
-            }
-            status_code = 200
-
-    return Response(
-        json.dumps(ret), status=status_code, content_type="application/json"
-    )
-
-
 @pytest.fixture
 def fc_server(httpserver):
     httpserver.expect_request("/compute/jobs/path", method="POST").respond_with_handler(
-        submit_path_handler
+        basic_compute.submit_path_handler
     )
 
     httpserver.expect_request(
         "/compute/jobs/upload", method="POST"
-    ).respond_with_handler(submit_upload_handler)
+    ).respond_with_handler(basic_compute.submit_upload_handler)
 
     httpserver.expect_request("/compute/acct", method="GET").respond_with_handler(
-        sacct_handler
+        basic_compute.sacct_handler
     )
 
     httpserver.expect_request("/compute/jobs", method="GET").respond_with_handler(
-        queue_handler
+        basic_compute.queue_handler
     )
 
     httpserver.expect_request(
         re.compile("^/compute/jobs.*"), method="DELETE"
-    ).respond_with_handler(cancel_handler)
+    ).respond_with_handler(basic_compute.cancel_handler)
 
     httpserver.expect_request(
         re.compile("^/tasks/.*"), method="GET"
-    ).respond_with_handler(tasks_handler)
+    ).respond_with_handler(basic_compute.tasks_handler)
 
     return httpserver
 
 
-@pytest.fixture
-def auth_server(httpserver):
-    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
-    return httpserver
-
-
-def test_submit_remote(valid_client):
+@pytest.mark.asyncio
+async def test_submit_remote(valid_client):
     global submit_path_retry
     submit_path_retry = 0
-    assert valid_client.submit(
+    assert await valid_client.submit(
         machine="cluster1", job_script="/path/to/workdir/script.sh", local_file=False
     ) == {
         "job_data_err": "",
@@ -876,7 +116,7 @@ def test_submit_remote(valid_client):
         "result": "Job submitted",
     }
     submit_path_retry = 0
-    assert valid_client.submit(
+    assert await valid_client.submit(
         machine="cluster1",
         job_script="/path/to/workdir/script.sh",
         local_file=False,
@@ -892,11 +132,12 @@ def test_submit_remote(valid_client):
     }
 
 
-def test_submit_local(valid_client, slurm_script):
+@pytest.mark.asyncio
+async def test_submit_local(valid_client, slurm_script):
     # Test submission for local script
     global submit_upload_retry
     submit_upload_retry = 0
-    assert valid_client.submit(
+    assert await valid_client.submit(
         machine="cluster1", job_script=slurm_script, local_file=True
     ) == {
         "job_data_err": "",
@@ -908,7 +149,7 @@ def test_submit_local(valid_client, slurm_script):
         "result": "Job submitted",
     }
     submit_upload_retry = 0
-    assert valid_client.submit(
+    assert await valid_client.submit(
         machine="cluster1", job_script=slurm_script, local_file=True, account="proj"
     ) == {
         "job_data_err": "",
@@ -921,9 +162,10 @@ def test_submit_local(valid_client, slurm_script):
     }
 
 
-def test_submit_invalid_arguments(valid_client, non_slurm_script):
+@pytest.mark.asyncio
+async def test_submit_invalid_arguments(valid_client, non_slurm_script):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.submit(
+        await valid_client.submit(
             machine="cluster1",
             job_script="/path/to/non/existent/file",
             local_file=False,
@@ -932,7 +174,7 @@ def test_submit_invalid_arguments(valid_client, non_slurm_script):
     global submit_path_retry
     submit_path_retry = 0
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.submit(
+        await valid_client.submit(
             machine="cluster1",
             job_script="/path/to/non/slurm/file.sh",
             local_file=False,
@@ -942,39 +184,42 @@ def test_submit_invalid_arguments(valid_client, non_slurm_script):
     submit_upload_retry = 0
 
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.submit(
+        await valid_client.submit(
             machine="cluster1", job_script=non_slurm_script, local_file=True
         )
 
 
-def test_submit_invalid_machine(valid_client, slurm_script):
+@pytest.mark.asyncio
+async def test_submit_invalid_machine(valid_client, slurm_script):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.submit(
+        await valid_client.submit(
             machine="cluster2", job_script="/path/to/file", local_file=False
         )
 
     with pytest.raises(firecrest.HeaderException):
-        valid_client.submit(
+        await valid_client.submit(
             machine="cluster2", job_script=slurm_script, local_file=True
         )
 
 
-def test_submit_invalid_client(invalid_client, slurm_script):
+@pytest.mark.asyncio
+async def test_submit_invalid_client(invalid_client, slurm_script):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.submit(
+        await invalid_client.submit(
             machine="cluster1", job_script="/path/to/file", local_file=False
         )
 
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.submit(
+        await invalid_client.submit(
             machine="cluster1", job_script=slurm_script, local_file=True
         )
 
 
-def test_poll(valid_client):
+@pytest.mark.asyncio
+async def test_poll(valid_client):
     global acct_retry
     acct_retry = 0
-    assert valid_client.poll(
+    assert await valid_client.poll(
         machine="cluster1",
         jobs=[352, 2, "334"],
         start_time="starttime",
@@ -1006,7 +251,7 @@ def test_poll(valid_client):
         },
     ]
     acct_retry = 0
-    assert valid_client.poll(machine="cluster1", jobs=[]) == [
+    assert await valid_client.poll(machine="cluster1", jobs=[]) == [
         {
             "jobid": "352",
             "name": "firecrest_job_test",
@@ -1020,31 +265,35 @@ def test_poll(valid_client):
             "user": "username",
         }
     ]
-    assert valid_client.poll(machine="cluster1", jobs=["empty"]) == []
+    assert await valid_client.poll(machine="cluster1", jobs=["empty"]) == []
 
 
-def test_poll_invalid_arguments(valid_client):
+@pytest.mark.asyncio
+async def test_poll_invalid_arguments(valid_client):
     global acct_retry
     acct_retry = 0
 
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.poll(machine="cluster1", jobs=["l"])
+        await valid_client.poll(machine="cluster1", jobs=["l"])
 
 
-def test_poll_invalid_machine(valid_client):
+@pytest.mark.asyncio
+async def test_poll_invalid_machine(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.poll(machine="cluster2", jobs=[])
+        await valid_client.poll(machine="cluster2", jobs=[])
 
 
-def test_poll_invalid_client(invalid_client):
+@pytest.mark.asyncio
+async def test_poll_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.poll(machine="cluster1", jobs=[])
+        await invalid_client.poll(machine="cluster1", jobs=[])
 
 
-def test_poll_active(valid_client):
+@pytest.mark.asyncio
+async def test_poll_active(valid_client):
     global queue_retry
     queue_retry = 0
-    assert valid_client.poll_active(machine="cluster1", jobs=[352, 2, "334"]) == [
+    assert await valid_client.poll_active(machine="cluster1", jobs=[352, 2, "334"]) == [
         {
             "job_data_err": "",
             "job_data_out": "",
@@ -1064,7 +313,7 @@ def test_poll_active(valid_client):
         }
     ]
     queue_retry = 0
-    assert valid_client.poll_active(machine="cluster1", jobs=[]) == [
+    assert await valid_client.poll_active(machine="cluster1", jobs=[]) == [
         {
             "job_data_err": "",
             "job_data_out": "",
@@ -1102,53 +351,60 @@ def test_poll_active(valid_client):
     ]
 
 
-def test_poll_active_invalid_arguments(valid_client):
+@pytest.mark.asyncio
+async def test_poll_active_invalid_arguments(valid_client):
     global queue_retry
     queue_retry = 0
 
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.poll_active(machine="cluster1", jobs=["l"])
+        await valid_client.poll_active(machine="cluster1", jobs=["l"])
 
     queue_retry = 0
     with pytest.raises(firecrest.FirecrestException):
         # We assume that jobid is too old and is rejected by squeue
-        valid_client.poll_active(machine="cluster1", jobs=["4"])
+        await valid_client.poll_active(machine="cluster1", jobs=["4"])
 
 
-def test_poll_active_invalid_machine(valid_client):
+@pytest.mark.asyncio
+async def test_poll_active_invalid_machine(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.poll_active(machine="cluster2", jobs=[])
+        await valid_client.poll_active(machine="cluster2", jobs=[])
 
 
-def test_poll_active_invalid_client(invalid_client):
+@pytest.mark.asyncio
+async def test_poll_active_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.poll_active(machine="cluster1", jobs=[])
+        await invalid_client.poll_active(machine="cluster1", jobs=[])
 
 
-def test_cancel(valid_client):
+@pytest.mark.asyncio
+async def test_cancel(valid_client):
     global cancel_retry
     cancel_retry = 0
     # Make sure this doesn't raise an error
-    valid_client.cancel(machine="cluster1", job_id=35360071)
+    await valid_client.cancel(machine="cluster1", job_id=35360071)
 
 
-def test_cancel_invalid_arguments(valid_client):
+@pytest.mark.asyncio
+async def test_cancel_invalid_arguments(valid_client):
     global cancel_retry
     cancel_retry = 0
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.cancel(machine="cluster1", job_id="k")
+        await valid_client.cancel(machine="cluster1", job_id="k")
 
     cancel_retry = 0
     with pytest.raises(firecrest.FirecrestException):
         # Jobid 35360072 is from a different user
-        valid_client.cancel(machine="cluster1", job_id="35360072")
+        await valid_client.cancel(machine="cluster1", job_id="35360072")
 
 
-def test_cancel_invalid_machine(valid_client):
+@pytest.mark.asyncio
+async def test_cancel_invalid_machine(valid_client):
     with pytest.raises(firecrest.HeaderException):
-        valid_client.cancel(machine="cluster2", job_id=35360071)
+        await valid_client.cancel(machine="cluster2", job_id=35360071)
 
 
-def test_cancel_invalid_client(invalid_client):
+@pytest.mark.asyncio
+async def test_cancel_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
-        invalid_client.cancel(machine="cluster1", job_id=35360071)
+        await invalid_client.cancel(machine="cluster1", job_id=35360071)
