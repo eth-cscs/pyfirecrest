@@ -110,7 +110,7 @@ Here is a more complete example for how you could use the asynchronous client:
         # microservice.
         client.time_between_calls = {
             "compute": 5,
-            "reservation": 5,
+            "reservations": 5,
             "status": 5,
             "storage": 5,
             "tasks": 5,

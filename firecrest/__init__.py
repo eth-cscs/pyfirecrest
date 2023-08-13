@@ -22,7 +22,11 @@ if sys.version_info[:3] < MIN_PYTHON_VERSION:
 from firecrest.BasicClient import Firecrest
 from firecrest.AsyncClient import AsyncFirecrest
 from firecrest.ExternalStorage import ExternalDownload, ExternalUpload, ExternalStorage
-from firecrest.AsyncExternalStorage import AsyncExternalDownload, AsyncExternalUpload, AsyncExternalStorage
+from firecrest.AsyncExternalStorage import (
+    AsyncExternalDownload,
+    AsyncExternalUpload,
+    AsyncExternalStorage,
+)
 from firecrest.Authorization import ClientCredentialsAuth
 from firecrest.FirecrestException import (
     ClientsCredentialsException,

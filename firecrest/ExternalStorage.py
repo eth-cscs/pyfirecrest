@@ -258,4 +258,3 @@ class ExternalDownload(ExternalStorage):
         )
         with urllib.request.urlopen(url) as response, context as out_file:
             shutil.copyfileobj(response, out_file)
-

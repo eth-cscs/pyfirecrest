@@ -18,7 +18,7 @@ def valid_client(fc_server):
     )
     client.time_between_calls = {
         "compute": 0,
-        "reservation": 0,
+        "reservations": 0,
         "status": 0,
         "storage": 0,
         "tasks": 0,
@@ -39,7 +39,7 @@ def invalid_client(fc_server):
     )
     client.time_between_calls = {
         "compute": 0,
-        "reservation": 0,
+        "reservations": 0,
         "status": 0,
         "storage": 0,
         "tasks": 0,

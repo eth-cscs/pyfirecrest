@@ -16,14 +16,16 @@ import pathlib
 import requests
 import sys
 import time
+
+from contextlib import nullcontext
 from typing import Any, ContextManager, Optional, overload, Sequence, List
+from requests.compat import json  # type: ignore
+from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
 
-from contextlib import nullcontext
-from requests.compat import json  # type: ignore
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -50,16 +52,15 @@ class ComputeTask:
     """
 
     def __init__(
-            self,
-            client: AsyncFirecrest,
-            task_id: str,
-            previous_responses: Optional[List[requests.Response]] = None
+        self,
+        client: AsyncFirecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
         self._responses = [] if previous_responses is None else previous_responses
         self._client = client
         self._task_id = task_id
         self._sleep_time = itertools.cycle([1, 5, 10])
-
 
     async def poll_task(self, final_status) -> None:
         logger.info(f"Polling task {self._task_id} until status is {final_status}")
@@ -105,13 +106,17 @@ class AsyncFirecrest:
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout: Any = None
-        # self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None # TODO fix type error
+        self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
+        #: Number of retries in case the rate limit is reached. When it is set to `None`, the
+        #: client will keep trying until it gets a different status code than 429.
+        self.num_retries_rate_limit: Optional[int] = None
+        self._api_version: Version = parse("1.13.1")
+        self._session = requests.Session()
 
         #: Seconds between requests in each microservice
         self.time_between_calls: dict[str, float] = {  # TODO more detailed docs
             "compute": 5,
-            "reservation": 5,
+            "reservations": 5,
             "status": 5,
             "storage": 5,
             "tasks": 5,
@@ -119,7 +124,7 @@ class AsyncFirecrest:
         }
         self._next_request_ts: dict[str, float] = {
             "compute": 0,
-            "reservation": 0,
+            "reservations": 0,
             "status": 0,
             "storage": 0,
             "tasks": 0,
@@ -127,7 +132,7 @@ class AsyncFirecrest:
         }
         self._locks = {
             "compute": asyncio.Lock(),
-            "reservation": asyncio.Lock(),
+            "reservations": asyncio.Lock(),
             "status": asyncio.Lock(),
             "storage": asyncio.Lock(),
             "tasks": asyncio.Lock(),
@@ -135,12 +140,20 @@ class AsyncFirecrest:
         }
         self._session = httpx.AsyncClient()
 
+    def set_api_version(self, api_version: str) -> None:
+        """Set the version of the api of firecrest. By default it will be assumed that you are
+        using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
+        """
+        self._api_version = parse(api_version)
+
     async def _get_request(self, endpoint, additional_headers=None, params=None):
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
             await self._stall_request(microservice)
-            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
             if additional_headers:
                 headers.update(additional_headers)
 
@@ -161,7 +174,9 @@ class AsyncFirecrest:
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
             await self._stall_request(microservice)
-            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
             if additional_headers:
                 headers.update(additional_headers)
 
@@ -180,12 +195,14 @@ class AsyncFirecrest:
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
             await self._stall_request(microservice)
-            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
             if additional_headers:
                 headers.update(additional_headers)
 
             logger.info(f"Making PUT request to {endpoint}")
-            resp = await self._session.post(
+            resp = await self._session.put(
                 url=url, headers=headers, data=data, timeout=self.timeout
             )
             self._next_request_ts[microservice] = (
@@ -201,7 +218,9 @@ class AsyncFirecrest:
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
             await self._stall_request(microservice)
-            headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
             if additional_headers:
                 headers.update(additional_headers)
 
@@ -993,7 +1012,7 @@ class AsyncFirecrest:
         time,
         stage_out_job_id,
         account,
-        ret_response
+        ret_response,
     ):
         data = {"targetPath": target_path}
         if source_path:
@@ -1054,7 +1073,7 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
-            resp
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
@@ -1097,7 +1116,7 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
-            resp
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
@@ -1140,7 +1159,7 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
-            resp
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
@@ -1181,7 +1200,7 @@ class AsyncFirecrest:
             time,
             stage_out_job_id,
             account,
-            resp
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)

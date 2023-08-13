@@ -11,12 +11,8 @@ import jwt
 import logging
 import pathlib
 import requests
-import shlex
-import shutil
-import subprocess
 import sys
 import time
-import urllib.request
 
 from contextlib import nullcontext
 from io import BufferedWriter, BytesIO

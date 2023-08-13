@@ -14,11 +14,22 @@ import pathlib
 import requests
 import shutil
 import sys
-from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List, Union, TYPE_CHECKING
+from typing import (
+    Any,
+    ContextManager,
+    Optional,
+    overload,
+    Sequence,
+    Tuple,
+    List,
+    Union,
+    TYPE_CHECKING,
+)
 import urllib.request
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
+
 if TYPE_CHECKING:
     from firecrest.AsyncClient import AsyncFirecrest
 
@@ -175,9 +186,7 @@ class AsyncExternalUpload(AsyncExternalStorage):
         # c = c.replace("192.168.220.19", "localhost")
         logger.info(f"Uploading the file to the staging area with the command: {c}")
         proc = await asyncio.create_subprocess_shell(
-            c,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            c, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
 
         _, stderr = await proc.communicate()
@@ -228,7 +237,9 @@ class AsyncExternalDownload(AsyncExternalStorage):
         """
         await self._client._invalidate(self._task_id)
 
-    async def finish_download(self, target_path: str | pathlib.Path | BufferedWriter) -> None:
+    async def finish_download(
+        self, target_path: str | pathlib.Path | BufferedWriter
+    ) -> None:
         """Finish the download process.
 
         :param target_path: the local path to save the file
