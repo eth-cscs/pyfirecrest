@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import httpx
-from io import BufferedWriter, BytesIO
+from io import BytesIO
 import itertools
 import jwt
 import logging
@@ -18,7 +18,15 @@ import sys
 import time
 
 from contextlib import nullcontext
-from typing import Any, ContextManager, Optional, overload, Sequence, List
+from typing import (
+    Any,
+    ContextManager,
+    Optional,
+    overload,
+    Sequence,
+    Tuple,
+    List,
+)
 from requests.compat import json  # type: ignore
 from packaging.version import Version, parse
 
@@ -62,7 +70,7 @@ class ComputeTask:
         self._task_id = task_id
         self._sleep_time = itertools.cycle([1, 5, 10])
 
-    async def poll_task(self, final_status) -> None:
+    async def poll_task(self, final_status):
         logger.info(f"Polling task {self._task_id} until status is {final_status}")
         resp = await self._client._task_safe(self._task_id, self._responses)
         while resp["status"] < final_status:
@@ -111,7 +119,7 @@ class AsyncFirecrest:
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("1.13.1")
-        self._session = requests.Session()
+        self._session = httpx.AsyncClient()
 
         #: Seconds between requests in each microservice
         self.time_between_calls: dict[str, float] = {  # TODO more detailed docs
@@ -138,7 +146,6 @@ class AsyncFirecrest:
             "tasks": asyncio.Lock(),
             "utilities": asyncio.Lock(),
         }
-        self._session = httpx.AsyncClient()
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be assumed that you are
@@ -1069,7 +1076,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        resp = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/mv"
         json_response = await self._internal_transfer(
             endpoint,
@@ -1112,7 +1119,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        resp = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/cp"
         json_response = await self._internal_transfer(
             endpoint,
@@ -1155,7 +1162,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        resp = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/rsync"
         json_response = await self._internal_transfer(
             endpoint,
@@ -1196,7 +1203,7 @@ class AsyncFirecrest:
 
                 GET `/tasks/{taskid}`
         """
-        resp = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/rm"
         json_response = await self._internal_transfer(
             endpoint,

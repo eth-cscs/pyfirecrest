@@ -15,20 +15,13 @@ import requests
 import shutil
 import sys
 from typing import (
-    Any,
     ContextManager,
     Optional,
-    overload,
-    Sequence,
-    Tuple,
     List,
-    Union,
     TYPE_CHECKING,
 )
 import urllib.request
 
-import firecrest.FirecrestException as fe
-import firecrest.types as t
 
 if TYPE_CHECKING:
     from firecrest.AsyncClient import AsyncFirecrest
