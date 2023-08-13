@@ -4,10 +4,6 @@ import test_reservation as basic_reservation
 
 from context import firecrest
 from firecrest import __app_name__, __version__
-from typer.testing import CliRunner
-
-
-runner = CliRunner()
 
 
 @pytest.fixture

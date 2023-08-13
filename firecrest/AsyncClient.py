@@ -435,7 +435,7 @@ class AsyncFirecrest:
         :param system_name: the system name
         :calls: GET `/status/systems/{system_name}`
         """
-        resp = self._get_request(endpoint=f"/status/systems/{system_name}")
+        resp = await self._get_request(endpoint=f"/status/systems/{system_name}")
         return self._json_response([resp], 200)["out"]
 
     async def parameters(self) -> t.Parameters:

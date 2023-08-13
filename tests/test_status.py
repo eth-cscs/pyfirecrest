@@ -15,29 +15,6 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def fc_server(httpserver):
-    httpserver.expect_request(
-        re.compile("^/status/services.*"), method="GET"
-    ).respond_with_handler(services_handler)
-
-    httpserver.expect_request(
-        re.compile("^/status/systems.*"), method="GET"
-    ).respond_with_handler(systems_handler)
-
-    httpserver.expect_request("/status/parameters", method="GET").respond_with_handler(
-        parameters_handler
-    )
-
-    return httpserver
-
-
-@pytest.fixture
-def auth_server(httpserver):
-    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
-    return httpserver
-
-
-@pytest.fixture
 def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
@@ -67,6 +44,29 @@ def invalid_client(fc_server):
     return firecrest.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
+
+
+@pytest.fixture
+def fc_server(httpserver):
+    httpserver.expect_request(
+        re.compile("^/status/services.*"), method="GET"
+    ).respond_with_handler(services_handler)
+
+    httpserver.expect_request(
+        re.compile("^/status/systems.*"), method="GET"
+    ).respond_with_handler(systems_handler)
+
+    httpserver.expect_request("/status/parameters", method="GET").respond_with_handler(
+        parameters_handler
+    )
+
+    return httpserver
+
+
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
 
 
 def services_handler(request: Request):
