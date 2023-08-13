@@ -45,44 +45,6 @@ def auth_handler(request):
     return Response(json.dumps(ret), status=ret_status, content_type="application/json")
 
 
-def auth_callback(request, uri, response_headers):
-    client_id = request.parsed_body["client_id"][0]
-    client_secret = request.parsed_body["client_secret"][0]
-    if client_id == "valid_id":
-        if client_secret == "valid_secret":
-            ret = {
-                "access_token": "VALID_TOKEN",
-                "expires_in": 15,
-                "refresh_expires_in": 0,
-                "token_type": "Bearer",
-                "not-before-policy": 0,
-                "scope": "profile firecrest email",
-            }
-            return [200, response_headers, json.dumps(ret)]
-        if client_secret == "valid_secret_2":
-            ret = {
-                "access_token": "token_2",
-                "expires_in": 15,
-                "refresh_expires_in": 0,
-                "token_type": "Bearer",
-                "not-before-policy": 0,
-                "scope": "profile firecrest email",
-            }
-            return [200, response_headers, json.dumps(ret)]
-        else:
-            ret = {
-                "error": "unauthorized_client",
-                "error_description": "Invalid client secret",
-            }
-            return [400, response_headers, json.dumps(ret)]
-    else:
-        ret = {
-            "error": "invalid_client",
-            "error_description": "Invalid client credentials",
-        }
-        return [400, response_headers, json.dumps(ret)]
-
-
 @pytest.fixture
 def auth_server(httpserver):
     httpserver.expect_request("/auth/token").respond_with_handler(auth_handler)

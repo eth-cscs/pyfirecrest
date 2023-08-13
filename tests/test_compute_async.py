@@ -1,14 +1,9 @@
 import pytest
 import re
-import test_authorisation as auth
 import test_compute as basic_compute
 
 from context import firecrest
 from firecrest import __app_name__, __version__
-from typer.testing import CliRunner
-
-
-runner = CliRunner()
 
 
 @pytest.fixture
@@ -42,12 +37,12 @@ def invalid_client(fc_server):
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
     client.time_between_calls = {
-        "compute": 5,
-        "reservation": 5,
-        "status": 5,
-        "storage": 5,
-        "tasks": 5,
-        "utilities": 5,
+        "compute": 0,
+        "reservation": 0,
+        "status": 0,
+        "storage": 0,
+        "tasks": 0,
+        "utilities": 0,
     }
 
     return client
