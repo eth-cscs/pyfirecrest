@@ -7,7 +7,6 @@ import test_authorisation as auth
 from context import firecrest
 
 from firecrest import __app_name__, __version__, cli
-from firecrest.BasicClient import ExternalUpload, ExternalDownload
 from typer.testing import CliRunner
 from werkzeug.wrappers import Response
 from werkzeug.wrappers import Request
@@ -618,7 +617,7 @@ def test_external_download(valid_client):
     external_download_retry = 0
     valid_client.set_api_version("1.14.0")
     obj = valid_client.external_download("cluster1", "/path/to/remote/source")
-    assert isinstance(obj, ExternalDownload)
+    assert isinstance(obj, firecrest.ExternalDownload)
     assert obj._task_id == "external_download_id"
     assert obj.client == valid_client
 
@@ -628,7 +627,7 @@ def test_external_download_legacy(valid_client):
     external_download_retry = 0
     valid_client.set_api_version("1.13.0")
     obj = valid_client.external_download("cluster1", "/path/to/remote/sourcelegacy")
-    assert isinstance(obj, ExternalDownload)
+    assert isinstance(obj, firecrest.ExternalDownload)
     assert obj._task_id == "external_download_id_legacy"
     assert obj.client == valid_client
 
@@ -681,7 +680,7 @@ def test_external_upload(valid_client):
     obj = valid_client.external_upload(
         "cluster1", "/path/to/local/source", "/path/to/remote/destination"
     )
-    assert isinstance(obj, ExternalUpload)
+    assert isinstance(obj, firecrest.ExternalUpload)
     assert obj._task_id == "external_upload_id"
     assert obj.client == valid_client
 
