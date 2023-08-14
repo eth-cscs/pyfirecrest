@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import httpx
 from io import BytesIO
-import itertools
 import jwt
 import logging
 import pathlib
@@ -152,7 +151,7 @@ class AsyncFirecrest:
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
+        self.timeout: Any = None  # type is Any because of some incompatibility for https and requests
         #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
@@ -191,8 +190,8 @@ class AsyncFirecrest:
         """
         self._api_version = parse(api_version)
 
-    @_retry_requests
-    async def _get_request(self, endpoint, additional_headers=None, params=None) -> requests.Response:
+    @_retry_requests  # type: ignore
+    async def _get_request(self, endpoint, additional_headers=None, params=None) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
@@ -213,10 +212,10 @@ class AsyncFirecrest:
 
         return resp
 
-    @_retry_requests
+    @_retry_requests  # type: ignore
     async def _post_request(
         self, endpoint, additional_headers=None, data=None, files=None
-    ) -> requests.Response:
+    ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
@@ -237,8 +236,8 @@ class AsyncFirecrest:
 
         return resp
 
-    @_retry_requests
-    async def _put_request(self, endpoint, additional_headers=None, data=None) -> requests.Response:
+    @_retry_requests  # type: ignore
+    async def _put_request(self, endpoint, additional_headers=None, data=None) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
@@ -259,7 +258,7 @@ class AsyncFirecrest:
 
         return resp
 
-    @_retry_requests
+    @_retry_requests  # type: ignore
     async def _delete_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
