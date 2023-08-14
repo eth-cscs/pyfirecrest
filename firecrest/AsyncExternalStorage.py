@@ -21,7 +21,7 @@ from typing import (
     TYPE_CHECKING,
 )
 import urllib.request
-
+from packaging.version import Version
 
 if TYPE_CHECKING:
     from firecrest.AsyncClient import AsyncFirecrest
@@ -56,7 +56,6 @@ class AsyncExternalStorage:
         self._status: Optional[str] = None
         self._data = None
         self._object_storage_data = None
-        self._sleep_time = itertools.cycle([1, 5, 10])
         self._responses = previous_responses
 
     @property
@@ -122,9 +121,8 @@ class AsyncExternalStorage:
             await self._update()
 
         while not self._object_storage_data:
-            t = next(self._sleep_time)
-            logger.info(f"Sleeping for {t} sec")
-            asyncio.sleep(t)
+            # No need for extra sleeping here, since the async client handles
+            # the rate of requests anyway
             await self._update()
 
         return self._object_storage_data
@@ -229,6 +227,19 @@ class AsyncExternalDownload(AsyncExternalStorage):
         :calls: POST `/storage/xfer-external/invalidate`
         """
         await self._client._invalidate(self._task_id)
+
+    @property
+    async def object_storage_link(self) -> str:
+        """Get the direct download url for the file. The response from the FirecREST api
+        changed after version 1.13.0, so make sure to set to older version, if you are
+        using an older deployment.
+
+        :calls: GET `/tasks/{taskid}`
+        """
+        if self._client._api_version > Version("1.13.0"):
+            return await self.object_storage_data["url"]
+        else:
+            return await self.object_storage_data
 
     async def finish_download(
         self, target_path: str | pathlib.Path | BufferedWriter
