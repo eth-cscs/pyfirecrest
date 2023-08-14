@@ -150,8 +150,10 @@ class AsyncFirecrest:
         #: How many seconds to wait for the server to send data before giving up.
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
-        #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout: Any = None  # type is Any because of some incompatibility for https and requests
+        #: It can be a float or a tuple. More details here: https://www.python-httpx.org/advanced/#fine-tuning-the-configuration.
+        self.timeout: Any = None
+        # type is Any because of some incompatibility between https and requests library
+
         #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
