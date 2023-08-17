@@ -1,14 +1,5 @@
 # Examples for asyncio with pyfirecrest
 
-## How to install this version of the library
-
-```bash
-git clone -b async_client https://github.com/ekouts/pyfirecrest-fork.git pyfirecrest
-cd pyfirecrest
-# You need an environment of python>=3.7
-python -m pip install .
-```
-
 ### Simple asynchronous workflow with the new client
 
 Here is an example of how to use the `AsyncFirecrest` client with asyncio.
