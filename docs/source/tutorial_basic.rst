@@ -1,5 +1,5 @@
-Tutorial
-========
+Simple tutorial
+===============
 
 Your starting point to use pyFirecREST will be the creation of a FirecREST object.
 This is simply a mini client that, in cooperation with the authorization object, will take care of the necessary requests that need to be made and handle the responses.
@@ -9,7 +9,7 @@ For this tutorial we will assume the simplest kind of authorization class, where
 
 .. code-block:: Python
 
-    import firecrest as f7t
+    import firecrest as fc
 
     class MyAuthorizationClass:
         def __init__(self):
@@ -19,7 +19,7 @@ For this tutorial we will assume the simplest kind of authorization class, where
             return <TOKEN>
 
     # Setup the client with the appropriate URL and the authorization class
-    client = f7t.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
+    client = fc.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
 
 
 Simple blocking requests
@@ -216,96 +216,3 @@ The simplest way to do the uploading through pyFirecREST is as follows:
 
 But, as before, you can get the necessary components for the upload from the ``object_storage_data`` property.
 You can get the link, as well as all the necessary arguments for the request to Object Storage and the full command you could perform manually from the terminal.
-
-Enable logging in your python code
-----------------------------------
-
-The simplest way to enable logging in your code would be to add this in the beginning of your file:
-
-.. code-block:: Python
-
-    import logging
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s:%(name)s:%(message)s",
-    )
-
-pyFirecREST has all of it's messages in `INFO` level. If you want to avoid messages from other packages, you can do the following:
-
-.. code-block:: Python
-
-    import logging
-
-    logging.basicConfig(
-        level=logging.WARNING,
-        format="%(levelname)s:%(name)s:%(message)s",
-    )
-    logging.getLogger("firecrest").setLevel(logging.INFO)
-
-
-Handling of errors
-------------------
-
-The methods of the Firecrest, ExternalUpload and ExternalDownload objects can raise exceptions in case something goes wrong.
-When the error comes from the response of some request pyFirecREST will raise ``FirecrestException``.
-In these cases you can manually examine all the responses from the requests in order to get more information, when the message is not informative enough.
-These responses are from the requests package of python and you can get all types of useful information from it, like the status code, the json response, the headers and more.
-Here is an example of the code that will handle those failures.
-
-.. code-block:: Python
-
-    try:
-        parameters = client.parameters()
-        print(f"Firecrest parameters: {parameters}")
-    except fc.FirecrestException as e:
-        # You can just print the exception to get more information about the type of error,
-        # for example an invalid or expired token.
-        print(e)
-        # Or you can manually examine the responses.
-        print(e.responses[-1])
-    except Exception as e:
-        # You might also get regular exceptions in some cases. For example when you are
-        # trying to upload a file that doesn't exist in your local filesystem.
-        pass
-
-CLI support
------------
-
-After version 1.3.0, pyFirecREST comes together with a CLI but for now it can only be used with the `f7t.ClientCredentialsAuth` authentication class.
-
-You will need to set the environment variables ``FIRECREST_CLIENT_ID``, ``FIRECREST_CLIENT_SECRET`` and ``AUTH_TOKEN_URL`` to set up the Client Credentials client, as well as ``FIRECREST_URL`` with the URL for the FirecREST instance you are using.
-
-After that you can explore the capabilities of the CLI with the `--help` option:
-
-.. code-block:: bash
-
-    firecrest --help
-    firecrest ls --help
-    firecrest submit --help
-    firecrest upload --help
-    firecrest download --help
-    firecrest submit-template --help
-
-Some basic examples:
-
-.. code-block:: bash
-
-    # Get the available systems
-    firecrest systems
-
-    # Get the parameters of different microservices of FirecREST
-    firecrest parameters
-
-    # List files of directory
-    firecrest ls cluster1 /home
-
-    # Submit a job
-    firecrest submit cluster script.sh
-
-    # Upload a "small" file (you can check the maximum size in `UTILITIES_MAX_FILE_SIZE` from the `parameters` command)
-    firecrest upload --type=direct cluster local_file.txt /path/to/cluster/fs
-
-    # Upload a "large" file
-    firecrest upload --type=external cluster local_file.txt /path/to/cluster/fs
-    # You will have to finish the upload with a second command that will be given in the output

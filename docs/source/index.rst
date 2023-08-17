@@ -17,9 +17,8 @@ You can also clone it from `Github <https://github.com/eth-cscs/pyfirecrest>`__ 
    :caption: Contents:
 
    authorization
-   tutorial
-   reference
-   cli_reference
+   tutorial_index
+   reference_index
 
 Contact
 =======

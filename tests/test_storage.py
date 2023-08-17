@@ -1,63 +1,72 @@
 import common
-import httpretty
 import json
 import pytest
 import re
-import test_authoriation as auth
+import test_authorisation as auth
 
 from context import firecrest
 
 from firecrest import __app_name__, __version__, cli
-from firecrest.BasicClient import ExternalUpload, ExternalDownload
 from typer.testing import CliRunner
+from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request
 
 
 runner = CliRunner()
 
 
 @pytest.fixture
-def valid_client():
+def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             return "VALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def valid_credentials():
+def valid_credentials(fc_server, auth_server):
     return [
-        "--firecrest-url=http://firecrest.cscs.ch",
+        f"--firecrest-url={fc_server.url_for('/')}",
         "--client-id=valid_id",
         "--client-secret=valid_secret",
-        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        f"--token-url={auth_server.url_for('/auth/token')}",
     ]
 
 
 @pytest.fixture
-def invalid_client():
+def invalid_client(fc_server):
     class InvalidAuthorization:
         def get_access_token(self):
             return "INVALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=InvalidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 
 
-def internal_transfer_callback(request, uri, response_headers):
+def internal_transfer_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     if request.headers["X-Machine-Name"] != "cluster1":
-        response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-        return [
-            400,
-            response_headers,
-            '{"description": "Failed to submit job", "error": "Machine does not exist"}',
-        ]
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to submit job",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
     ret = {
         "success": "Task created",
@@ -65,31 +74,42 @@ def internal_transfer_callback(request, uri, response_headers):
         "task_url": "TASK_IP/tasks/internal_transfer_id",
     }
     status_code = 201
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
 
 
-def external_download_callback(request, uri, response_headers):
+def external_download_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
-    # TODO Machine is ignored at this point
-    # if request.headers["X-Machine-Name"] != "cluster1":
-    #     response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-    #     return [
-    #         400,
-    #         response_headers,
-    #         '{"description": "Failed to submit job", "error": "Machine does not exist"}',
-    #     ]
+    if request.headers["X-Machine-Name"] != "cluster1":
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to download file",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    # I couldn't find a better way to get the params from the request
-    if b"sourcePath=%2Fpath%2Fto%2Fremote%2Fsourcelegacy" in request.body:
+    extra_headers = None
+    source_path = request.form.get("sourcePath")
+    if source_path == "/path/to/remote/sourcelegacy":
         ret = {
             "success": "Task created",
             "task_id": "external_download_id_legacy",
             "task_url": "TASK_IP/tasks/external_download_id_legacy",
         }
         status_code = 201
-    elif b"sourcePath=%2Fpath%2Fto%2Fremote%2Fsource" in request.body:
+    elif source_path == "/path/to/remote/source":
         ret = {
             "success": "Task created",
             "task_id": "external_download_id",
@@ -97,30 +117,45 @@ def external_download_callback(request, uri, response_headers):
         }
         status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "sourcePath error"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
-def external_upload_callback(request, uri, response_headers):
+def external_upload_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
-    # TODO Machine is ignored at this point
-    # if request.headers["X-Machine-Name"] != "cluster1":
-    #     response_headers["X-Machine-Does-Not-Exist"] = "Machine does not exist"
-    #     return [
-    #         400,
-    #         response_headers,
-    #         '{"description": "Failed to submit job", "error": "Machine does not exist"}',
-    #     ]
+    if request.headers["X-Machine-Name"] != "cluster1":
+        return Response(
+            json.dumps(
+                {
+                    "description": "Failed to upload file",
+                    "error": "Machine does not exist",
+                }
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
 
-    # I couldn't find a better way to get the params from the request
+    source_path = request.form.get("sourcePath")
+    target_path = request.form.get("targetPath")
+    extra_headers = None
     if (
-        b"sourcePath=%2Fpath%2Fto%2Flocal%2Fsource" in request.body
-        and b"targetPath=%2Fpath%2Fto%2Fremote%2Fdestination" in request.body
+        source_path == "/path/to/local/source"
+        and target_path == "/path/to/remote/destination"
     ):
         ret = {
             "success": "Task created",
@@ -129,11 +164,16 @@ def external_upload_callback(request, uri, response_headers):
         }
         status_code = 201
     else:
-        response_headers["X-Invalid-Path"] = "path is an invalid path"
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
         ret = {"description": "sourcePath error"}
         status_code = 400
 
-    return [status_code, response_headers, json.dumps(ret)]
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
 
 
 # Global variables for tasks
@@ -145,14 +185,19 @@ external_download_retry = 0
 external_download_result = 0
 
 
-def storage_tasks_callback(request, uri, response_headers):
+def storage_tasks_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     global internal_transfer_retry
     global external_download_retry
     global external_upload_retry
 
+    uri = request.url
     taskid = uri.split("/")[-1]
     if taskid == "tasks":
         # TODO: return all tasks
@@ -251,7 +296,7 @@ def storage_tasks_callback(request, uri, response_headers):
                     "data": {
                         "source": "/path/to/remote/source",
                         "system_name": "machine",
-                        "url": "https://object_storage_link.com"
+                        "url": "https://object_storage_link.com",
                     },
                     "description": "Started upload from filesystem to Object Storage",
                     "hash_id": taskid,
@@ -354,47 +399,36 @@ def storage_tasks_callback(request, uri, response_headers):
             }
             status_code = 200
 
-    return [status_code, response_headers, json.dumps(ret)]
-
-
-@pytest.fixture(autouse=True)
-def setup_callbacks():
-    httpretty.enable(allow_net_connect=False, verbose=True)
-
-    httpretty.register_uri(
-        httpretty.POST,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/storage\/xfer-internal.*"),
-        body=internal_transfer_callback,
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
     )
 
-    httpretty.register_uri(
-        httpretty.GET,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/tasks.*"),
-        body=storage_tasks_callback,
-    )
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "http://firecrest.cscs.ch/storage/xfer-external/download",
-        body=external_download_callback,
-    )
+@pytest.fixture
+def fc_server(httpserver):
+    httpserver.expect_request(
+        re.compile("^/storage/xfer-internal.*"), method="POST"
+    ).respond_with_handler(internal_transfer_handler)
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "http://firecrest.cscs.ch/storage/xfer-external/upload",
-        body=external_upload_callback,
-    )
+    httpserver.expect_request(
+        re.compile("^/tasks/.*"), method="GET"
+    ).respond_with_handler(storage_tasks_handler)
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
-        body=auth.auth_callback,
-    )
+    httpserver.expect_request(
+        "/storage/xfer-external/download", method="POST"
+    ).respond_with_handler(external_download_handler)
 
-    yield
+    httpserver.expect_request(
+        "/storage/xfer-external/upload", method="POST"
+    ).respond_with_handler(external_upload_handler)
 
-    httpretty.disable()
-    httpretty.reset()
+    return httpserver
+
+
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
 
 
 def test_internal_transfer(valid_client):
@@ -583,7 +617,7 @@ def test_external_download(valid_client):
     external_download_retry = 0
     valid_client.set_api_version("1.14.0")
     obj = valid_client.external_download("cluster1", "/path/to/remote/source")
-    assert isinstance(obj, ExternalDownload)
+    assert isinstance(obj, firecrest.ExternalDownload)
     assert obj._task_id == "external_download_id"
     assert obj.client == valid_client
 
@@ -593,7 +627,7 @@ def test_external_download_legacy(valid_client):
     external_download_retry = 0
     valid_client.set_api_version("1.13.0")
     obj = valid_client.external_download("cluster1", "/path/to/remote/sourcelegacy")
-    assert isinstance(obj, ExternalDownload)
+    assert isinstance(obj, firecrest.ExternalDownload)
     assert obj._task_id == "external_download_id_legacy"
     assert obj.client == valid_client
 
@@ -646,7 +680,7 @@ def test_external_upload(valid_client):
     obj = valid_client.external_upload(
         "cluster1", "/path/to/local/source", "/path/to/remote/destination"
     )
-    assert isinstance(obj, ExternalUpload)
+    assert isinstance(obj, firecrest.ExternalUpload)
     assert obj._task_id == "external_upload_id"
     assert obj.client == valid_client
 

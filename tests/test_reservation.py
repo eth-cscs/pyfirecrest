@@ -1,119 +1,123 @@
-import httpretty
 import json
 import pytest
 import re
-import test_authoriation as auth
+import test_authorisation as auth
 
 from context import firecrest
 from firecrest import __app_name__, __version__, cli
 from typer.testing import CliRunner
+from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request
 
 
 runner = CliRunner()
 
 
 @pytest.fixture
-def valid_client():
+def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             return "VALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def valid_credentials():
+def valid_credentials(fc_server, auth_server):
     return [
-        "--firecrest-url=http://firecrest.cscs.ch",
+        f"--firecrest-url={fc_server.url_for('/')}",
         "--client-id=valid_id",
         "--client-secret=valid_secret",
-        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        f"--token-url={auth_server.url_for('/auth/token')}",
     ]
 
 
 @pytest.fixture
-def invalid_client():
+def invalid_client(fc_server):
     class InvalidAuthorization:
         def get_access_token(self):
             return "INVALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=InvalidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 
 
-def all_reservations_callback(request, uri, response_headers):
+def all_reservations_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {"success": []}
-    return [200, response_headers, json.dumps(ret)]
+    return Response(json.dumps(ret), status=200, content_type="application/json")
 
 
-def create_reservation_callback(request, uri, response_headers):
+def create_reservation_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {}
-    return [201, response_headers, json.dumps(ret)]
+    return Response(json.dumps(ret), status=201, content_type="application/json")
 
 
-def update_reservation_callback(request, uri, response_headers):
+def update_reservation_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {}
-    return [200, response_headers, json.dumps(ret)]
+    return Response(json.dumps(ret), status=200, content_type="application/json")
 
 
-def delete_reservation_callback(request, uri, response_headers):
+def delete_reservation_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {}
-    return [204, response_headers, json.dumps(ret)]
+    return Response(json.dumps(ret), status=204, content_type="application/json")
 
 
-@pytest.fixture(autouse=True)
-def setup_callbacks():
-    httpretty.enable(allow_net_connect=False, verbose=True)
-
-    httpretty.register_uri(
-        httpretty.GET,
-        "http://firecrest.cscs.ch/reservations",
-        body=all_reservations_callback,
+@pytest.fixture
+def fc_server(httpserver):
+    httpserver.expect_request("/reservations", method="GET").respond_with_handler(
+        all_reservations_handler
     )
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "http://firecrest.cscs.ch/reservations",
-        body=create_reservation_callback,
+    httpserver.expect_request("/reservations", method="POST").respond_with_handler(
+        create_reservation_handler
     )
 
-    httpretty.register_uri(
-        httpretty.PUT,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/reservations\/.*"),
-        body=update_reservation_callback,
-    )
+    httpserver.expect_request(
+        re.compile("^/reservations/.*"), method="PUT"
+    ).respond_with_handler(update_reservation_handler)
 
-    httpretty.register_uri(
-        httpretty.DELETE,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/reservations\/.*"),
-        body=delete_reservation_callback,
-    )
+    httpserver.expect_request(
+        re.compile("^/reservations/.*"), method="DELETE"
+    ).respond_with_handler(delete_reservation_handler)
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
-        body=auth.auth_callback,
-    )
+    return httpserver
 
-    yield
 
-    httpretty.disable()
-    httpretty.reset()
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
 
 
 def test_all_reservations(valid_client):
