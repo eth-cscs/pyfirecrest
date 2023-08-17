@@ -1,12 +1,13 @@
 import common
-import httpretty
 import json
 import pytest
 import re
-import test_authoriation as auth
+import test_authorisation as auth
 
 from context import firecrest
 from typer.testing import CliRunner
+from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request
 
 from firecrest import __app_name__, __version__, cli
 
@@ -21,7 +22,7 @@ def test_cli_version():
 
 
 @pytest.fixture
-def client1():
+def client1(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             # This token was created in https://jwt.io/ with payload:
@@ -44,12 +45,12 @@ def client1():
             return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZmlyZWNyZXN0LXNhIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYm9iLWNsaWVudCI6eyJyb2xlcyI6WyJib2IiXX19LCJjbGllbnRJZCI6ImJvYi1jbGllbnQiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJzZXJ2aWNlLWFjY291bnQtYm9iLWNsaWVudCJ9.XfCXDclEBh7faQrOF2piYdnb7c3AUiCxDesTkNSwpSY"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def client2():
+def client2(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             # This token was created in https://jwt.io/ with payload:
@@ -64,12 +65,12 @@ def client2():
             return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib3RoZXItcm9sZSJdfSwicHJlZmVycmVkX3VzZXJuYW1lIjoiYWxpY2UifQ.dpo1_F9jkV-RpNGqTaCNLbM-JPMnstDg7mQjzbwDp5g"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def client3():
+def client3(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             # This token was created in https://jwt.io/ with payload:
@@ -79,45 +80,49 @@ def client3():
             return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJldmUifQ.SGVPDrJdy8b5jRpxcw9ILLsf8M2ljAYWxiN0A1b_1SE"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def valid_client():
+def valid_client(fc_server):
     class ValidAuthorization:
         def get_access_token(self):
             return "VALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
 
 @pytest.fixture
-def valid_credentials():
+def valid_credentials(fc_server, auth_server):
     return [
-        "--firecrest-url=http://firecrest.cscs.ch",
+        f"--firecrest-url={fc_server.url_for('/')}",
         "--client-id=valid_id",
         "--client-secret=valid_secret",
-        "--token-url=https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
+        f"--token-url={auth_server.url_for('/auth/token')}",
     ]
 
 
 @pytest.fixture
-def invalid_client():
-    class ValidAuthorization:
+def invalid_client(fc_server):
+    class InvalidAuthorization:
         def get_access_token(self):
-            return "INVALID TOKEN"
+            return "INVALID_TOKEN"
 
     return firecrest.Firecrest(
-        firecrest_url="http://firecrest.cscs.ch", authorization=ValidAuthorization()
+        firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 
 
-def tasks_callback(request, uri, response_headers):
+def tasks_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
-        return [401, response_headers, '{"message": "Bad token; invalid JSON"}']
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
 
     ret = {
         "tasks": {
@@ -162,38 +167,35 @@ def tasks_callback(request, uri, response_headers):
             },
         }
     }
-    if uri == "http://firecrest.cscs.ch/tasks/":
-        return [200, response_headers, json.dumps(ret)]
+    status_code = 200
+    uri = request.url
+    if not uri.endswith("/tasks/"):
+        task_id = uri.split("/")[-1]
+        if task_id in {"taskid_1", "taskid_2", "taskid_3"}:
+            ret = {"task": ret["tasks"][task_id]}
+            status_code = 200
+        else:
+            ret = {"error": f"Task {task_id} does not exist"}
+            status_code = 404
 
-    task_id = uri.split("/")[-1]
-    if task_id in {"taskid_1", "taskid_2", "taskid_3"}:
-        ret = {"task": ret["tasks"][task_id]}
-        return [200, response_headers, json.dumps(ret)]
-    else:
-        ret = {"error": f"Task {task_id} does not exist"}
-        return [404, response_headers, json.dumps(ret)]
-
-
-@pytest.fixture(autouse=True)
-def setup_callbacks():
-    httpretty.enable(allow_net_connect=False, verbose=True)
-
-    httpretty.register_uri(
-        httpretty.GET,
-        re.compile(r"http:\/\/firecrest\.cscs\.ch\/tasks.*"),
-        body=tasks_callback,
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
     )
 
-    httpretty.register_uri(
-        httpretty.POST,
-        "https://myauth.com/auth/realms/cscs/protocol/openid-connect/token",
-        body=auth.auth_callback,
-    )
 
-    yield
+@pytest.fixture
+def fc_server(httpserver):
+    httpserver.expect_request(
+        re.compile("^/tasks/.*"), method="GET"
+    ).respond_with_handler(tasks_handler)
 
-    httpretty.disable()
-    httpretty.reset()
+    return httpserver
+
+
+@pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth.auth_handler)
+    return httpserver
 
 
 def test_whoami(client1):

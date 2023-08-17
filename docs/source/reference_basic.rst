@@ -1,5 +1,5 @@
-Reference
-=========
+The basic client
+================
 
 The wrapper includes the ``Firecrest`` class, which is in practice a very basic client.
 Together with the authorisation class it takes care of the token and makes the appropriate calls for each action.

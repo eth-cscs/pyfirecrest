@@ -6,7 +6,9 @@
 #
 from __future__ import annotations
 
-import itertools
+import asyncio
+import httpx
+from io import BytesIO
 import jwt
 import logging
 import pathlib
@@ -15,14 +17,22 @@ import sys
 import time
 
 from contextlib import nullcontext
-from io import BufferedWriter, BytesIO
+from typing import (
+    Any,
+    ContextManager,
+    Optional,
+    overload,
+    Sequence,
+    Tuple,
+    List,
+)
 from requests.compat import json  # type: ignore
-from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
 from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
-from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
+from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
+
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -44,7 +54,33 @@ def handle_response(response):
         print("-")
 
 
-class Firecrest:
+class ComputeTask:
+    """Helper object for blocking methods that require multiple requests
+    """
+
+    def __init__(
+        self,
+        client: AsyncFirecrest,
+        task_id: str,
+        previous_responses: Optional[List[requests.Response]] = None,
+    ) -> None:
+        self._responses = [] if previous_responses is None else previous_responses
+        self._client = client
+        self._task_id = task_id
+
+    async def poll_task(self, final_status):
+        logger.info(f"Polling task {self._task_id} until status is {final_status}")
+        resp = await self._client._task_safe(self._task_id, self._responses)
+        while resp["status"] < final_status:
+            # The rate limit is handled by the async client so no need to
+            # add a `sleep` here
+            resp = await self._client._task_safe(self._task_id, self._responses)
+
+        logger.info(f'Status of {self._task_id} is {resp["status"]}')
+        return resp["data"]
+
+
+class AsyncFirecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v1.
     Necessary parameters are the firecrest URL and an authorization object.
@@ -58,10 +94,10 @@ class Firecrest:
     TOO_MANY_REQUESTS_CODE = 429
 
     def _retry_requests(func):
-        def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             client = args[0]
             num_retries = 0
-            resp = func(*args, **kwargs)
+            resp = await func(*args, **kwargs)
             while True:
                 if resp.status_code != client.TOO_MANY_REQUESTS_CODE:
                     break
@@ -79,13 +115,17 @@ class Firecrest:
                         "Retry-After",
                         default=resp.headers.get("RateLimit-Reset", default=10),
                     )
-                    logger.info(
-                        f"Rate limit is reached, will sleep for "
-                        f"{reset} seconds and try again"
-                    )
                     reset = int(reset)
-                    time.sleep(reset)
-                    resp = func(*args, **kwargs)
+                    microservice = kwargs['endpoint'].split("/")[1]
+                    client = args[0]
+                    logger.info(
+                        f"Rate limit in `{microservice}` is reached, next "
+                        f"request will be possible in {reset} sec"
+                    )
+                    client._next_request_ts[microservice] = (
+                        time.time() + reset
+                    )
+                    resp = await func(*args, **kwargs)
                     num_retries += 1
 
             return resp
@@ -104,19 +144,47 @@ class Firecrest:
         # This should be used only for blocking operations that require multiple requests,
         # not for external upload/download
         self._current_method_requests: List[requests.Response] = []
-        self._verify = verify
+        self._verify = verify  # TODO: not supported in httpx
         self._sa_role = sa_role
         #: This attribute will be passed to all the requests that will be made.
         #: How many seconds to wait for the server to send data before giving up.
         #: After that time a `requests.exceptions.Timeout` error will be raised.
         #:
-        #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
+        #: It can be a float or a tuple. More details here: https://www.python-httpx.org/advanced/#fine-tuning-the-configuration.
+        self.timeout: Any = None
+        # type is Any because of some incompatibility between https and requests library
+
         #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("1.13.1")
-        self._session = requests.Session()
+        self._session = httpx.AsyncClient()
+
+        #: Seconds between requests in each microservice
+        self.time_between_calls: dict[str, float] = {  # TODO more detailed docs
+            "compute": 5,
+            "reservations": 5,
+            "status": 5,
+            "storage": 5,
+            "tasks": 5,
+            "utilities": 5,
+        }
+        self._next_request_ts: dict[str, float] = {
+            "compute": 0,
+            "reservations": 0,
+            "status": 0,
+            "storage": 0,
+            "tasks": 0,
+            "utilities": 0,
+        }
+        self._locks = {
+            "compute": asyncio.Lock(),
+            "reservations": asyncio.Lock(),
+            "status": asyncio.Lock(),
+            "storage": asyncio.Lock(),
+            "tasks": asyncio.Lock(),
+            "utilities": asyncio.Lock(),
+        }
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be assumed that you are
@@ -125,81 +193,108 @@ class Firecrest:
         self._api_version = parse(api_version)
 
     @_retry_requests  # type: ignore
-    def _get_request(
-        self, endpoint, additional_headers=None, params=None
-    ) -> requests.Response:
+    async def _get_request(self, endpoint, additional_headers=None, params=None) -> httpx.Response:
+        microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
+        async with self._locks[microservice]:
+            await self._stall_request(microservice)
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
+            if additional_headers:
+                headers.update(additional_headers)
 
-        logger.info(f"Making GET request to {endpoint}")
-        resp = self._session.get(
-            url=url,
-            headers=headers,
-            params=params,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+            logger.info(f"Making GET request to {endpoint}")
+            resp = await self._session.get(
+                url=url, headers=headers, params=params, timeout=self.timeout
+            )
+            self._next_request_ts[microservice] = (
+                time.time() + self.time_between_calls[microservice]
+            )
+
         return resp
 
     @_retry_requests  # type: ignore
-    def _post_request(
+    async def _post_request(
         self, endpoint, additional_headers=None, data=None, files=None
-    ) -> requests.Response:
+    ) -> httpx.Response:
+        microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
+        async with self._locks[microservice]:
+            await self._stall_request(microservice)
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
+            if additional_headers:
+                headers.update(additional_headers)
 
-        logger.info(f"Making POST request to {endpoint}")
-        resp = self._session.post(
-            url=url,
-            headers=headers,
-            data=data,
-            files=files,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+            logger.info(f"Making POST request to {endpoint}")
+            resp = await self._session.post(
+                url=url, headers=headers, data=data, files=files, timeout=self.timeout
+            )
+            self._next_request_ts[microservice] = (
+                time.time() + self.time_between_calls[microservice]
+            )
+
         return resp
 
     @_retry_requests  # type: ignore
-    def _put_request(
-        self, endpoint, additional_headers=None, data=None
-    ) -> requests.Response:
+    async def _put_request(self, endpoint, additional_headers=None, data=None) -> httpx.Response:
+        microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
+        async with self._locks[microservice]:
+            await self._stall_request(microservice)
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
+            if additional_headers:
+                headers.update(additional_headers)
 
-        logger.info(f"Making PUT request to {endpoint}")
-        resp = self._session.put(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+            logger.info(f"Making PUT request to {endpoint}")
+            resp = await self._session.put(
+                url=url, headers=headers, data=data, timeout=self.timeout
+            )
+            self._next_request_ts[microservice] = (
+                time.time() + self.time_between_calls[microservice]
+            )
+
         return resp
 
     @_retry_requests  # type: ignore
-    def _delete_request(
+    async def _delete_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
+        microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
-        if additional_headers:
-            headers.update(additional_headers)
+        async with self._locks[microservice]:
+            await self._stall_request(microservice)
+            headers = {
+                "Authorization": f"Bearer {self._authorization.get_access_token()}"
+            }
+            if additional_headers:
+                headers.update(additional_headers)
 
-        logger.info(f"Making DELETE request to {endpoint}")
-        resp = self._session.delete(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+            logger.info(f"Making DELETE request to {endpoint}")
+            # TODO: httpx doesn't support data in delete so we will have to
+            # keep using the `requests` package for this
+            resp = requests.delete(
+                url=url, headers=headers, data=data, timeout=self.timeout
+            )
+            self._next_request_ts[microservice] = (
+                time.time() + self.time_between_calls[microservice]
+            )
+
         return resp
+
+    async def _stall_request(self, microservice: str) -> None:
+        if self._next_request_ts[microservice] is not None:
+            while time.time() <= self._next_request_ts[microservice]:
+                logger.debug(
+                    f"`{microservice}` microservice has received too many requests. "
+                    f"Going to sleep for "
+                    f"~{self._next_request_ts[microservice] - time.time()} sec"
+                )
+                await asyncio.sleep(self._next_request_ts[microservice] - time.time())
 
     @overload
     def _json_response(
@@ -272,7 +367,7 @@ class Firecrest:
 
         return ret
 
-    def _tasks(
+    async def _tasks(
         self,
         task_ids: Optional[List[str]] = None,
         responses: Optional[List[requests.Response]] = None,
@@ -293,7 +388,7 @@ class Firecrest:
         if len(task_ids) == 1:
             endpoint += task_ids[0]
 
-        resp = self._get_request(endpoint=endpoint)
+        resp = await self._get_request(endpoint=endpoint)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
         if len(task_ids) == 0:
@@ -303,13 +398,13 @@ class Firecrest:
         else:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
-    def _task_safe(
+    async def _task_safe(
         self, task_id: str, responses: Optional[List[requests.Response]] = None
     ) -> t.Task:
         if responses is None:
             responses = self._current_method_requests
 
-        task = self._tasks([task_id], responses)[task_id]
+        task = (await self._tasks([task_id], responses))[task_id]
         status = int(task["status"])
         exc: fe.FirecrestException
         if status == 115:
@@ -332,78 +427,78 @@ class Firecrest:
 
         return task
 
-    def _invalidate(
+    async def _invalidate(
         self, task_id: str, responses: Optional[List[requests.Response]] = None
     ):
         responses = [] if responses is None else responses
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint="/storage/xfer-external/invalidate",
             additional_headers={"X-Task-Id": task_id},
         )
         responses.append(resp)
         return self._json_response(responses, 201, allow_none_result=True)
 
-    def _poll_tasks(self, task_id: str, final_status, sleep_time):
+    async def _poll_tasks(self, task_id: str, final_status, sleep_time):
         logger.info(f"Polling task {task_id} until status is {final_status}")
-        resp = self._task_safe(task_id)
+        resp = await self._task_safe(task_id)
         while resp["status"] < final_status:
             t = next(sleep_time)
             logger.info(
                 f'Status of {task_id} is {resp["status"]}, sleeping for {t} sec'
             )
-            time.sleep(t)
-            resp = self._task_safe(task_id)
+            await asyncio.sleep(t)
+            resp = await self._task_safe(task_id)
 
         logger.info(f'Status of {task_id} is {resp["status"]}')
         return resp["data"]
 
     # Status
-    def all_services(self) -> List[t.Service]:
+    async def all_services(self) -> List[t.Service]:
         """Returns a list containing all available micro services with a name, description, and status.
 
         :calls: GET `/status/services`
         """
-        resp = self._get_request(endpoint="/status/services")
+        resp = await self._get_request(endpoint="/status/services")
         return self._json_response([resp], 200)["out"]
 
-    def service(self, service_name: str) -> t.Service:
+    async def service(self, service_name: str) -> t.Service:
         """Returns information about a micro service.
         Returns the name, description, and status.
 
         :param service_name: the service name
         :calls: GET `/status/services/{service_name}`
         """
-        resp = self._get_request(endpoint=f"/status/services/{service_name}")
+        resp = await self._get_request(endpoint=f"/status/services/{service_name}")
         return self._json_response([resp], 200)  # type: ignore
 
-    def all_systems(self) -> List[t.System]:
+    async def all_systems(self) -> List[t.System]:
         """Returns a list containing all available systems and response status.
 
         :calls: GET `/status/systems`
         """
-        resp = self._get_request(endpoint="/status/systems")
+        resp = await self._get_request(endpoint="/status/systems")
         return self._json_response([resp], 200)["out"]
 
-    def system(self, system_name: str) -> t.System:
+    async def system(self, system_name: str) -> t.System:
         """Returns information about a system.
         Returns the name, description, and status.
 
         :param system_name: the system name
         :calls: GET `/status/systems/{system_name}`
         """
-        resp = self._get_request(endpoint=f"/status/systems/{system_name}")
+        resp = await self._get_request(endpoint=f"/status/systems/{system_name}")
         return self._json_response([resp], 200)["out"]
 
-    def parameters(self) -> t.Parameters:
+    async def parameters(self) -> t.Parameters:
         """Returns configuration parameters of the FirecREST deployment that is associated with the client.
 
         :calls: GET `/status/parameters`
         """
-        resp = self._get_request(endpoint="/status/parameters")
+        resp = await self._get_request(endpoint="/status/parameters")
         return self._json_response([resp], 200)["out"]
 
     # Utilities
-    def list_files(
+    async def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False
     ) -> List[t.LsFile]:
         """Returns a list of files in a directory.
@@ -417,14 +512,16 @@ class Firecrest:
         if show_hidden is True:
             params["showhidden"] = show_hidden
 
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/ls",
             additional_headers={"X-Machine-Name": machine},
             params=params,
         )
         return self._json_response([resp], 200)["output"]
 
-    def mkdir(self, machine: str, target_path: str, p: Optional[bool] = None) -> None:
+    async def mkdir(
+        self, machine: str, target_path: str, p: Optional[bool] = None
+    ) -> None:
         """Creates a new directory.
 
         :param machine: the machine name where the filesystem belongs to
@@ -436,14 +533,14 @@ class Firecrest:
         if p:
             data["p"] = p
 
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint="/utilities/mkdir",
             additional_headers={"X-Machine-Name": machine},
             data=data,
         )
         self._json_response([resp], 201)
 
-    def mv(self, machine: str, source_path: str, target_path: str) -> None:
+    async def mv(self, machine: str, source_path: str, target_path: str) -> None:
         """Rename/move a file, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem.
 
         :param machine: the machine name where the filesystem belongs to
@@ -451,14 +548,14 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: PUT `/utilities/rename`
         """
-        resp = self._put_request(
+        resp = await self._put_request(
             endpoint="/utilities/rename",
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 200)
 
-    def chmod(self, machine: str, target_path: str, mode: str) -> None:
+    async def chmod(self, machine: str, target_path: str, mode: str) -> None:
         """Changes the file mod bits of a given file according to the specified mode.
 
         :param machine: the machine name where the filesystem belongs to
@@ -466,14 +563,14 @@ class Firecrest:
         :param mode: same as numeric mode of linux chmod tool
         :calls: PUT `/utilities/chmod`
         """
-        resp = self._put_request(
+        resp = await self._put_request(
             endpoint="/utilities/chmod",
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "mode": mode},
         )
         self._json_response([resp], 200)
 
-    def chown(
+    async def chown(
         self,
         machine: str,
         target_path: str,
@@ -499,14 +596,14 @@ class Firecrest:
         if group:
             data["group"] = group
 
-        resp = self._put_request(
+        resp = await self._put_request(
             endpoint="/utilities/chown",
             additional_headers={"X-Machine-Name": machine},
             data=data,
         )
         self._json_response([resp], 200)
 
-    def copy(self, machine: str, source_path: str, target_path: str) -> None:
+    async def copy(self, machine: str, source_path: str, target_path: str) -> None:
         """Copies file from `source_path` to `target_path`.
 
         :param machine: the machine name where the filesystem belongs to
@@ -514,28 +611,28 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: POST `/utilities/copy`
         """
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint="/utilities/copy",
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 201)
 
-    def file_type(self, machine: str, target_path: str) -> str:
+    async def file_type(self, machine: str, target_path: str) -> str:
         """Uses the `file` linux application to determine the type of a file.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
         :calls: GET `/utilities/file`
         """
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/file",
             additional_headers={"X-Machine-Name": machine},
             params={"targetPath": target_path},
         )
         return self._json_response([resp], 200)["output"]
 
-    def stat(
+    async def stat(
         self, machine: str, target_path: str, dereference: bool = False
     ) -> t.StatFile:
         """Uses the stat linux application to determine the status of a file on the machine's filesystem.
@@ -550,14 +647,14 @@ class Firecrest:
         if dereference:
             params["dereference"] = dereference
 
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/stat",
             additional_headers={"X-Machine-Name": machine},
             params=params,
         )
         return self._json_response([resp], 200)["output"]
 
-    def symlink(self, machine: str, target_path: str, link_path: str) -> None:
+    async def symlink(self, machine: str, target_path: str, link_path: str) -> None:
         """Creates a symbolic link.
 
         :param machine: the machine name where the filesystem belongs to
@@ -565,14 +662,14 @@ class Firecrest:
         :param link_path: the absolute path to the new symlink
         :calls: POST `/utilities/symlink`
         """
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint="/utilities/symlink",
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "linkPath": link_path},
         )
         self._json_response([resp], 201)
 
-    def simple_download(
+    async def simple_download(
         self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO
     ) -> None:
         """Blocking call to download a small file.
@@ -583,7 +680,7 @@ class Firecrest:
         :param target_path: the target path in the local filesystem or binary stream
         :calls: GET `/utilities/download`
         """
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/download",
             additional_headers={"X-Machine-Name": machine},
             params={"sourcePath": source_path},
@@ -597,7 +694,7 @@ class Firecrest:
         with context as f:
             f.write(resp.content)
 
-    def simple_upload(
+    async def simple_upload(
         self,
         machine: str,
         source_path: str | pathlib.Path | BytesIO,
@@ -624,7 +721,7 @@ class Firecrest:
             if filename is not None:
                 f = (filename, f)  # type: ignore
 
-            resp = self._post_request(
+            resp = await self._post_request(
                 endpoint="/utilities/upload",
                 additional_headers={"X-Machine-Name": machine},
                 data={"targetPath": target_path},
@@ -633,41 +730,40 @@ class Firecrest:
 
         self._json_response([resp], 201)
 
-    def simple_delete(self, machine: str, target_path: str) -> None:
+    async def simple_delete(self, machine: str, target_path: str) -> None:
         """Blocking call to delete a small file.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
         :calls: DELETE `/utilities/rm`
         """
-        resp = self._delete_request(
+        resp = await self._delete_request(
             endpoint="/utilities/rm",
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path},
         )
         self._json_response([resp], 204, allow_none_result=True)
 
-    def checksum(self, machine: str, target_path: str) -> str:
+    async def checksum(self, machine: str, target_path: str) -> str:
         """Calculate the SHA256 (256-bit) checksum of a specified file.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
         :calls: GET `/utilities/checksum`
         """
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/checksum",
             additional_headers={"X-Machine-Name": machine},
             params={"targetPath": target_path},
         )
         return self._json_response([resp], 200)["output"]
 
-    def head(
+    async def head(
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[str] = None,
-        lines: Optional[str] = None,
-        skip_ending: Optional[bool] = False,
+        bytes: Optional[int] = None,
+        lines: Optional[int] = None,
     ) -> str:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
@@ -679,28 +775,21 @@ class Firecrest:
         :param target_path: the absolute target path
         :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
-        :param skip_ending: the output will be the whole file, without the last NUM bytes/lines of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing -NUM to the `head` command.
         :calls: GET `/utilities/head`
         """
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/head",
             additional_headers={"X-Machine-Name": machine},
-            params={
-                "targetPath": target_path,
-                "lines": lines,
-                "bytes": bytes,
-                "skip_ending": skip_ending,
-            },
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
         )
         return self._json_response([resp], 200)["output"]
 
-    def tail(
+    async def tail(
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[str] = None,
-        lines: Optional[str] = None,
-        skip_beginning: Optional[bool] = False,
+        bytes: Optional[int] = None,
+        lines: Optional[int] = None,
     ) -> str:
         """Display the last part of a specified file.
         By default 10 lines will be returned.
@@ -712,22 +801,16 @@ class Firecrest:
         :param target_path: the absolute target path
         :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
-        :param skip_beginning: the output will start with byte/line NUM of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing +NUM to the `tail` command.
         :calls: GET `/utilities/head`
         """
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/tail",
             additional_headers={"X-Machine-Name": machine},
-            params={
-                "targetPath": target_path,
-                "lines": lines,
-                "bytes": bytes,
-                "skip_beginning": skip_beginning,
-            },
+            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
         )
         return self._json_response([resp], 200)["output"]
 
-    def view(self, machine: str, target_path: str) -> str:
+    async def view(self, machine: str, target_path: str) -> str:
         """View the content of a specified file.
         The final result will be smaller than `UTILITIES_MAX_FILE_SIZE` bytes.
         This variable is available in the parameters command.
@@ -736,14 +819,14 @@ class Firecrest:
         :param target_path: the absolute target path
         :calls: GET `/utilities/checksum`
         """
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/utilities/view",
             additional_headers={"X-Machine-Name": machine},
             params={"targetPath": target_path},
         )
         return self._json_response([resp], 200)["output"]
 
-    def whoami(self, machine=None) -> Optional[str]:
+    async def whoami(self, machine=None) -> Optional[str]:
         """Returns the username that FirecREST will be using to perform the other calls.
         In the case the machine name is passed in the arguments, a call is made to the respective endpoint and the command whoami is run on the machine.
         Otherwise, the library decodes the token and will return `None` if the token is not valid.
@@ -751,7 +834,7 @@ class Firecrest:
         :calls: GET `/utilities/whoami`
         """
         if machine:
-            resp = self._get_request(
+            resp = await self._get_request(
                 endpoint="/utilities/whoami",
                 additional_headers={"X-Machine-Name": machine},
             )
@@ -777,7 +860,7 @@ class Firecrest:
             return None
 
     # Compute
-    def _submit_request(self, machine: str, job_script, local_file, account=None):
+    async def _submit_request(self, machine: str, job_script, local_file, account=None):
         if local_file:
             with open(job_script, "rb") as f:
                 if account:
@@ -785,7 +868,7 @@ class Firecrest:
                 else:
                     data = None
 
-                resp = self._post_request(
+                resp = await self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
                     files={"file": f},
@@ -796,30 +879,30 @@ class Firecrest:
             if account:
                 data["account"] = account
 
-            resp = self._post_request(
+            resp = await self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
                 data=data,
             )
 
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 201)
+        return self._json_response([resp], 201)
 
-    def _squeue_request(self, machine: str, jobs=None):
+    async def _squeue_request(self, machine: str, jobs=None):
         jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobs])}
 
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/compute/jobs",
             additional_headers={"X-Machine-Name": machine},
             params=params,
         )
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 200)
+        return self._json_response([resp], 200)
 
-    def _acct_request(self, machine: str, jobs=None, start_time=None, end_time=None):
+    async def _acct_request(
+        self, machine: str, jobs=None, start_time=None, end_time=None
+    ):
         jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
@@ -831,15 +914,14 @@ class Firecrest:
         if end_time:
             params["endtime"] = end_time
 
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/compute/acct",
             additional_headers={"X-Machine-Name": machine},
             params=params,
         )
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 200)
+        return self._json_response([resp], 200)
 
-    def submit(
+    async def submit(
         self,
         machine: str,
         job_script: str,
@@ -856,14 +938,36 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
-        json_response = self._submit_request(machine, job_script, local_file, account)
-        logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        if local_file:
+            with open(job_script, "rb") as f:
+                if account:
+                    data = {"account": account}
+                else:
+                    data = None
 
-    def poll(
+                resp = await self._post_request(
+                    endpoint="/compute/jobs/upload",
+                    additional_headers={"X-Machine-Name": machine},
+                    files={"file": f},
+                    data=data,
+                )
+        else:
+            data = {"targetPath": job_script}
+            if account:
+                data["account"] = account
+
+            resp = await self._post_request(
+                endpoint="/compute/jobs/path",
+                additional_headers={"X-Machine-Name": machine},
+                data=data,
+            )
+
+        json_response = self._json_response([resp], 201)
+        logger.info(f"Job submission task: {json_response['task_id']}")
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        return await t.poll_task("200")
+
+    async def poll(
         self,
         machine: str,
         jobs: Optional[Sequence[str | int]] = None,
@@ -881,25 +985,33 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
-        if isinstance(jobs, str):
-            logger.warning(
-                f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
-            )
-
         jobids = [str(j) for j in jobs] if jobs else []
-        json_response = self._acct_request(machine, jobids, start_time, end_time)
-        logger.info(f"Job polling task: {json_response['task_id']}")
-        res = self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        params = {}
+        if jobids:
+            params["jobs"] = ",".join(jobids)
+
+        if start_time:
+            params["starttime"] = start_time
+
+        if end_time:
+            params["endtime"] = end_time
+
+        resp = await self._get_request(
+            endpoint="/compute/acct",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
+        json_response = self._json_response([resp], 200)
+        logger.info(f"Job polling task: {json_response['task_id']}")
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        res = await t.poll_task("200")
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
             return list(res.values())
         else:
             return res
 
-    def poll_active(
+    async def poll_active(
         self, machine: str, jobs: Optional[Sequence[str | int]] = None
     ) -> List[t.JobQueue]:
         """Retrieves information about active jobs.
@@ -911,22 +1023,24 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
-        if isinstance(jobs, str):
-            logger.warning(
-                f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
-            )
-
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
-        json_response = self._squeue_request(machine, jobids)
-        logger.info(f"Job active polling task: {json_response['task_id']}")
-        dict_result = self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
+        params = {}
+        if jobs:
+            params = {"jobs": ",".join([str(j) for j in jobids])}
+
+        resp = await self._get_request(
+            endpoint="/compute/jobs",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
         )
+        json_response = self._json_response([resp], 200)
+        logger.info(f"Job active polling task: {json_response['task_id']}")
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        dict_result = await t.poll_task("200")
         return list(dict_result.values())
 
-    def cancel(self, machine: str, job_id: str | int) -> str:
+    async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
         This call uses the `scancel` command.
 
@@ -936,20 +1050,17 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
-        resp = self._delete_request(
+        resp = await self._delete_request(
             endpoint=f"/compute/jobs/{job_id}",
             additional_headers={"X-Machine-Name": machine},
         )
-        self._current_method_requests.append(resp)
-        json_response = self._json_response(self._current_method_requests, 200)
+        json_response = self._json_response([resp], 200)
         logger.info(f"Job cancellation task: {json_response['task_id']}")
-        return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        return await t.poll_task("200")
 
     # Storage
-    def _internal_transfer(
+    async def _internal_transfer(
         self,
         endpoint,
         machine,
@@ -959,13 +1070,14 @@ class Firecrest:
         time,
         stage_out_job_id,
         account,
+        ret_response,
     ):
         data = {"targetPath": target_path}
         if source_path:
             data["sourcePath"] = source_path
 
         if job_name:
-            data["jobName"] = job_name
+            data["jobname"] = job_name
 
         if time:
             data["time"] = time
@@ -976,13 +1088,13 @@ class Firecrest:
         if account:
             data["account"] = account
 
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint=endpoint, additional_headers={"X-Machine-Name": machine}, data=data
         )
-        self._current_method_requests.append(resp)
-        return self._json_response(self._current_method_requests, 201)
+        ret_response.append(resp)
+        return self._json_response([resp], 201)
 
-    def submit_move_job(
+    async def submit_move_job(
         self,
         machine: str,
         source_path: str,
@@ -1008,9 +1120,9 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/mv"
-        json_response = self._internal_transfer(
+        json_response = await self._internal_transfer(
             endpoint,
             machine,
             source_path,
@@ -1019,13 +1131,13 @@ class Firecrest:
             time,
             stage_out_job_id,
             account,
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
-    def submit_copy_job(
+    async def submit_copy_job(
         self,
         machine: str,
         source_path: str,
@@ -1051,9 +1163,9 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/cp"
-        json_response = self._internal_transfer(
+        json_response = await self._internal_transfer(
             endpoint,
             machine,
             source_path,
@@ -1062,13 +1174,13 @@ class Firecrest:
             time,
             stage_out_job_id,
             account,
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
-    def submit_rsync_job(
+    async def submit_rsync_job(
         self,
         machine: str,
         source_path: str,
@@ -1094,9 +1206,9 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/rsync"
-        json_response = self._internal_transfer(
+        json_response = await self._internal_transfer(
             endpoint,
             machine,
             source_path,
@@ -1105,13 +1217,13 @@ class Firecrest:
             time,
             stage_out_job_id,
             account,
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
-    def submit_delete_job(
+    async def submit_delete_job(
         self,
         machine: str,
         target_path: str,
@@ -1135,9 +1247,9 @@ class Firecrest:
 
                 GET `/tasks/{taskid}`
         """
-        self._current_method_requests = []
+        resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/rm"
-        json_response = self._internal_transfer(
+        json_response = await self._internal_transfer(
             endpoint,
             machine,
             None,
@@ -1146,15 +1258,15 @@ class Firecrest:
             time,
             stage_out_job_id,
             account,
+            resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1, 5, 10])
-        )
+        t = ComputeTask(self, json_response["task_id"], resp)
+        return await t.poll_task("200")
 
-    def external_upload(
+    async def external_upload(
         self, machine: str, source_path: str, target_path: str
-    ) -> ExternalUpload:
+    ) -> AsyncExternalUpload:
         """Non blocking call for the upload of larger files.
 
         :param machine: the machine where the filesystem belongs to
@@ -1162,43 +1274,45 @@ class Firecrest:
         :param target_path: the target path in the machine's filesystem
         :returns: an ExternalUpload object
         """
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint="/storage/xfer-external/upload",
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         json_response = self._json_response([resp], 201)["task_id"]
-        return ExternalUpload(self, json_response, [resp])
+        return AsyncExternalUpload(self, json_response, [resp])
 
-    def external_download(self, machine: str, source_path: str) -> ExternalDownload:
+    async def external_download(
+        self, machine: str, source_path: str
+    ) -> AsyncExternalDownload:
         """Non blocking call for the download of larger files.
 
         :param machine: the machine where the filesystem belongs to
         :param source_path: the source path in the local filesystem
         :returns: an ExternalDownload object
         """
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint="/storage/xfer-external/download",
             additional_headers={"X-Machine-Name": machine},
             data={"sourcePath": source_path},
         )
-        return ExternalDownload(
+        return AsyncExternalDownload(
             self, self._json_response([resp], 201)["task_id"], [resp]
         )
 
     # Reservation
-    def all_reservations(self, machine: str) -> List[dict]:
+    async def all_reservations(self, machine: str) -> List[dict]:
         """List all active reservations and their status
 
         :param machine: the machine name
         :calls: GET `/reservations`
         """
-        resp = self._get_request(
+        resp = await self._get_request(
             endpoint="/reservations", additional_headers={"X-Machine-Name": machine}
         )
         return self._json_response([resp], 200)["success"]
 
-    def create_reservation(
+    async def create_reservation(
         self,
         machine: str,
         reservation: str,
@@ -1227,14 +1341,14 @@ class Firecrest:
             "starttime": start_time,
             "endtime": end_time,
         }
-        resp = self._post_request(
+        resp = await self._post_request(
             endpoint="/reservations",
             additional_headers={"X-Machine-Name": machine},
             data=data,
         )
         self._json_response([resp], 201)
 
-    def update_reservation(
+    async def update_reservation(
         self,
         machine: str,
         reservation: str,
@@ -1262,21 +1376,21 @@ class Firecrest:
             "starttime": start_time,
             "endtime": end_time,
         }
-        resp = self._put_request(
+        resp = await self._put_request(
             endpoint=f"/reservations/{reservation}",
             additional_headers={"X-Machine-Name": machine},
             data=data,
         )
         self._json_response([resp], 200)
 
-    def delete_reservation(self, machine: str, reservation: str) -> None:
+    async def delete_reservation(self, machine: str, reservation: str) -> None:
         """Deletes an already created reservation named {reservation}
 
         :param machine: the machine name
         :param reservation: the reservation name
         :calls: DELETE `/reservations/{reservation}`
         """
-        resp = self._delete_request(
+        resp = await self._delete_request(
             endpoint=f"/reservations/{reservation}",
             additional_headers={"X-Machine-Name": machine},
         )
