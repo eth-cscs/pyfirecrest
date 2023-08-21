@@ -222,8 +222,9 @@ def tasks(
 
 @app.command(rich_help_panel="Utilities commands")
 def ls(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     show_hidden: bool = typer.Option(
@@ -262,8 +263,9 @@ def ls(
 
 @app.command(rich_help_panel="Utilities commands")
 def mkdir(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     p: bool = typer.Option(
@@ -283,8 +285,9 @@ def mkdir(
 
 @app.command(rich_help_panel="Utilities commands")
 def mv(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -300,8 +303,9 @@ def mv(
 
 @app.command(rich_help_panel="Utilities commands")
 def chmod(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     mode: str = typer.Argument(..., help="Same as numeric mode of linux chmod tool."),
@@ -317,8 +321,9 @@ def chmod(
 
 @app.command(rich_help_panel="Utilities commands")
 def chown(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     owner: Optional[str] = typer.Option(None, help="Owner ID for target."),
@@ -337,8 +342,9 @@ def chown(
 
 @app.command(rich_help_panel="Utilities commands")
 def cp(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -354,8 +360,9 @@ def cp(
 
 @app.command(rich_help_panel="Utilities commands")
 def file(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
@@ -370,8 +377,9 @@ def file(
 
 @app.command(rich_help_panel="Utilities commands")
 def stat(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
@@ -456,8 +464,9 @@ def stat(
 
 @app.command(rich_help_panel="Utilities commands")
 def symlink(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     target: str = typer.Argument(..., help="The path of the original file."),
     link_name: str = typer.Argument(..., help="The name of the link to the TARGET."),
@@ -473,8 +482,11 @@ def symlink(
 
 @app.command(rich_help_panel="Utilities commands")
 def rm(
-    machine: str,
-    path: str,
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
     force: bool = typer.Option(
         ...,
         prompt="Are you sure you want to delete this entry?",
@@ -496,8 +508,9 @@ def rm(
 
 @app.command(rich_help_panel="Utilities commands")
 def checksum(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
@@ -512,8 +525,9 @@ def checksum(
 
 @app.command(rich_help_panel="Utilities commands")
 def head(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     lines: str = typer.Option(
@@ -563,8 +577,9 @@ def head(
 
 @app.command(rich_help_panel="Utilities commands")
 def tail(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     lines: str = typer.Option(
@@ -614,8 +629,9 @@ def tail(
 
 @app.command(rich_help_panel="Utilities commands")
 def whoami(
-    machine: Optional[str] = typer.Argument(
-        None, help="The machine name where the `whoami` command will run."
+    machine: str = typer.Option(
+        None, "-m", "--machine", help="The machine name where the `whoami` command will run.",
+        envvar="FIRECREST_MACHINE"
     ),
 ):
     """Return the username that FirecREST will be using to perform the other calls.
@@ -635,8 +651,9 @@ class TransferType(str, Enum):
 
 @app.command(rich_help_panel="Storage commands")
 def download(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the source filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: Optional[str] = typer.Argument(
@@ -682,8 +699,9 @@ def download(
 
 @app.command(rich_help_panel="Storage commands")
 def upload(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the source filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     source: str = typer.Argument(..., help="The source path (can be relative)."),
     destination_directory: str = typer.Argument(
@@ -740,8 +758,9 @@ def upload(
 
 @app.command(rich_help_panel="Compute commands")
 def submit(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
     ),
     job_script: str = typer.Argument(
         ...,
@@ -768,8 +787,9 @@ def submit(
 
 @submit_template_app.command("mv")
 def submit_mv(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -808,8 +828,9 @@ def submit_mv(
 
 @submit_template_app.command("cp")
 def submit_cp(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -848,8 +869,9 @@ def submit_cp(
 
 @submit_template_app.command("rsync")
 def submit_rsync(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -888,8 +910,9 @@ def submit_rsync(
 
 @submit_template_app.command("rm")
 def submit_rm(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name where the source filesystem belongs to.",
+        envvar="FIRECREST_MACHINE"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
@@ -925,8 +948,9 @@ def submit_rm(
 
 @app.command(rich_help_panel="Compute commands")
 def poll(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
@@ -971,8 +995,9 @@ def poll(
 
 @app.command(rich_help_panel="Compute commands")
 def poll_active(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
@@ -1009,8 +1034,9 @@ def poll_active(
 
 @app.command(rich_help_panel="Compute commands")
 def cancel(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
     ),
     job: str = typer.Argument(..., help="The ID of the job that will be cancelled."),
 ):
@@ -1025,9 +1051,10 @@ def cancel(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def list(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
-    )
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
+    ),
 ):
     """List all active reservations and their status
     """
@@ -1041,8 +1068,9 @@ def list(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def create(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
@@ -1072,8 +1100,9 @@ def create(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def update(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
@@ -1103,8 +1132,9 @@ def update(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def delete(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    machine: str = typer.Option(
+        ..., "-m", "--machine", help="The machine name.",
+        envvar="FIRECREST_MACHINE"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
 ):
