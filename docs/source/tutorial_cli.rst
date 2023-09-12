@@ -23,8 +23,8 @@ Some basic examples:
     # Get the available systems
     firecrest systems
 
-    # Set the environment variable to specify the machine
-    export FIRECREST_MACHINE=cluster1
+    # Set the environment variable to specify the name of the system
+    export FIRECREST_SYSTEM=cluster1
 
     # Get the parameters of different microservices of FirecREST
     firecrest parameters
