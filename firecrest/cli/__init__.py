@@ -6,6 +6,7 @@
 #
 import logging
 import typer
+import yaml
 
 import firecrest as fc
 
@@ -95,6 +96,21 @@ def version_callback(value: bool):
     if value:
         console.print(f"FirecREST CLI Version: {__version__}")
         raise typer.Exit()
+
+
+def config_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
+    if value:
+        try:
+            with open(value, 'r') as f:
+                config = yaml.safe_load(f)
+
+            ctx.default_map = ctx.default_map or {}
+            ctx.default_map.update(config)
+            print(help(ctx.default_map.update))
+        except Exception as ex:
+            raise typer.BadParameter(str(ex))
+
+    return value
 
 
 @app.command(rich_help_panel="Status commands")
@@ -222,6 +238,11 @@ def tasks(
 
 @app.command(rich_help_panel="Utilities commands")
 def ls(
+    config: str = typer.Option("config.yaml",
+        callback=config_callback,
+        is_eager=True,
+        hidden=True
+    ),
     machine: str = typer.Argument(
         ..., help="The machine name where the filesystem belongs to."
     ),
