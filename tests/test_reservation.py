@@ -125,7 +125,7 @@ def test_all_reservations(valid_client):
 
 
 def test_cli_all_reservations(valid_credentials):
-    args = valid_credentials + ["reservation", "list", "--machine", "cluster1"]
+    args = valid_credentials + ["reservation", "list", "--system", "cluster1"]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 
@@ -151,7 +151,7 @@ def test_cli_create_reservation(valid_credentials):
     args = valid_credentials + [
         "reservation",
         "create",
-        "--machine",
+        "--system",
         "cluster1",
         "reservation",
         "account",
@@ -193,7 +193,7 @@ def test_cli_update_reservation(valid_credentials):
     args = valid_credentials + [
         "reservation",
         "update",
-        "--machine",
+        "--system",
         "cluster1",
         "reservation",
         "account",
@@ -224,7 +224,7 @@ def test_delete_reservation(valid_client):
 
 
 def test_cli_delete_reservation(valid_credentials):
-    args = valid_credentials + ["reservation", "delete", "--machine", "cluster1", "reservation"]
+    args = valid_credentials + ["reservation", "delete", "--system", "cluster1", "reservation"]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 

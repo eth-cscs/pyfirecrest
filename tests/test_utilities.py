@@ -877,7 +877,7 @@ def test_list_files(valid_client):
 
 
 def test_cli_list_files(valid_credentials):
-    args = valid_credentials + ["ls", "--machine", "cluster1", "/path/to/valid/dir"]
+    args = valid_credentials + ["ls", "--system", "cluster1", "/path/to/valid/dir"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -885,7 +885,7 @@ def test_cli_list_files(valid_credentials):
     assert "projectd" in stdout
     assert ".hiddenf" not in stdout
 
-    args = valid_credentials + ["ls", "--machine", "cluster1", "/path/to/valid/dir", "--show-hidden"]
+    args = valid_credentials + ["ls", "--system", "cluster1", "/path/to/valid/dir", "--show-hidden"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -916,11 +916,11 @@ def test_mkdir(valid_client):
 
 
 def test_cli_mkdir(valid_credentials):
-    args = valid_credentials + ["mkdir", "--machine", "cluster1", "path/to/valid/dir"]
+    args = valid_credentials + ["mkdir", "--system", "cluster1", "path/to/valid/dir"]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 
-    args = valid_credentials + ["mkdir", "--machine", "cluster1", "path/to/valid/dir/with/p", "-p"]
+    args = valid_credentials + ["mkdir", "--system", "cluster1", "path/to/valid/dir/with/p", "-p"]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 
@@ -948,7 +948,7 @@ def test_mv(valid_client):
 def test_cli_mv(valid_credentials):
     args = valid_credentials + [
         "mv",
-        "--machine",
+        "--system",
         "cluster1",
         "/path/to/valid/source",
         "/path/to/valid/destination",
@@ -985,7 +985,7 @@ def test_chmod(valid_client):
 
 
 def test_cli_chmod(valid_credentials):
-    args = valid_credentials + ["chmod", "--machine", "cluster1", "/path/to/valid/file", "777"]
+    args = valid_credentials + ["chmod", "--system", "cluster1", "/path/to/valid/file", "777"]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 
@@ -1020,7 +1020,7 @@ def test_chown(valid_client):
 def test_cli_chown(valid_credentials):
     args = valid_credentials + [
         "chown",
-        "--machine",
+        "--system",
         "cluster1",
         "/path/to/file",
         "--owner=new_owner",
@@ -1069,7 +1069,7 @@ def test_copy(valid_client):
 def test_cli_copy(valid_credentials):
     args = valid_credentials + [
         "cp",
-        "--machine",
+        "--system",
         "cluster1",
         "/path/to/valid/source",
         "/path/to/valid/destination",
@@ -1106,13 +1106,13 @@ def test_file_type(valid_client):
 
 
 def test_cli_file_type(valid_credentials):
-    args = valid_credentials + ["file", "--machine", "cluster1", "/path/to/empty/file"]
+    args = valid_credentials + ["file", "--system", "cluster1", "/path/to/empty/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "empty" in stdout
 
-    args = valid_credentials + ["file", "--machine", "cluster1", "/path/to/directory"]
+    args = valid_credentials + ["file", "--system", "cluster1", "/path/to/directory"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1174,13 +1174,13 @@ def test_stat(valid_client):
 
 
 def test_cli_stat(valid_credentials):
-    args = valid_credentials + ["stat", "--machine", "cluster1", "/path/to/link"]
+    args = valid_credentials + ["stat", "--system", "cluster1", "/path/to/link"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "ino       | 648577971375854279 | inode number" in stdout
 
-    args = valid_credentials + ["stat", "--machine", "cluster1", "/path/to/link", "-L"]
+    args = valid_credentials + ["stat", "--system", "cluster1", "/path/to/link", "-L"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1208,7 +1208,7 @@ def test_symlink(valid_client):
 
 
 def test_cli_symlink(valid_credentials):
-    args = valid_credentials + ["symlink", "--machine", "cluster1", "/path/to/file", "/path/to/link"]
+    args = valid_credentials + ["symlink", "--system", "cluster1", "/path/to/file", "/path/to/link"]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 
@@ -1248,7 +1248,7 @@ def test_cli_simple_download(valid_credentials, tmp_path):
     local_file = tmp_dir / "hello_cli.txt"
     args = valid_credentials + [
         "download",
-        "--machine",
+        "--system",
         "cluster1",
         "/path/to/remote/source",
         str(local_file),
@@ -1298,7 +1298,7 @@ def test_cli_simple_upload(valid_credentials, tmp_path):
     local_file.write_text("hi")
     args = valid_credentials + [
         "upload",
-        "--machine",
+        "--system",
         "cluster1",
         str(local_file),
         "/path/to/remote/destination",
@@ -1348,7 +1348,7 @@ def test_simple_delete(valid_client):
 
 
 def test_cli_simple_delete(valid_credentials):
-    args = valid_credentials + ["rm", "--machine", "cluster1", "/path/to/file", "--force"]
+    args = valid_credentials + ["rm", "--system", "cluster1", "/path/to/file", "--force"]
     result = runner.invoke(cli.app, args=args)
     # Make sure this doesn't raise an error
     assert result.exit_code == 0
@@ -1377,7 +1377,7 @@ def test_checksum(valid_client):
 
 
 def test_cli_checksum(valid_credentials):
-    args = valid_credentials + ["checksum", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["checksum", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1410,32 +1410,32 @@ def test_head(valid_client):
 
 
 def test_cli_head(valid_credentials):
-    args = valid_credentials + ["head", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["head", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert stdout.count("hello") == 10
 
-    args = valid_credentials + ["head", "--lines=3", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["head", "--lines=3", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert stdout.count("hello") == 3
 
-    args = valid_credentials + ["head", "-n", "3", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["head", "-n", "3", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert stdout.count("hello") == 3
 
-    args = valid_credentials + ["head", "--bytes", "4", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["head", "--bytes", "4", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "hello" not in stdout
     assert "hell" in stdout
 
-    args = valid_credentials + ["head", "-c", "4", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["head", "-c", "4", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1450,32 +1450,32 @@ def test_tail(valid_client):
 
 
 def test_cli_tail(valid_credentials):
-    args = valid_credentials + ["tail", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["tail", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert stdout.count("hello") == 10
 
-    args = valid_credentials + ["tail", "--lines=3", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["tail", "--lines=3", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert stdout.count("hello") == 3
 
-    args = valid_credentials + ["tail", "-n", "3", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["tail", "-n", "3", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert stdout.count("hello") == 3
 
-    args = valid_credentials + ["tail", "--bytes", "4", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["tail", "--bytes", "4", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
     assert "hello" not in stdout
     assert "llo" in stdout
 
-    args = valid_credentials + ["tail", "-c", "4", "--machine", "cluster1", "/path/to/file"]
+    args = valid_credentials + ["tail", "-c", "4", "--system", "cluster1", "/path/to/file"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
