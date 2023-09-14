@@ -122,9 +122,10 @@ class AsyncFirecrest:
                         f"Rate limit in `{microservice}` is reached, next "
                         f"request will be possible in {reset} sec"
                     )
-                    client._next_request_ts[microservice] = (
-                        time.time() + reset
-                    )
+                    retry_time = time.time() + reset
+                    if retry_time > client._next_request_ts[microservice]:
+                        client._next_request_ts[microservice] = retry_time
+
                     resp = await func(*args, **kwargs)
                     num_retries += 1
 
@@ -762,8 +763,9 @@ class AsyncFirecrest:
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
+        bytes: Optional[str] = None,
+        lines: Optional[str] = None,
+        skip_ending: Optional[bool] = False,
     ) -> str:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
@@ -773,14 +775,20 @@ class AsyncFirecrest:
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
-        :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
+        :param lines: the number of lines to be displayed
+        :param skip_ending: the output will be the whole file, without the last NUM bytes/lines of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing -NUM to the `head` command.
         :calls: GET `/utilities/head`
         """
         resp = await self._get_request(
             endpoint="/utilities/head",
             additional_headers={"X-Machine-Name": machine},
-            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+                "skip_ending": skip_ending,
+            },
         )
         return self._json_response([resp], 200)["output"]
 
@@ -788,8 +796,9 @@ class AsyncFirecrest:
         self,
         machine: str,
         target_path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
+        bytes: Optional[str] = None,
+        lines: Optional[str] = None,
+        skip_beginning: Optional[bool] = False,
     ) -> str:
         """Display the last part of a specified file.
         By default 10 lines will be returned.
@@ -799,14 +808,20 @@ class AsyncFirecrest:
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
-        :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
+        :param lines: the number of lines to be displayed
+        :param skip_beginning: the output will start with byte/line NUM of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing +NUM to the `tail` command.
         :calls: GET `/utilities/head`
         """
         resp = await self._get_request(
             endpoint="/utilities/tail",
             additional_headers={"X-Machine-Name": machine},
-            params={"targetPath": target_path, "lines": lines, "bytes": bytes},
+            params={
+                "targetPath": target_path,
+                "lines": lines,
+                "bytes": bytes,
+                "skip_beginning": skip_beginning,
+            },
         )
         return self._json_response([resp], 200)["output"]
 

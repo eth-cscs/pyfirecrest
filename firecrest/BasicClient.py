@@ -677,8 +677,8 @@ class Firecrest:
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
-        :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
+        :param lines: the number of lines to be displayed
         :param skip_ending: the output will be the whole file, without the last NUM bytes/lines of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing -NUM to the `head` command.
         :calls: GET `/utilities/head`
         """
@@ -710,8 +710,8 @@ class Firecrest:
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
-        :param lines: the number of lines to be displayed
         :param bytes: the number of bytes to be displayed
+        :param lines: the number of lines to be displayed
         :param skip_beginning: the output will start with byte/line NUM of each file. NUM should be specified in the respective argument through `bytes` or `lines`. Equivalent to passing +NUM to the `tail` command.
         :calls: GET `/utilities/head`
         """
