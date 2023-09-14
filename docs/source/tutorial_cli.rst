@@ -23,18 +23,21 @@ Some basic examples:
     # Get the available systems
     firecrest systems
 
+    # Set the environment variable to specify the name of the system
+    export FIRECREST_SYSTEM=cluster1
+
     # Get the parameters of different microservices of FirecREST
     firecrest parameters
 
     # List files of directory
-    firecrest ls cluster1 /home
+    firecrest ls /home
 
     # Submit a job
-    firecrest submit cluster script.sh
+    firecrest submit script.sh
 
     # Upload a "small" file (you can check the maximum size in `UTILITIES_MAX_FILE_SIZE` from the `parameters` command)
-    firecrest upload --type=direct cluster local_file.txt /path/to/cluster/fs
+    firecrest upload --type=direct local_file.txt /path/to/cluster/fs
 
     # Upload a "large" file
-    firecrest upload --type=external cluster local_file.txt /path/to/cluster/fs
+    firecrest upload --type=external local_file.txt /path/to/cluster/fs
     # You will have to finish the upload with a second command that will be given in the output

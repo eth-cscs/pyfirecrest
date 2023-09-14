@@ -887,6 +887,7 @@ def test_cli_submit_remote(valid_credentials):
     submit_path_retry = 0
     args = valid_credentials + [
         "submit",
+        "--system",
         "cluster1",
         "/path/to/workdir/script.sh",
         "--no-local",
@@ -900,6 +901,7 @@ def test_cli_submit_remote(valid_credentials):
     submit_path_retry = 0
     args = valid_credentials + [
         "submit",
+        "--system",
         "cluster1",
         "/path/to/workdir/script.sh",
         "--no-local",
@@ -944,7 +946,7 @@ def test_submit_local(valid_client, slurm_script):
 def test_cli_submit_local(valid_credentials, slurm_script):
     global submit_upload_retry
     submit_upload_retry = 0
-    args = valid_credentials + ["submit", "cluster1", str(slurm_script)]
+    args = valid_credentials + ["submit", "--system",  "cluster1", str(slurm_script)]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -954,6 +956,7 @@ def test_cli_submit_local(valid_credentials, slurm_script):
     submit_upload_retry = 0
     args = valid_credentials + [
         "submit",
+        "--system",
         "cluster1",
         str(slurm_script),
         "--account=proj",
@@ -1072,6 +1075,7 @@ def test_cli_poll(valid_credentials):
     acct_retry = 0
     args = valid_credentials + [
         "poll",
+        "--system",
         "cluster1",
         "352",
         "2",
@@ -1087,7 +1091,7 @@ def test_cli_poll(valid_credentials):
     assert "334" in stdout
 
     acct_retry = 0
-    args = valid_credentials + ["poll", "cluster1"]
+    args = valid_credentials + ["poll", "--system", "cluster1"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1177,7 +1181,7 @@ def test_poll_active(valid_client):
 def test_cli_poll_active(valid_credentials):
     global queue_retry
     queue_retry = 0
-    args = valid_credentials + ["poll-active", "cluster1", "352", "2", "334"]
+    args = valid_credentials + ["poll-active", "--system", "cluster1", "352", "2", "334"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1185,7 +1189,7 @@ def test_cli_poll_active(valid_credentials):
     assert "352" in stdout
 
     queue_retry = 0
-    args = valid_credentials + ["poll-active", "cluster1"]
+    args = valid_credentials + ["poll-active", "--system", "cluster1"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1227,7 +1231,7 @@ def test_cancel(valid_client):
 def test_cli_cancel(valid_credentials):
     global queue_retry
     queue_retry = 0
-    args = valid_credentials + ["cancel", "cluster1", "35360071"]
+    args = valid_credentials + ["cancel", "--system", "cluster1", "35360071"]
     result = runner.invoke(cli.app, args=args)
     assert result.exit_code == 0
 

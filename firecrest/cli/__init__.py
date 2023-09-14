@@ -222,8 +222,9 @@ def tasks(
 
 @app.command(rich_help_panel="Utilities commands")
 def ls(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     show_hidden: bool = typer.Option(
@@ -237,12 +238,12 @@ def ls(
     """List directory contents
     """
     try:
-        result = client.list_files(machine, path, show_hidden)
+        result = client.list_files(system, path, show_hidden)
         if raw:
             console.print(result)
         else:
             table = create_table(
-                f"Files in machine `{machine}` and path `{path}`",
+                f"Files in system `{system}` and path `{path}`",
                 result,
                 ("Filename", "name"),
                 ("Type", "type"),
@@ -262,8 +263,9 @@ def ls(
 
 @app.command(rich_help_panel="Utilities commands")
 def mkdir(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     p: bool = typer.Option(
@@ -275,7 +277,7 @@ def mkdir(
     """Create new directories
     """
     try:
-        client.mkdir(machine, path, p)
+        client.mkdir(system, path, p)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -283,16 +285,17 @@ def mkdir(
 
 @app.command(rich_help_panel="Utilities commands")
 def mv(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
 ):
-    """Rename/move files, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem
+    """Rename/move files, directory, or symlink at the `source_path` to the `target_path` on `system`'s filesystem
     """
     try:
-        client.mv(machine, source, destination)
+        client.mv(system, source, destination)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -300,8 +303,9 @@ def mv(
 
 @app.command(rich_help_panel="Utilities commands")
 def chmod(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     mode: str = typer.Argument(..., help="Same as numeric mode of linux chmod tool."),
@@ -309,7 +313,7 @@ def chmod(
     """Change the file mod bits of a given file according to the specified mode
     """
     try:
-        client.chmod(machine, path, mode)
+        client.chmod(system, path, mode)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -317,8 +321,9 @@ def chmod(
 
 @app.command(rich_help_panel="Utilities commands")
 def chown(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     owner: Optional[str] = typer.Option(None, help="Owner ID for target."),
@@ -329,7 +334,7 @@ def chown(
     If only owner or group information is passed, only that information will be updated.
     """
     try:
-        client.chown(machine, path, owner, group)
+        client.chown(system, path, owner, group)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -337,8 +342,9 @@ def chown(
 
 @app.command(rich_help_panel="Utilities commands")
 def cp(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -346,7 +352,7 @@ def cp(
     """Copy files
     """
     try:
-        client.copy(machine, source, destination)
+        client.copy(system, source, destination)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -354,15 +360,16 @@ def cp(
 
 @app.command(rich_help_panel="Utilities commands")
 def file(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
     """Determine file type
     """
     try:
-        console.print(client.file_type(machine, path))
+        console.print(client.file_type(system, path))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -370,17 +377,18 @@ def file(
 
 @app.command(rich_help_panel="Utilities commands")
 def stat(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
     raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
-    """Use the stat linux application to determine the status of a file on the machine's filesystem
+    """Use the stat linux application to determine the status of a file on the system's filesystem
     """
     try:
-        result = client.stat(machine, path, deref)
+        result = client.stat(system, path, deref)
         if raw:
             console.print(result)
         else:
@@ -456,8 +464,9 @@ def stat(
 
 @app.command(rich_help_panel="Utilities commands")
 def symlink(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     target: str = typer.Argument(..., help="The path of the original file."),
     link_name: str = typer.Argument(..., help="The name of the link to the TARGET."),
@@ -465,7 +474,7 @@ def symlink(
     """Create a symbolic link
     """
     try:
-        client.symlink(machine, target, link_name)
+        client.symlink(system, target, link_name)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -473,8 +482,11 @@ def symlink(
 
 @app.command(rich_help_panel="Utilities commands")
 def rm(
-    machine: str,
-    path: str,
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
+    ),
+    path: str = typer.Argument(..., help="The absolute target path."),
     force: bool = typer.Option(
         ...,
         prompt="Are you sure you want to delete this entry?",
@@ -486,7 +498,7 @@ def rm(
     """
     try:
         if force:
-            client.simple_delete(machine, path)
+            client.simple_delete(system, path)
         else:
             console.print("Operation cancelled")
     except Exception as e:
@@ -496,15 +508,16 @@ def rm(
 
 @app.command(rich_help_panel="Utilities commands")
 def checksum(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
     """Calculate the SHA256 (256-bit) checksum
     """
     try:
-        console.print(client.checksum(machine, path))
+        console.print(client.checksum(system, path))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -512,8 +525,9 @@ def checksum(
 
 @app.command(rich_help_panel="Utilities commands")
 def head(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     lines: str = typer.Option(
@@ -555,7 +569,7 @@ def head(
             bytes_arg = bytes[1:]
             skip_ending = True
 
-        console.print(client.head(machine, path, bytes_arg, lines_arg, skip_ending))
+        console.print(client.head(system, path, bytes_arg, lines_arg, skip_ending))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -563,8 +577,9 @@ def head(
 
 @app.command(rich_help_panel="Utilities commands")
 def tail(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     lines: str = typer.Option(
@@ -606,7 +621,7 @@ def tail(
             bytes_arg = bytes[1:]
             skip_beginning = True
 
-        console.print(client.tail(machine, path, bytes_arg, lines_arg, skip_beginning))
+        console.print(client.tail(system, path, bytes_arg, lines_arg, skip_beginning))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -614,15 +629,16 @@ def tail(
 
 @app.command(rich_help_panel="Utilities commands")
 def whoami(
-    machine: Optional[str] = typer.Argument(
-        None, help="The machine name where the `whoami` command will run."
+    system: str = typer.Option(
+        None, "-s", "--system", help="The name of the system where the `whoami` command will run.",
+        envvar="FIRECREST_SYSTEM"
     ),
 ):
     """Return the username that FirecREST will be using to perform the other calls.
-    If no machine name is passed the username will be deduced from the token.
+    If the name of the system is not passed the username will be deduced from the token.
     """
     try:
-        console.print(client.whoami(machine))
+        console.print(client.whoami(system))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -635,8 +651,9 @@ class TransferType(str, Enum):
 
 @app.command(rich_help_panel="Storage commands")
 def download(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the source filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: Optional[str] = typer.Argument(
@@ -661,12 +678,12 @@ def download(
     try:
         if transfer_type == TransferType.direct:
             if destination:
-                client.simple_download(machine, source, destination)
+                client.simple_download(system, source, destination)
             else:
                 console.print("`destination` is required when the ")
                 raise typer.Exit(code=1)
         elif transfer_type == TransferType.external:
-            down_obj = client.external_download(machine, source)
+            down_obj = client.external_download(system, source)
             console.print(
                 f"Follow the status of the transfer asynchronously with that task ID: [green]{down_obj.task_id}[/green]"
             )
@@ -682,8 +699,9 @@ def download(
 
 @app.command(rich_help_panel="Storage commands")
 def upload(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the source filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     source: str = typer.Argument(..., help="The source path (can be relative)."),
     destination_directory: str = typer.Argument(
@@ -691,7 +709,7 @@ def upload(
     ),
     filename: Optional[str] = typer.Argument(
         None,
-        help="The name of the file in the machine (by default it will be same as the local file). It works only for a direct upload.",
+        help="The name of the file in the system (by default it will be same as the local file). It works only for a direct upload.",
     ),
     transfer_type: TransferType = typer.Option(
         TransferType.direct,
@@ -710,9 +728,9 @@ def upload(
     """
     try:
         if transfer_type == TransferType.direct:
-            client.simple_upload(machine, source, destination_directory, filename)
+            client.simple_upload(system, source, destination_directory, filename)
         elif transfer_type == TransferType.external:
-            up_obj = client.external_upload(machine, source, destination_directory)
+            up_obj = client.external_upload(system, source, destination_directory)
             console.print(
                 f"Follow the status of the transfer asynchronously with that task ID: [green]{up_obj.task_id}[/green]"
             )
@@ -740,12 +758,13 @@ def upload(
 
 @app.command(rich_help_panel="Compute commands")
 def submit(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
     ),
     job_script: str = typer.Argument(
         ...,
-        help="The path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)",
+        help="The path of the script (if it's local it can be relative path, if it is on the system it has to be the absolute path)",
     ),
     account: Optional[str] = typer.Option(
         None,
@@ -754,13 +773,13 @@ def submit(
     ),
     local: Optional[bool] = typer.Option(
         True,
-        help="The batch file can be local (default) or on the machine's filesystem.",
+        help="The batch file can be local (default) or on the system's filesystem.",
     ),
 ):
     """Submit a batch script to the workload manger of the target system
     """
     try:
-        console.print(client.submit(machine, job_script, local, account=account))
+        console.print(client.submit(system, job_script, local, account=account))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -768,8 +787,9 @@ def submit(
 
 @submit_template_app.command("mv")
 def submit_mv(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -798,7 +818,7 @@ def submit_mv(
     try:
         console.print(
             client.submit_move_job(
-                machine, source, destination, job_name, time, jobid, account
+                system, source, destination, job_name, time, jobid, account
             )
         )
     except Exception as e:
@@ -808,8 +828,9 @@ def submit_mv(
 
 @submit_template_app.command("cp")
 def submit_cp(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -838,7 +859,7 @@ def submit_cp(
     try:
         console.print(
             client.submit_copy_job(
-                machine, source, destination, job_name, time, jobid, account
+                system, source, destination, job_name, time, jobid, account
             )
         )
     except Exception as e:
@@ -848,8 +869,9 @@ def submit_cp(
 
 @submit_template_app.command("rsync")
 def submit_rsync(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -878,7 +900,7 @@ def submit_rsync(
     try:
         console.print(
             client.submit_rsync_job(
-                machine, source, destination, job_name, time, jobid, account
+                system, source, destination, job_name, time, jobid, account
             )
         )
     except Exception as e:
@@ -888,8 +910,9 @@ def submit_rsync(
 
 @submit_template_app.command("rm")
 def submit_rm(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system where the source filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM"
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
@@ -916,7 +939,7 @@ def submit_rm(
     """
     try:
         console.print(
-            client.submit_delete_job(machine, path, job_name, time, jobid, account)
+            client.submit_delete_job(system, path, job_name, time, jobid, account)
         )
     except Exception as e:
         examine_exeption(e)
@@ -925,8 +948,9 @@ def submit_rm(
 
 @app.command(rich_help_panel="Compute commands")
 def poll(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
@@ -945,7 +969,7 @@ def poll(
     This call uses the `sacct` command
     """
     try:
-        result = client.poll(machine, jobs, start_time, end_time)
+        result = client.poll(system, jobs, start_time, end_time)
         if raw:
             console.print(result)
         else:
@@ -971,8 +995,9 @@ def poll(
 
 @app.command(rich_help_panel="Compute commands")
 def poll_active(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
@@ -983,7 +1008,7 @@ def poll_active(
     This call uses the `squeue -u <username>` command
     """
     try:
-        result = client.poll_active(machine, jobs)
+        result = client.poll_active(system, jobs)
         if raw:
             console.print(result)
         else:
@@ -1009,15 +1034,16 @@ def poll_active(
 
 @app.command(rich_help_panel="Compute commands")
 def cancel(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
     ),
     job: str = typer.Argument(..., help="The ID of the job that will be cancelled."),
 ):
     """Cancel job
     """
     try:
-        client.cancel(machine, job)
+        client.cancel(system, job)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1025,14 +1051,15 @@ def cancel(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def list(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
-    )
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
+    ),
 ):
     """List all active reservations and their status
     """
     try:
-        res = client.all_reservations(machine)
+        res = client.all_reservations(system)
         console.print(res)
     except Exception as e:
         examine_exeption(e)
@@ -1041,8 +1068,9 @@ def list(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def create(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
@@ -1063,7 +1091,7 @@ def create(
     """
     try:
         client.create_reservation(
-            machine, name, account, num_nodes, node_type, start_time, end_time
+            system, name, account, num_nodes, node_type, start_time, end_time
         )
     except Exception as e:
         examine_exeption(e)
@@ -1072,8 +1100,9 @@ def create(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def update(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
@@ -1094,7 +1123,7 @@ def update(
     """
     try:
         client.update_reservation(
-            machine, name, account, num_nodes, node_type, start_time, end_time
+            system, name, account, num_nodes, node_type, start_time, end_time
         )
     except Exception as e:
         examine_exeption(e)
@@ -1103,15 +1132,16 @@ def update(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def delete(
-    machine: str = typer.Argument(
-        ..., help="The machine name where the source filesystem belongs to."
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.",
+        envvar="FIRECREST_SYSTEM"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
 ):
     """Delete a reservation
     """
     try:
-        client.delete_reservation(machine, name)
+        client.delete_reservation(system, name)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

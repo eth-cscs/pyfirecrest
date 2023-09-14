@@ -639,6 +639,7 @@ def test_cli_external_download(valid_credentials):
         "--api-version=1.14.0",
         "download",
         "--type=external",
+        "--system",
         "cluster1",
         "/path/to/remote/source",
     ]
@@ -660,6 +661,7 @@ def test_cli_external_download_legacy(valid_credentials):
         "--api-version=1.13.0",
         "download",
         "--type=external",
+        "--system",
         "cluster1",
         "/path/to/remote/sourcelegacy",
     ]
@@ -691,6 +693,7 @@ def test_cli_external_upload(valid_credentials):
     args = valid_credentials + [
         "upload",
         "--type=external",
+        "--system",
         "cluster1",
         "/path/to/local/source",
         "/path/to/remote/destination",
