@@ -17,15 +17,7 @@ import sys
 import time
 
 from contextlib import nullcontext
-from typing import (
-    Any,
-    ContextManager,
-    Optional,
-    overload,
-    Sequence,
-    Tuple,
-    List,
-)
+from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
 from requests.compat import json  # type: ignore
 from packaging.version import Version, parse
 
@@ -116,7 +108,7 @@ class AsyncFirecrest:
                         default=resp.headers.get("RateLimit-Reset", default=10),
                     )
                     reset = int(reset)
-                    microservice = kwargs['endpoint'].split("/")[1]
+                    microservice = kwargs["endpoint"].split("/")[1]
                     client = args[0]
                     logger.info(
                         f"Rate limit in `{microservice}` is reached, next "
@@ -194,7 +186,9 @@ class AsyncFirecrest:
         self._api_version = parse(api_version)
 
     @_retry_requests  # type: ignore
-    async def _get_request(self, endpoint, additional_headers=None, params=None) -> httpx.Response:
+    async def _get_request(
+        self, endpoint, additional_headers=None, params=None
+    ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
@@ -240,7 +234,9 @@ class AsyncFirecrest:
         return resp
 
     @_retry_requests  # type: ignore
-    async def _put_request(self, endpoint, additional_headers=None, data=None) -> httpx.Response:
+    async def _put_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
