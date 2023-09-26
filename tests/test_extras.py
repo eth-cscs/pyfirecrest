@@ -124,59 +124,59 @@ def tasks_handler(request: Request):
             content_type="application/json",
         )
 
-    ret = {
-        "tasks": {
-            "taskid_1": {
-                "created_at": "2022-08-16T07:18:54",
-                "data": "data",
-                "description": "description",
-                "hash_id": "taskid_1",
-                "last_modify": "2022-08-16T07:18:54",
-                "service": "storage",
-                "status": "114",
-                "task_id": "taskid_1",
-                "task_url": "TASK_IP/tasks/taskid_1",
-                "updated_at": "2022-08-16T07:18:54",
-                "user": "username",
-            },
-            "taskid_2": {
-                "created_at": "2022-08-16T07:18:54",
-                "data": "data",
-                "description": "description",
-                "hash_id": "taskid_2",
-                "last_modify": "2022-08-16T07:18:54",
-                "service": "storage",
-                "status": "112",
-                "task_id": "taskid_2",
-                "task_url": "TASK_IP/tasks/taskid_2",
-                "updated_at": "2022-08-16T07:18:54",
-                "user": "username",
-            },
-            "taskid_3": {
-                "created_at": "2022-08-16T07:18:54",
-                "data": "data",
-                "description": "description",
-                "hash_id": "taskid_3",
-                "last_modify": "2022-08-16T07:18:54",
-                "service": "storage",
-                "status": "111",
-                "task_id": "taskid_3",
-                "task_url": "TASK_IP/tasks/taskid_3",
-                "updated_at": "2022-08-16T07:18:54",
-                "user": "username",
-            },
+    all_tasks = {
+        "taskid_1": {
+            "created_at": "2022-08-16T07:18:54",
+            "data": "data",
+            "description": "description",
+            "hash_id": "taskid_1",
+            "last_modify": "2022-08-16T07:18:54",
+            "service": "storage",
+            "status": "114",
+            "task_id": "taskid_1",
+            "task_url": "TASK_IP/tasks/taskid_1",
+            "updated_at": "2022-08-16T07:18:54",
+            "user": "username",
+        },
+        "taskid_2": {
+            "created_at": "2022-08-16T07:18:54",
+            "data": "data",
+            "description": "description",
+            "hash_id": "taskid_2",
+            "last_modify": "2022-08-16T07:18:54",
+            "service": "storage",
+            "status": "112",
+            "task_id": "taskid_2",
+            "task_url": "TASK_IP/tasks/taskid_2",
+            "updated_at": "2022-08-16T07:18:54",
+            "user": "username",
+        },
+        "taskid_3": {
+            "created_at": "2022-08-16T07:18:54",
+            "data": "data",
+            "description": "description",
+            "hash_id": "taskid_3",
+            "last_modify": "2022-08-16T07:18:54",
+            "service": "storage",
+            "status": "111",
+            "task_id": "taskid_3",
+            "task_url": "TASK_IP/tasks/taskid_3",
+            "updated_at": "2022-08-16T07:18:54",
+            "user": "username",
         }
     }
     status_code = 200
-    uri = request.url
-    if not uri.endswith("/tasks/"):
-        task_id = uri.split("/")[-1]
-        if task_id in {"taskid_1", "taskid_2", "taskid_3"}:
-            ret = {"task": ret["tasks"][task_id]}
-            status_code = 200
-        else:
-            ret = {"error": f"Task {task_id} does not exist"}
-            status_code = 404
+    tasks = request.args.get("tasks")
+
+    if tasks:
+        tasks = tasks.split(",")
+        ret = {
+         "tasks": {k: v for k, v in all_tasks.items() if k in tasks}
+        }
+    else:
+        ret = {
+         "tasks": all_tasks
+        }
 
     return Response(
         json.dumps(ret), status=status_code, content_type="application/json"
@@ -186,7 +186,7 @@ def tasks_handler(request: Request):
 @pytest.fixture
 def fc_server(httpserver):
     httpserver.expect_request(
-        re.compile("^/tasks/.*"), method="GET"
+        re.compile("^/tasks"), method="GET"
     ).respond_with_handler(tasks_handler)
 
     return httpserver
@@ -345,8 +345,7 @@ def test_cli_one_task(valid_credentials):
 
 
 def test_invalid_task(valid_client):
-    with pytest.raises(firecrest.FirecrestException):
-        valid_client._tasks(["invalid_id"])
+    assert valid_client._tasks(["invalid_id"]) == {}
 
 
 def test_tasks_invalid(invalid_client):

@@ -197,48 +197,48 @@ def storage_tasks_handler(request: Request):
     global external_download_retry
     global external_upload_retry
 
-    uri = request.url
-    taskid = uri.split("/")[-1]
-    if taskid == "tasks":
-        # TODO: return all tasks
-        pass
-    elif taskid == "internal_transfer_id":
+    taskid = request.args.get("tasks")
+    if taskid == "internal_transfer_id":
         if internal_transfer_retry < internal_transfer_result:
             internal_transfer_retry += 1
             ret = {
-                "task": {
-                    "data": "https://127.0.0.1:5003",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "https://127.0.0.1:5003",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "compute",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "data": {
-                        "job_data_err": "",
-                        "job_data_out": "",
-                        "job_file": f"/path/to/firecrest/{taskid}/sbatch-job.sh",
-                        "job_file_err": f"/path/to/firecrest/{taskid}/job-35363861.err",
-                        "job_file_out": f"/path/to/firecrest/{taskid}/job-35363861.out",
-                        "jobid": 35363861,
-                        "result": "Job submitted",
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T13:48:52",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": "6f514b060ca036917f4194964b6e949c",
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": {
+                            "job_data_err": "",
+                            "job_data_out": "",
+                            "job_file": f"/path/to/firecrest/{taskid}/sbatch-job.sh",
+                            "job_file_err": f"/path/to/firecrest/{taskid}/job-35363861.err",
+                            "job_file_out": f"/path/to/firecrest/{taskid}/job-35363861.out",
+                            "jobid": 35363861,
+                            "result": "Job submitted",
+                        },
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T13:48:52",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": "6f514b060ca036917f4194964b6e949c",
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -246,66 +246,74 @@ def storage_tasks_handler(request: Request):
         if external_download_retry < 1:
             external_download_retry += 1
             ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "storage",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "Queued",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "storage",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif external_download_retry < 2:
             external_download_retry += 1
             ret = {
-                "task": {
-                    "data": "Started upload from filesystem to Object Storage",
-                    "description": "Started upload from filesystem to Object Storage",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "storage",
-                    "status": "116",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "Started upload from filesystem to Object Storage",
+                        "description": "Started upload from filesystem to Object Storage",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "storage",
+                        "status": "116",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "external_download_id_legacy":
             ret = {
-                "task": {
-                    "data": "https://object_storage_link_legacy.com",
-                    "description": "Started upload from filesystem to Object Storage",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "storage",
-                    "status": "117",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "https://object_storage_link_legacy.com",
+                        "description": "Started upload from filesystem to Object Storage",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "storage",
+                        "status": "117",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "data": {
-                        "source": "/path/to/remote/source",
-                        "system_name": "machine",
-                        "url": "https://object_storage_link.com",
-                    },
-                    "description": "Started upload from filesystem to Object Storage",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "storage",
-                    "status": "117",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": {
+                            "source": "/path/to/remote/source",
+                            "system_name": "machine",
+                            "url": "https://object_storage_link.com",
+                        },
+                        "description": "Started upload from filesystem to Object Storage",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "storage",
+                        "status": "117",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -313,88 +321,94 @@ def storage_tasks_handler(request: Request):
         if external_upload_retry < 1:
             external_upload_retry += 1
             ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "storage",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "Queued",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "storage",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif external_upload_retry < 2:
             external_upload_retry += 1
             ret = {
-                "task": {
-                    "created_at": "2022-11-23T09:07:50",
-                    "data": {
+                "tasks": {
+                    taskid: {
+                        "created_at": "2022-11-23T09:07:50",
+                        "data": {
+                            "hash_id": taskid,
+                            "msg": "Waiting for Presigned URL to upload file to staging area (OpenStack Swift)",
+                            "source": "/path/to/local/source",
+                            "status": "110",
+                            "system_addr": "machine_addr",
+                            "system_name": "cluster1",
+                            "target": "/path/to/remote/destination",
+                            "trace_id": "trace",
+                            "user": "username",
+                        },
+                        "description": "Waiting for Form URL from Object Storage to be retrieved",
                         "hash_id": taskid,
-                        "msg": "Waiting for Presigned URL to upload file to staging area (OpenStack Swift)",
-                        "source": "/path/to/local/source",
+                        "last_modify": "2022-11-23T09:07:50",
+                        "service": "storage",
                         "status": "110",
-                        "system_addr": "machine_addr",
-                        "system_name": "cluster1",
-                        "target": "/path/to/remote/destination",
-                        "trace_id": "trace",
+                        "task_id": "taskid",
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "updated_at": "2022-11-23T09:07:50",
                         "user": "username",
-                    },
-                    "description": "Waiting for Form URL from Object Storage to be retrieved",
-                    "hash_id": taskid,
-                    "last_modify": "2022-11-23T09:07:50",
-                    "service": "storage",
-                    "status": "110",
-                    "task_id": "taskid",
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "updated_at": "2022-11-23T09:07:50",
-                    "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "created_at": "2022-11-23T09:18:43",
-                    "data": {
-                        "hash_id": taskid,
-                        "msg": {
-                            "command": f"curl --show-error -s -ihttps://object.com/v1/AUTH_auth/username/{taskid}/ -X POST -F max_file_size=536870912000 -F max_file_count=1 -F expires=1671787123 -F signature=sign -F redirect= -F file=@/path/to/local/source ",
-                            "parameters": {
-                                "data": {
-                                    "expires": 1671787123,
-                                    "max_file_count": 1,
-                                    "max_file_size": 536870912000,
-                                    "redirect": "",
-                                    "signature": "sign",
+                "tasks": {
+                    taskid: {
+                        "created_at": "2022-11-23T09:18:43",
+                        "data": {
+                            "hash_id": taskid,
+                            "msg": {
+                                "command": f"curl --show-error -s -ihttps://object.com/v1/AUTH_auth/username/{taskid}/ -X POST -F max_file_size=536870912000 -F max_file_count=1 -F expires=1671787123 -F signature=sign -F redirect= -F file=@/path/to/local/source ",
+                                "parameters": {
+                                    "data": {
+                                        "expires": 1671787123,
+                                        "max_file_count": 1,
+                                        "max_file_size": 536870912000,
+                                        "redirect": "",
+                                        "signature": "sign",
+                                    },
+                                    "files": "/path/to/local/source",
+                                    "headers": {},
+                                    "json": {},
+                                    "method": "POST",
+                                    "params": {},
+                                    "url": f"https://object.com/v1/AUTH_auth/username/{taskid}/",
                                 },
-                                "files": "/path/to/local/source",
-                                "headers": {},
-                                "json": {},
-                                "method": "POST",
-                                "params": {},
-                                "url": f"https://object.com/v1/AUTH_auth/username/{taskid}/",
                             },
+                            "source": "/path/to/local/source",
+                            "status": "111",
+                            "system_addr": "machine_addr",
+                            "system_name": "cluster1",
+                            "target": "/path/to/remote/destination",
+                            "trace_id": "trace",
+                            "user": "username",
                         },
-                        "source": "/path/to/local/source",
+                        "description": "Form URL from Object Storage received",
+                        "hash_id": taskid,
+                        "last_modify": "2022-11-23T09:18:43",
+                        "service": "storage",
                         "status": "111",
-                        "system_addr": "machine_addr",
-                        "system_name": "cluster1",
-                        "target": "/path/to/remote/destination",
-                        "trace_id": "trace",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "updated_at": "2022-11-23T09:18:43",
                         "user": "username",
-                    },
-                    "description": "Form URL from Object Storage received",
-                    "hash_id": taskid,
-                    "last_modify": "2022-11-23T09:18:43",
-                    "service": "storage",
-                    "status": "111",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "updated_at": "2022-11-23T09:18:43",
-                    "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -411,7 +425,7 @@ def fc_server(httpserver):
     ).respond_with_handler(internal_transfer_handler)
 
     httpserver.expect_request(
-        re.compile("^/tasks/.*"), method="GET"
+        "/tasks", method="GET"
     ).respond_with_handler(storage_tasks_handler)
 
     httpserver.expect_request(

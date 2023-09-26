@@ -381,19 +381,14 @@ class AsyncFirecrest:
         """
         task_ids = [] if task_ids is None else task_ids
         responses = [] if responses is None else responses
-        endpoint = "/tasks/"
-        if len(task_ids) == 1:
-            endpoint += task_ids[0]
+        endpoint = "/tasks"
+        params = {}
+        if task_ids:
+            params = {"tasks": ",".join([str(j) for j in task_ids])}
 
-        resp = await self._get_request(endpoint=endpoint)
+        resp = await self._get_request(endpoint=endpoint, params=params)
         responses.append(resp)
-        taskinfo = self._json_response(responses, 200)
-        if len(task_ids) == 0:
-            return taskinfo["tasks"]
-        elif len(task_ids) == 1:
-            return {task_ids[0]: taskinfo["task"]}
-        else:
-            return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
+        return self._json_response(responses, 200)["tasks"]
 
     async def _task_safe(
         self, task_id: str, responses: Optional[List[requests.Response]] = None
