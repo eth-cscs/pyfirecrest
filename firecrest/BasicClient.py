@@ -859,9 +859,13 @@ class Firecrest:
         self._current_method_requests = []
         json_response = self._submit_request(machine, job_script, local_file, account)
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
+
+        # Inject taskid in the result
+        result = self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
         )
+        result["firecrest_taskid"] = json_response["task_id"]
+        return result
 
     def poll(
         self,

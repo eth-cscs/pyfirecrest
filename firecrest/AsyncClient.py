@@ -980,7 +980,11 @@ class AsyncFirecrest:
         json_response = self._json_response([resp], 201)
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
-        return await t.poll_task("200")
+
+        # Inject taskid in the result
+        result = await t.poll_task("200")
+        result["firecrest_taskid"] = json_response["task_id"]
+        return result
 
     async def poll(
         self,
