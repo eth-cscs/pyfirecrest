@@ -223,8 +223,11 @@ def tasks(
 @app.command(rich_help_panel="Utilities commands")
 def ls(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     show_hidden: bool = typer.Option(
@@ -264,8 +267,11 @@ def ls(
 @app.command(rich_help_panel="Utilities commands")
 def mkdir(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     p: bool = typer.Option(
@@ -286,8 +292,11 @@ def mkdir(
 @app.command(rich_help_panel="Utilities commands")
 def mv(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -304,8 +313,11 @@ def mv(
 @app.command(rich_help_panel="Utilities commands")
 def chmod(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     mode: str = typer.Argument(..., help="Same as numeric mode of linux chmod tool."),
@@ -322,8 +334,11 @@ def chmod(
 @app.command(rich_help_panel="Utilities commands")
 def chown(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     owner: Optional[str] = typer.Option(None, help="Owner ID for target."),
@@ -343,8 +358,11 @@ def chown(
 @app.command(rich_help_panel="Utilities commands")
 def cp(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -361,8 +379,11 @@ def cp(
 @app.command(rich_help_panel="Utilities commands")
 def file(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
@@ -378,8 +399,11 @@ def file(
 @app.command(rich_help_panel="Utilities commands")
 def stat(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
@@ -465,8 +489,11 @@ def stat(
 @app.command(rich_help_panel="Utilities commands")
 def symlink(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     target: str = typer.Argument(..., help="The path of the original file."),
     link_name: str = typer.Argument(..., help="The name of the link to the TARGET."),
@@ -483,8 +510,11 @@ def symlink(
 @app.command(rich_help_panel="Utilities commands")
 def rm(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     force: bool = typer.Option(
@@ -509,8 +539,11 @@ def rm(
 @app.command(rich_help_panel="Utilities commands")
 def checksum(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
@@ -526,8 +559,11 @@ def checksum(
 @app.command(rich_help_panel="Utilities commands")
 def head(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     lines: str = typer.Option(
@@ -578,8 +614,11 @@ def head(
 @app.command(rich_help_panel="Utilities commands")
 def tail(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     lines: str = typer.Option(
@@ -630,8 +669,11 @@ def tail(
 @app.command(rich_help_panel="Utilities commands")
 def whoami(
     system: str = typer.Option(
-        None, "-s", "--system", help="The name of the system where the `whoami` command will run.",
-        envvar="FIRECREST_SYSTEM"
+        None,
+        "-s",
+        "--system",
+        help="The name of the system where the `whoami` command will run.",
+        envvar="FIRECREST_SYSTEM",
     ),
 ):
     """Return the username that FirecREST will be using to perform the other calls.
@@ -652,8 +694,11 @@ class TransferType(str, Enum):
 @app.command(rich_help_panel="Storage commands")
 def download(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the source filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the source filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: Optional[str] = typer.Argument(
@@ -700,8 +745,11 @@ def download(
 @app.command(rich_help_panel="Storage commands")
 def upload(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the source filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the source filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The source path (can be relative)."),
     destination_directory: str = typer.Argument(
@@ -759,8 +807,7 @@ def upload(
 @app.command(rich_help_panel="Compute commands")
 def submit(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     job_script: str = typer.Argument(
         ...,
@@ -788,8 +835,11 @@ def submit(
 @submit_template_app.command("mv")
 def submit_mv(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -829,8 +879,11 @@ def submit_mv(
 @submit_template_app.command("cp")
 def submit_cp(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -870,8 +923,11 @@ def submit_cp(
 @submit_template_app.command("rsync")
 def submit_rsync(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
@@ -911,8 +967,11 @@ def submit_rsync(
 @submit_template_app.command("rm")
 def submit_rm(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system where the source filesystem belongs to.",
-        envvar="FIRECREST_SYSTEM"
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the source filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
@@ -949,8 +1008,7 @@ def submit_rm(
 @app.command(rich_help_panel="Compute commands")
 def poll(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
@@ -996,8 +1054,7 @@ def poll(
 @app.command(rich_help_panel="Compute commands")
 def poll_active(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
@@ -1035,8 +1092,7 @@ def poll_active(
 @app.command(rich_help_panel="Compute commands")
 def cancel(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     job: str = typer.Argument(..., help="The ID of the job that will be cancelled."),
 ):
@@ -1052,8 +1108,7 @@ def cancel(
 @reservation_app.command(rich_help_panel="Reservation commands")
 def list(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
 ):
     """List all active reservations and their status
@@ -1069,8 +1124,7 @@ def list(
 @reservation_app.command(rich_help_panel="Reservation commands")
 def create(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
@@ -1101,8 +1155,7 @@ def create(
 @reservation_app.command(rich_help_panel="Reservation commands")
 def update(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
     account: str = typer.Argument(
@@ -1133,8 +1186,7 @@ def update(
 @reservation_app.command(rich_help_panel="Reservation commands")
 def delete(
     system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.",
-        envvar="FIRECREST_SYSTEM"
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     name: str = typer.Argument(..., help="The reservation name."),
 ):

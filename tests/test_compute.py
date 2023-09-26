@@ -857,6 +857,7 @@ def test_submit_remote(valid_client):
     assert valid_client.submit(
         machine="cluster1", job_script="/path/to/workdir/script.sh", local_file=False
     ) == {
+        "firecrest_taskid": "submit_path_job_id_default_account",
         "job_data_err": "",
         "job_data_out": "",
         "job_file": "/path/to/workdir/script.sh",
@@ -872,6 +873,7 @@ def test_submit_remote(valid_client):
         local_file=False,
         account="proj",
     ) == {
+        "firecrest_taskid": "submit_path_job_id_proj_account",
         "job_data_err": "",
         "job_data_out": "",
         "job_file": "/path/to/workdir/script.sh",
@@ -921,6 +923,7 @@ def test_submit_local(valid_client, slurm_script):
     assert valid_client.submit(
         machine="cluster1", job_script=slurm_script, local_file=True
     ) == {
+        "firecrest_taskid": "submit_upload_job_id_default_account",
         "job_data_err": "",
         "job_data_out": "",
         "job_file": "/path/to/firecrest/submit_upload_job_id_default_account/script.sh",
@@ -933,6 +936,7 @@ def test_submit_local(valid_client, slurm_script):
     assert valid_client.submit(
         machine="cluster1", job_script=slurm_script, local_file=True, account="proj"
     ) == {
+        "firecrest_taskid": "submit_upload_job_id_proj_account",
         "job_data_err": "",
         "job_data_out": "",
         "job_file": "/path/to/firecrest/submit_upload_job_id_proj_account/script.sh",

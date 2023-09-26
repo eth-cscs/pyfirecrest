@@ -131,6 +131,7 @@ class JobQueue(TypedDict):
 class JobSubmit(TypedDict):
     """A job submit record, from `compute/jobs`"""
 
+    firecrest_taskid: str
     job_data_err: str
     job_data_out: str
     job_file: str
