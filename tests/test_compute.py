@@ -209,7 +209,7 @@ def queue_handler(request: Request):
             "task_url": "TASK_IP/tasks/queue_full_id",
         }
         status_code = 200
-    elif jobs == ["352", "2", "334"]:
+    elif set(jobs) == {"352", "2", "334"}:
         ret = {
             "success": "Task created",
             "task_id": "queue_352_2_334_id",
@@ -271,7 +271,7 @@ def sacct_handler(request: Request):
             "task_url": "TASK_IP/tasks/acct_empty_id",
         }
         status_code = 200
-    elif jobs == ["352", "2", "334"]:
+    elif set(jobs) == {"352", "2", "334"}:
         ret = {
             "success": "Task created",
             "task_id": "acct_352_2_334_id",
