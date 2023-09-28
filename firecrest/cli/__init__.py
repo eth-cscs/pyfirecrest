@@ -82,7 +82,7 @@ def examine_exeption(e: Exception) -> None:
 
 def create_table(table_title, data, *mappings):
     table = Table(title=table_title, box=box.ASCII)
-    for (title, _) in mappings:
+    for title, _ in mappings:
         table.add_column(title, overflow="fold")
 
     for i in data:
@@ -103,8 +103,7 @@ def services(
         None, "-n", "--name", help="Get information for only one service."
     )
 ):
-    """Provides information for the services of FirecREST
-    """
+    """Provides information for the services of FirecREST"""
     try:
         if name:
             result = [client.service(name)]
@@ -132,8 +131,7 @@ def systems(
         None, "-n", "--name", help="Get information for only one system."
     )
 ):
-    """Provides information for the available systems in FirecREST
-    """
+    """Provides information for the available systems in FirecREST"""
     try:
         if name:
             result = [client.system(name)]
@@ -157,8 +155,7 @@ def systems(
 
 @app.command(rich_help_panel="Status commands")
 def parameters():
-    """Configurable parameters of FirecREST
-    """
+    """Configurable parameters of FirecREST"""
     try:
         result = client.parameters()
         storage_table = create_table(
@@ -192,8 +189,7 @@ def tasks(
         True, help="Display the output in a pager application."
     ),
 ):
-    """Retrieve information about the FirecREST tasks of the users
-    """
+    """Retrieve information about the FirecREST tasks of the users"""
     try:
         result = client._tasks(taskids)
         num_results = len(result.values())
@@ -238,8 +234,7 @@ def ls(
     ),
     raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
-    """List directory contents
-    """
+    """List directory contents"""
     try:
         result = client.list_files(system, path, show_hidden)
         if raw:
@@ -280,8 +275,7 @@ def mkdir(
         help="Create intermediate directories as required, equivalent to `-p` of the unix command.",
     ),
 ):
-    """Create new directories
-    """
+    """Create new directories"""
     try:
         client.mkdir(system, path, p)
     except Exception as e:
@@ -301,8 +295,7 @@ def mv(
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
 ):
-    """Rename/move files, directory, or symlink at the `source_path` to the `target_path` on `system`'s filesystem
-    """
+    """Rename/move files, directory, or symlink at the `source_path` to the `target_path` on `system`'s filesystem"""
     try:
         client.mv(system, source, destination)
     except Exception as e:
@@ -322,8 +315,7 @@ def chmod(
     path: str = typer.Argument(..., help="The absolute target path."),
     mode: str = typer.Argument(..., help="Same as numeric mode of linux chmod tool."),
 ):
-    """Change the file mod bits of a given file according to the specified mode
-    """
+    """Change the file mod bits of a given file according to the specified mode"""
     try:
         client.chmod(system, path, mode)
     except Exception as e:
@@ -367,8 +359,7 @@ def cp(
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
 ):
-    """Copy files
-    """
+    """Copy files"""
     try:
         client.copy(system, source, destination)
     except Exception as e:
@@ -387,8 +378,7 @@ def file(
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
-    """Determine file type
-    """
+    """Determine file type"""
     try:
         console.print(client.file_type(system, path))
     except Exception as e:
@@ -409,8 +399,7 @@ def stat(
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
     raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
-    """Use the stat linux application to determine the status of a file on the system's filesystem
-    """
+    """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
         result = client.stat(system, path, deref)
         if raw:
@@ -498,8 +487,7 @@ def symlink(
     target: str = typer.Argument(..., help="The path of the original file."),
     link_name: str = typer.Argument(..., help="The name of the link to the TARGET."),
 ):
-    """Create a symbolic link
-    """
+    """Create a symbolic link"""
     try:
         client.symlink(system, target, link_name)
     except Exception as e:
@@ -524,8 +512,7 @@ def rm(
     ),
     # TODO (?) add option to not display error to emulate `-f` from the rm command
 ):
-    """Remove directory entries
-    """
+    """Remove directory entries"""
     try:
         if force:
             client.simple_delete(system, path)
@@ -547,8 +534,7 @@ def checksum(
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
 ):
-    """Calculate the SHA256 (256-bit) checksum
-    """
+    """Calculate the SHA256 (256-bit) checksum"""
     try:
         console.print(client.checksum(system, path))
     except Exception as e:
@@ -823,8 +809,7 @@ def submit(
         help="The batch file can be local (default) or on the system's filesystem.",
     ),
 ):
-    """Submit a batch script to the workload manger of the target system
-    """
+    """Submit a batch script to the workload manger of the target system"""
     try:
         console.print(client.submit(system, job_script, local, account=account))
     except Exception as e:
@@ -863,8 +848,7 @@ def submit_mv(
         """,
     ),
 ):
-    """Move/rename file
-    """
+    """Move/rename file"""
     try:
         console.print(
             client.submit_move_job(
@@ -907,8 +891,7 @@ def submit_cp(
         """,
     ),
 ):
-    """Copy file
-    """
+    """Copy file"""
     try:
         console.print(
             client.submit_copy_job(
@@ -951,8 +934,7 @@ def submit_rsync(
         """,
     ),
 ):
-    """Transfer/synchronize files or directories efficiently between filesystems
-    """
+    """Transfer/synchronize files or directories efficiently between filesystems"""
     try:
         console.print(
             client.submit_rsync_job(
@@ -994,8 +976,7 @@ def submit_rm(
         """,
     ),
 ):
-    """Remove files
-    """
+    """Remove files"""
     try:
         console.print(
             client.submit_delete_job(system, path, job_name, time, jobid, account)
@@ -1096,8 +1077,7 @@ def cancel(
     ),
     job: str = typer.Argument(..., help="The ID of the job that will be cancelled."),
 ):
-    """Cancel job
-    """
+    """Cancel job"""
     try:
         client.cancel(system, job)
     except Exception as e:
@@ -1111,8 +1091,7 @@ def list(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
 ):
-    """List all active reservations and their status
-    """
+    """List all active reservations and their status"""
     try:
         res = client.all_reservations(system)
         console.print(res)
@@ -1141,8 +1120,7 @@ def create(
         ..., help="The end time for reservation (YYYY-MM-DDTHH:MM:SS)."
     ),
 ):
-    """Create a reservation
-    """
+    """Create a reservation"""
     try:
         client.create_reservation(
             system, name, account, num_nodes, node_type, start_time, end_time
@@ -1172,8 +1150,7 @@ def update(
         ..., help="The end time for reservation (YYYY-MM-DDTHH:MM:SS)."
     ),
 ):
-    """Update a reservation
-    """
+    """Update a reservation"""
     try:
         client.update_reservation(
             system, name, account, num_nodes, node_type, start_time, end_time
@@ -1190,8 +1167,7 @@ def delete(
     ),
     name: str = typer.Argument(..., help="The reservation name."),
 ):
-    """Delete a reservation
-    """
+    """Delete a reservation"""
     try:
         client.delete_reservation(system, name)
     except Exception as e:

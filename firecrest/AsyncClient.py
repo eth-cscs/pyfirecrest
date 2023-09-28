@@ -33,6 +33,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 # This function is temporarily here
 def handle_response(response):
     print("\nResponse status code:")
@@ -47,8 +48,7 @@ def handle_response(response):
 
 
 class ComputeTask:
-    """Helper object for blocking methods that require multiple requests
-    """
+    """Helper object for blocking methods that require multiple requests"""
 
     def __init__(
         self,
@@ -181,9 +181,12 @@ class AsyncFirecrest:
 
         # The following objects are used to "merge" requests in the same endpoints,
         # for example requests to tasks or polling for jobs
-        self._polling_ids = {"compute": set(), "tasks": set()}
-        self._polling_results = {"compute": [], "tasks": []}
-        self._polling_events = {"compute": None, "tasks": None}
+        self._polling_ids: dict[str, set] = {"compute": set(), "tasks": set()}
+        self._polling_results: dict[str, List] = {"compute": [], "tasks": []}
+        self._polling_events: dict[str, Optional[asyncio.Event]] = {
+            "compute": None,
+            "tasks": None,
+        }
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be assumed that you are
@@ -197,6 +200,7 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
+
         async def _merged_get(event):
             await self._stall_request(microservice)
             async with self._locks[microservice]:
@@ -209,7 +213,7 @@ class AsyncFirecrest:
                     if comma_sep_par in params:
                         del params[comma_sep_par]
                 else:
-                    params[comma_sep_par] = ','.join(ids)
+                    params[comma_sep_par] = ",".join(ids)
 
                 headers = {
                     "Authorization": f"Bearer {self._authorization.get_access_token()}"
@@ -231,7 +235,7 @@ class AsyncFirecrest:
 
             return
 
-        if microservice == 'tasks' or endpoint in ("/compute/jobs", "/compute/acct"):
+        if microservice == "tasks" or endpoint in ("/compute/jobs", "/compute/acct"):
             async with self._locks[microservice]:
                 if self._polling_ids[microservice] != {"*"}:
                     comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
@@ -256,7 +260,7 @@ class AsyncFirecrest:
             if waiter:
                 await task
 
-            await my_event.wait()
+            await my_event.wait()  # type: ignore
             resp = my_result[0]
             return resp
 

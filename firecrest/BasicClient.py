@@ -31,6 +31,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 # This function is temporarily here
 def handle_response(response):
     print("\nResponse status code:")
