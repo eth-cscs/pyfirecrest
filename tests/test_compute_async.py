@@ -89,7 +89,7 @@ def fc_server(httpserver):
     ).respond_with_handler(basic_compute.cancel_handler)
 
     httpserver.expect_request(
-        re.compile("^/tasks/.*"), method="GET"
+        "/tasks", method="GET"
     ).respond_with_handler(basic_compute.tasks_handler)
 
     return httpserver

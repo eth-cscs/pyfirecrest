@@ -31,6 +31,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 # This function is temporarily here
 def handle_response(response):
     print("\nResponse status code:")
@@ -278,30 +279,22 @@ class Firecrest:
         responses: Optional[List[requests.Response]] = None,
     ) -> dict[str, t.Task]:
         """Return a dictionary of FirecREST tasks and their last update.
-        When `task_ids` is an empty list or contains more than one element the
-        `/tasks` endpoint will be called. Otherwise `/tasks/{taskid}`.
-        When the `/tasks` is called the method will not give an error for invalid IDs,
-        but `/tasks/{taskid}` will raise an exception.
+        The result will only contain entries for valid tasks and the rest will be ignored.
 
         :param task_ids: list of task IDs. When empty all tasks are returned.
         :param responses: list of responses that are associated with these tasks (only relevant for error)
-        :calls: GET `/tasks` or `/tasks/{taskid}`
+        :calls: GET `/tasks`
         """
         task_ids = [] if task_ids is None else task_ids
         responses = [] if responses is None else responses
-        endpoint = "/tasks/"
-        if len(task_ids) == 1:
-            endpoint += task_ids[0]
+        endpoint = "/tasks"
+        params = {}
+        if task_ids:
+            params = {"tasks": ",".join([str(j) for j in task_ids])}
 
-        resp = self._get_request(endpoint=endpoint)
+        resp = self._get_request(endpoint=endpoint, params=params)
         responses.append(resp)
-        taskinfo = self._json_response(responses, 200)
-        if len(task_ids) == 0:
-            return taskinfo["tasks"]
-        elif len(task_ids) == 1:
-            return {task_ids[0]: taskinfo["task"]}
-        else:
-            return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
+        return self._json_response(responses, 200)["tasks"]
 
     def _task_safe(
         self, task_id: str, responses: Optional[List[requests.Response]] = None

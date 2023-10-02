@@ -56,7 +56,7 @@ def fc_server(httpserver):
     ).respond_with_handler(basic_storage.internal_transfer_handler)
 
     httpserver.expect_request(
-        re.compile("^/tasks/.*"), method="GET"
+        "/tasks", method="GET"
     ).respond_with_handler(basic_storage.storage_tasks_handler)
 
     httpserver.expect_request(

@@ -209,7 +209,7 @@ def queue_handler(request: Request):
             "task_url": "TASK_IP/tasks/queue_full_id",
         }
         status_code = 200
-    elif jobs == ["352", "2", "334"]:
+    elif set(jobs) == {"352", "2", "334"}:
         ret = {
             "success": "Task created",
             "task_id": "queue_352_2_334_id",
@@ -271,7 +271,7 @@ def sacct_handler(request: Request):
             "task_url": "TASK_IP/tasks/acct_empty_id",
         }
         status_code = 200
-    elif jobs == ["352", "2", "334"]:
+    elif set(jobs) == {"352", "2", "334"}:
         ret = {
             "success": "Task created",
             "task_id": "acct_352_2_334_id",
@@ -368,12 +368,8 @@ def tasks_handler(request: Request):
     global queue_retry
     global cancel_retry
 
-    uri = request.url
-    taskid = uri.split("/")[-1]
-    if taskid == "tasks":
-        # TODO: return all tasks
-        pass
-    elif taskid in (
+    taskid = request.args.get("tasks")
+    if taskid in (
         "submit_path_job_id_default_account",
         "submit_path_job_id_proj_account",
         "submit_path_job_id_fail",
@@ -381,16 +377,18 @@ def tasks_handler(request: Request):
         if submit_path_retry < submit_path_result:
             submit_path_retry += 1
             ret = {
-                "task": {
-                    "data": "https://127.0.0.1:5003",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "https://127.0.0.1:5003",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "compute",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -402,39 +400,43 @@ def tasks_handler(request: Request):
                 35335405 if taskid == "submit_path_job_id_default_account" else 35335406
             )
             ret = {
-                "task": {
-                    "data": {
-                        "job_data_err": "",
-                        "job_data_out": "",
-                        "job_file": "/path/to/workdir/script.sh",
-                        "job_file_err": "/path/to/workdir/slurm-35335405.out",
-                        "job_file_out": "/path/to/workdir/slurm-35335405.out",
-                        "jobid": jobid,
-                        "result": "Job submitted",
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": {
+                            "job_data_err": "",
+                            "job_data_out": "",
+                            "job_file": "/path/to/workdir/script.sh",
+                            "job_file_err": "/path/to/workdir/slurm-35335405.out",
+                            "job_file_out": "/path/to/workdir/slurm-35335405.out",
+                            "jobid": jobid,
+                            "result": "Job submitted",
+                        },
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:11",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "data": "sbatch: error: This does not look like a batch script...",
-                    "description": "Finished with errors",
-                    "hash_id": "taskid",
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": "taskid",
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "sbatch: error: This does not look like a batch script...",
+                        "description": "Finished with errors",
+                        "hash_id": "taskid",
+                        "last_modify": "2021-12-04T11:52:11",
+                        "service": "compute",
+                        "status": "400",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -446,16 +448,18 @@ def tasks_handler(request: Request):
         if submit_upload_retry < submit_upload_result:
             submit_upload_retry += 1
             ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "Queued",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "compute",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -469,39 +473,43 @@ def tasks_handler(request: Request):
                 else 35342668
             )
             ret = {
-                "task": {
-                    "data": {
-                        "job_data_err": "",
-                        "job_data_out": "",
-                        "job_file": f"/path/to/firecrest/{taskid}/script.sh",
-                        "job_file_err": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
-                        "job_file_out": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
-                        "jobid": jobid,
-                        "result": "Job submitted",
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": {
+                            "job_data_err": "",
+                            "job_data_out": "",
+                            "job_file": f"/path/to/firecrest/{taskid}/script.sh",
+                            "job_file_err": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
+                            "job_file_out": f"/path/to/firecrest/{taskid}/slurm-35342667.out",
+                            "jobid": jobid,
+                            "result": "Job submitted",
+                        },
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:11",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "data": "sbatch: error: This does not look like a batch script...",
-                    "description": "Finished with errors",
-                    "hash_id": "taskid",
-                    "last_modify": "2021-12-04T11:52:11",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": "taskid",
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "sbatch: error: This does not look like a batch script...",
+                        "description": "Finished with errors",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:11",
+                        "service": "compute",
+                        "status": "400",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -514,114 +522,124 @@ def tasks_handler(request: Request):
         if acct_retry < acct_result:
             acct_retry += 1
             ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "Queued",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "compute",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "acct_352_2_334_id":
             ret = {
-                "task": {
-                    "data": [
-                        {
-                            "jobid": "352",
-                            "name": "firecrest_job_test",
-                            "nodelist": "nid0[6227-6229]",
-                            "nodes": "3",
-                            "partition": "normal",
-                            "start_time": "2021-11-29T16:31:07",
-                            "state": "COMPLETED",
-                            "time": "00:48:00",
-                            "time_left": "2021-11-29T16:31:47",
-                            "user": "username",
-                        },
-                        {
-                            "jobid": "334",
-                            "name": "firecrest_job_test2",
-                            "nodelist": "nid02401",
-                            "nodes": "1",
-                            "partition": "normal",
-                            "start_time": "2021-11-29T16:31:07",
-                            "state": "COMPLETED",
-                            "time": "00:17:12",
-                            "time_left": "2021-11-29T16:31:50",
-                            "user": "username",
-                        },
-                    ],
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": [
+                            {
+                                "jobid": "352",
+                                "name": "firecrest_job_test",
+                                "nodelist": "nid0[6227-6229]",
+                                "nodes": "3",
+                                "partition": "normal",
+                                "start_time": "2021-11-29T16:31:07",
+                                "state": "COMPLETED",
+                                "time": "00:48:00",
+                                "time_left": "2021-11-29T16:31:47",
+                                "user": "username",
+                            },
+                            {
+                                "jobid": "334",
+                                "name": "firecrest_job_test2",
+                                "nodelist": "nid02401",
+                                "nodes": "1",
+                                "partition": "normal",
+                                "start_time": "2021-11-29T16:31:07",
+                                "state": "COMPLETED",
+                                "time": "00:17:12",
+                                "time_left": "2021-11-29T16:31:50",
+                                "user": "username",
+                            },
+                        ],
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T09:53:48",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "acct_full_id":
             ret = {
-                "task": {
-                    "data": [
-                        {
-                            "jobid": "352",
-                            "name": "firecrest_job_test",
-                            "nodelist": "nid0[6227-6229]",
-                            "nodes": "3",
-                            "partition": "normal",
-                            "start_time": "2021-11-29T16:31:07",
-                            "state": "COMPLETED",
-                            "time": "00:48:00",
-                            "time_left": "2021-11-29T16:31:47",
-                            "user": "username",
-                        }
-                    ],
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": [
+                            {
+                                "jobid": "352",
+                                "name": "firecrest_job_test",
+                                "nodelist": "nid0[6227-6229]",
+                                "nodes": "3",
+                                "partition": "normal",
+                                "start_time": "2021-11-29T16:31:07",
+                                "state": "COMPLETED",
+                                "time": "00:48:00",
+                                "time_left": "2021-11-29T16:31:47",
+                                "user": "username",
+                            }
+                        ],
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T09:53:48",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "acct_empty_id":
             ret = {
-                "task": {
-                    "data": {},
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": {},
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T09:53:48",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "data": "sacct: fatal: Bad job/step specified: l",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:47:22",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "sacct: fatal: Bad job/step specified: l",
+                        "description": "Finished with errors",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T09:47:22",
+                        "service": "compute",
+                        "status": "400",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -633,114 +651,122 @@ def tasks_handler(request: Request):
         if queue_retry < queue_result:
             queue_retry += 1
             ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "Queued",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "compute",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "queue_352_2_334_id":
             ret = {
-                "task": {
-                    "data": {
-                        "0": {
-                            "job_data_err": "",
-                            "job_data_out": "",
-                            "job_file": "(null)",
-                            "job_file_err": "stderr-file-not-found",
-                            "job_file_out": "stdout-file-not-found",
-                            "jobid": "352",
-                            "name": "interactive",
-                            "nodelist": "nid02357",
-                            "nodes": "1",
-                            "partition": "debug",
-                            "start_time": "6:38",
-                            "state": "RUNNING",
-                            "time": "2022-03-10T10:11:34",
-                            "time_left": "23:22",
-                            "user": "username",
-                        }
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": {
+                            "0": {
+                                "job_data_err": "",
+                                "job_data_out": "",
+                                "job_file": "(null)",
+                                "job_file_err": "stderr-file-not-found",
+                                "job_file_out": "stdout-file-not-found",
+                                "jobid": "352",
+                                "name": "interactive",
+                                "nodelist": "nid02357",
+                                "nodes": "1",
+                                "partition": "debug",
+                                "start_time": "6:38",
+                                "state": "RUNNING",
+                                "time": "2022-03-10T10:11:34",
+                                "time_left": "23:22",
+                                "user": "username",
+                            }
+                        },
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T09:53:48",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "queue_full_id":
             ret = {
-                "task": {
-                    "data": {
-                        "0": {
-                            "job_data_err": "",
-                            "job_data_out": "",
-                            "job_file": "(null)",
-                            "job_file_err": "stderr-file-not-found",
-                            "job_file_out": "stdout-file-not-found",
-                            "jobid": "352",
-                            "name": "interactive",
-                            "nodelist": "nid02357",
-                            "nodes": "1",
-                            "partition": "debug",
-                            "start_time": "6:38",
-                            "state": "RUNNING",
-                            "time": "2022-03-10T10:11:34",
-                            "time_left": "23:22",
-                            "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": {
+                            "0": {
+                                "job_data_err": "",
+                                "job_data_out": "",
+                                "job_file": "(null)",
+                                "job_file_err": "stderr-file-not-found",
+                                "job_file_out": "stdout-file-not-found",
+                                "jobid": "352",
+                                "name": "interactive",
+                                "nodelist": "nid02357",
+                                "nodes": "1",
+                                "partition": "debug",
+                                "start_time": "6:38",
+                                "state": "RUNNING",
+                                "time": "2022-03-10T10:11:34",
+                                "time_left": "23:22",
+                                "user": "username",
+                            },
+                            "1": {
+                                "job_data_err": "",
+                                "job_data_out": "",
+                                "job_file": "(null)",
+                                "job_file_err": "stderr-file-not-found",
+                                "job_file_out": "stdout-file-not-found",
+                                "jobid": "356",
+                                "name": "interactive",
+                                "nodelist": "nid02351",
+                                "nodes": "1",
+                                "partition": "debug",
+                                "start_time": "6:38",
+                                "state": "RUNNING",
+                                "time": "2022-03-10T10:11:34",
+                                "time_left": "23:22",
+                                "user": "username",
+                            },
                         },
-                        "1": {
-                            "job_data_err": "",
-                            "job_data_out": "",
-                            "job_file": "(null)",
-                            "job_file_err": "stderr-file-not-found",
-                            "job_file_out": "stdout-file-not-found",
-                            "jobid": "356",
-                            "name": "interactive",
-                            "nodelist": "nid02351",
-                            "nodes": "1",
-                            "partition": "debug",
-                            "start_time": "6:38",
-                            "state": "RUNNING",
-                            "time": "2022-03-10T10:11:34",
-                            "time_left": "23:22",
-                            "user": "username",
-                        },
-                    },
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:53:48",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T09:53:48",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "data": "slurm_load_jobs error: Invalid job id specified",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T09:47:22",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "slurm_load_jobs error: Invalid job id specified",
+                        "description": "Finished with errors",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T09:47:22",
+                        "service": "compute",
+                        "status": "400",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -752,61 +778,69 @@ def tasks_handler(request: Request):
         if cancel_retry < cancel_result:
             cancel_retry += 1
             ret = {
-                "task": {
-                    "data": "Queued",
-                    "description": "Queued",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-04T11:52:10",
-                    "service": "compute",
-                    "status": "100",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "Queued",
+                        "description": "Queued",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-04T11:52:10",
+                        "service": "compute",
+                        "status": "100",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "cancel_job_id":
             ret = {
-                "task": {
-                    "data": "",
-                    "description": "Finished successfully",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T10:42:06",
-                    "service": "compute",
-                    "status": "200",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "",
+                        "description": "Finished successfully",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T10:42:06",
+                        "service": "compute",
+                        "status": "200",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         elif taskid == "cancel_job_id_permission_fail":
             ret = {
-                "task": {
-                    "data": "User does not have permission to cancel job",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T10:32:26",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "User does not have permission to cancel job",
+                        "description": "Finished with errors",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T10:32:26",
+                        "service": "compute",
+                        "status": "400",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
         else:
             ret = {
-                "task": {
-                    "data": "scancel: error: Invalid job id tg",
-                    "description": "Finished with errors",
-                    "hash_id": taskid,
-                    "last_modify": "2021-12-06T10:39:47",
-                    "service": "compute",
-                    "status": "400",
-                    "task_id": taskid,
-                    "task_url": f"TASK_IP/tasks/{taskid}",
-                    "user": "username",
+                "tasks": {
+                    taskid: {
+                        "data": "scancel: error: Invalid job id tg",
+                        "description": "Finished with errors",
+                        "hash_id": taskid,
+                        "last_modify": "2021-12-06T10:39:47",
+                        "service": "compute",
+                        "status": "400",
+                        "task_id": taskid,
+                        "task_url": f"TASK_IP/tasks/{taskid}",
+                        "user": "username",
+                    }
                 }
             }
             status_code = 200
@@ -839,7 +873,7 @@ def fc_server(httpserver):
     ).respond_with_handler(cancel_handler)
 
     httpserver.expect_request(
-        re.compile("^/tasks/.*"), method="GET"
+        "/tasks", method="GET"
     ).respond_with_handler(tasks_handler)
 
     return httpserver

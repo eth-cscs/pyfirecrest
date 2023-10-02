@@ -33,6 +33,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 # This function is temporarily here
 def handle_response(response):
     print("\nResponse status code:")
@@ -47,8 +48,7 @@ def handle_response(response):
 
 
 class ComputeTask:
-    """Helper object for blocking methods that require multiple requests
-    """
+    """Helper object for blocking methods that require multiple requests"""
 
     def __init__(
         self,
@@ -179,6 +179,15 @@ class AsyncFirecrest:
             "utilities": asyncio.Lock(),
         }
 
+        # The following objects are used to "merge" requests in the same endpoints,
+        # for example requests to tasks or polling for jobs
+        self._polling_ids: dict[str, set] = {"compute": set(), "tasks": set()}
+        self._polling_results: dict[str, List] = {"compute": [], "tasks": []}
+        self._polling_events: dict[str, Optional[asyncio.Event]] = {
+            "compute": None,
+            "tasks": None,
+        }
+
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be assumed that you are
         using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
@@ -191,6 +200,71 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
+
+        async def _merged_get(event):
+            await self._stall_request(microservice)
+            async with self._locks[microservice]:
+                results = self._polling_results[microservice]
+                ids = self._polling_ids[microservice].copy()
+                self._polling_events[microservice] = None
+                self._polling_ids[microservice] = set()
+                comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
+                if ids == {"*"}:
+                    if comma_sep_par in params:
+                        del params[comma_sep_par]
+                else:
+                    params[comma_sep_par] = ",".join(ids)
+
+                headers = {
+                    "Authorization": f"Bearer {self._authorization.get_access_token()}"
+                }
+                if additional_headers:
+                    headers.update(additional_headers)
+
+                logger.info(f"Making GET request to {endpoint}")
+                resp = await self._session.get(
+                    url=url, headers=headers, params=params, timeout=self.timeout
+                )
+
+                self._next_request_ts[microservice] = (
+                    time.time() + self.time_between_calls[microservice]
+                )
+
+                results.append(resp)
+                event.set()
+
+            return
+
+        if microservice == "tasks" or endpoint in ("/compute/jobs", "/compute/acct"):
+            async with self._locks[microservice]:
+                if self._polling_ids[microservice] != {"*"}:
+                    comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
+                    if comma_sep_par not in params:
+                        self._polling_ids[microservice] = {"*"}
+                    else:
+                        task_ids = params[comma_sep_par].split(",")
+                        self._polling_ids[microservice].update(task_ids)
+
+                if self._polling_events[microservice] is None:
+                    self._polling_events[microservice] = asyncio.Event()
+                    my_event = self._polling_events[microservice]
+                    self._polling_results[microservice] = []
+                    my_result = self._polling_results[microservice]
+                    waiter = True
+                    task = asyncio.create_task(_merged_get(my_event))
+                else:
+                    waiter = False
+                    my_event = self._polling_events[microservice]
+                    my_result = self._polling_results[microservice]
+
+            if waiter:
+                await task
+
+            await my_event.wait()  # type: ignore
+            resp = my_result[0]
+            return resp
+
+        # Otherwise just do what you usually do
         async with self._locks[microservice]:
             await self._stall_request(microservice)
             headers = {
@@ -381,17 +455,16 @@ class AsyncFirecrest:
         """
         task_ids = [] if task_ids is None else task_ids
         responses = [] if responses is None else responses
-        endpoint = "/tasks/"
-        if len(task_ids) == 1:
-            endpoint += task_ids[0]
+        endpoint = "/tasks"
+        params = {}
+        if task_ids:
+            params = {"tasks": ",".join([str(j) for j in task_ids])}
 
-        resp = await self._get_request(endpoint=endpoint)
+        resp = await self._get_request(endpoint=endpoint, params=params)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
         if len(task_ids) == 0:
             return taskinfo["tasks"]
-        elif len(task_ids) == 1:
-            return {task_ids[0]: taskinfo["task"]}
         else:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
@@ -1023,6 +1096,10 @@ class AsyncFirecrest:
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
             return list(res.values())
+        elif jobids:
+            # Filter since the request may have been merged with others
+            ret = [i for i in res if i["jobid"] in jobids]
+            return ret
         else:
             return res
 
@@ -1039,7 +1116,7 @@ class AsyncFirecrest:
                 GET `/tasks/{taskid}`
         """
         jobs = jobs if jobs else []
-        jobids = [str(j) for j in jobs]
+        jobids = {str(j) for j in jobs}
         params = {}
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobids])}
@@ -1053,7 +1130,12 @@ class AsyncFirecrest:
         logger.info(f"Job active polling task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
         dict_result = await t.poll_task("200")
-        return list(dict_result.values())
+        if len(jobids):
+            ret = [i for i in dict_result.values() if i["jobid"] in jobids]
+        else:
+            ret = list(dict_result.values())
+
+        return ret
 
     async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
