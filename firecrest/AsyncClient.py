@@ -973,10 +973,6 @@ class AsyncFirecrest:
                 if env:
                     data["env"] = env
 
-                # If all data params are None
-                if data == {}:
-                    data = None
-
                 resp = await self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},

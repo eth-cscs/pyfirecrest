@@ -780,10 +780,6 @@ class Firecrest:
                 if env_vars:
                     data["env"] = env_vars
 
-                # If all data params are None
-                if data == {}:
-                    data = None
-
                 resp = self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
