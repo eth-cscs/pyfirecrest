@@ -9,12 +9,14 @@ from __future__ import annotations
 import itertools
 import jwt
 import logging
+import os
 import pathlib
 import requests
 import sys
+import tempfile
 import time
 
-from contextlib import nullcontext
+from contextlib import nullcontext, AbstractContextManager
 from io import BufferedWriter, BytesIO
 from requests.compat import json  # type: ignore
 from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
@@ -845,7 +847,8 @@ class Firecrest:
         self,
         machine: str,
         job_script: str,
-        local_file: Optional[bool] = True,
+        local_file: Optional[bool] = None,
+        submission_type: Optional[str] = None,
         account: Optional[str] = None,
         env_vars: Optional[dict[str, Any]] = None
     ) -> t.JobSubmit:
@@ -853,17 +856,41 @@ class Firecrest:
 
         :param machine: the machine name where the scheduler belongs to
         :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
-        :param local_file: batch file can be local (default) or on the machine's filesystem
+        :param type_submission: options are `local_file`, `remote_file` and `local_create`
+        :param local_file: [deprecated] batch file can be local (default) or on the machine's filesystem
         :param account: submit the job with this project account
         :param env_vars: dictionary (varName, value) to be loaded as environment variables for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         """
+        if local_file is not None:
+            logger.warning("`local_file` argument is deprecated, please use `submission_type` instead")
+            if submission_type is None:
+                submission_type = "local_file" if local_file else "remote_file"
+
+        submission_type = "local_file" if submission_type is None else submission_type
         self._current_method_requests = []
-        env = json.dumps(env_vars) if env_vars else None
-        json_response = self._submit_request(machine, job_script, local_file, account, env)
-        logger.info(f"Job submission task: {json_response['task_id']}")
+
+        # Check if `job_script` is a filename or a job script and create a file if necessary
+        context: Any = (
+            tempfile.TemporaryDirectory()
+            if submission_type == "local_create"
+            else nullcontext(None)
+        )
+        with context as tmpdirname:
+            if submission_type == "local_create":
+                logger.info(f"Created temporary directory {tmpdirname}")
+                with open(os.path.join(tmpdirname, "script.batch"), "w") as temp_file:
+                    temp_file.write(job_script)
+
+                job_script_file = os.path.join(tmpdirname, "script.batch")
+            else:
+                job_script_file = job_script
+
+            env = json.dumps(env_vars) if env_vars else None
+            json_response = self._submit_request(machine, job_script_file, submission_type != "remote_file", account, env)
+            logger.info(f"Job submission task: {json_response['task_id']}")
 
         # Inject taskid in the result
         result = self._poll_tasks(
