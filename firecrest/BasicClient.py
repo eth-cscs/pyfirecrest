@@ -770,12 +770,18 @@ class Firecrest:
             return None
 
     # Compute
-    def _submit_request(self, machine: str, job_script, local_file, account=None):
+    def _submit_request(self, machine: str, job_script, local_file, account=None, env_vars=None):
         if local_file:
             with open(job_script, "rb") as f:
+                data = {}
                 if account:
-                    data = {"account": account}
-                else:
+                    data["account"] = account
+
+                if env_vars:
+                    data["env"] = env_vars
+
+                # If all data params are None
+                if data == {}:
                     data = None
 
                 resp = self._post_request(
@@ -788,6 +794,9 @@ class Firecrest:
             data = {"targetPath": job_script}
             if account:
                 data["account"] = account
+
+            if env_vars:
+                data["env"] = env_vars
 
             resp = self._post_request(
                 endpoint="/compute/jobs/path",
@@ -838,6 +847,7 @@ class Firecrest:
         job_script: str,
         local_file: Optional[bool] = True,
         account: Optional[str] = None,
+        env_vars: Optional[dict[str, Any]] = None
     ) -> t.JobSubmit:
         """Submits a batch script to SLURM on the target system
 
@@ -845,12 +855,14 @@ class Firecrest:
         :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
         :param local_file: batch file can be local (default) or on the machine's filesystem
         :param account: submit the job with this project account
+        :param env_vars: dictionary (varName, value) to be loaded as environment variables for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         """
         self._current_method_requests = []
-        json_response = self._submit_request(machine, job_script, local_file, account)
+        env = json.dumps(env_vars) if env_vars else None
+        json_response = self._submit_request(machine, job_script, local_file, account, env)
         logger.info(f"Job submission task: {json_response['task_id']}")
 
         # Inject taskid in the result
