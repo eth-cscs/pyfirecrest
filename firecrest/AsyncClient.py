@@ -982,7 +982,10 @@ class AsyncFirecrest:
                 "`script_remote_path`, and `job_script` can be set at a time. "
                 "`job_script` is deprecated, so prefer one of the others."
             )
-            raise ValueError
+            raise ValueError(
+                "Only one of the arguments  `script_str`, `script_local_path`, "
+                "`script_remote_path`, and `job_script` can be set at a time. "
+            )
 
         if job_script is not None:
             logger.warning("`local_file` argument is deprecated, please use one of "
