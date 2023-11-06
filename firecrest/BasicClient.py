@@ -836,24 +836,24 @@ class Firecrest:
     def submit(
         self,
         machine: str,
+        job_script: Optional[str] = None,
+        local_file: Optional[bool] = True,
         script_str: Optional[str] = None,
         script_local_path: Optional[str] = None,
         script_remote_path: Optional[str] = None,
         account: Optional[str] = None,
         env_vars: Optional[dict[str, Any]] = None,
-        job_script: Optional[str] = None,
-        local_file: Optional[bool] = True,
     ) -> t.JobSubmit:
         """Submits a batch script to SLURM on the target system. One of `script_str`, `script_local` and `script_remote` needs to be set.
 
         :param machine: the machine name where the scheduler belongs to
+        :param job_script: [deprecated] use `script_str`, `script_local_path` or `script_remote_path`
+        :param local_file: [deprecated]
         :param script_str: the content of the script to be submitted
         :param script_local_path: the path of the script on the local file system
         :param script_remote_path: the full path of the script on the remote file system
         :param account: submit the job with this project account
         :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
-        :param job_script: [deprecated]
-        :param local_file: [deprecated]
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
@@ -863,7 +863,7 @@ class Firecrest:
             script_local_path is None,
             script_remote_path is None,
             job_script is None
-        ].count(True) != 1:
+        ].count(False) != 1:
             logger.error(
                 "Only one of the arguments  `script_str`, `script_local_path`, "
                 "`script_remote_path`, and `job_script` can be set at a time. "
