@@ -944,73 +944,13 @@ class AsyncFirecrest:
             return None
 
     # Compute
-    async def _submit_request(self, machine: str, job_script, local_file, account=None):
-        if local_file:
-            with open(job_script, "rb") as f:
-                if account:
-                    data = {"account": account}
-                else:
-                    data = None
-
-                resp = await self._post_request(
-                    endpoint="/compute/jobs/upload",
-                    additional_headers={"X-Machine-Name": machine},
-                    files={"file": f},
-                    data=data,
-                )
-        else:
-            data = {"targetPath": job_script}
-            if account:
-                data["account"] = account
-
-            resp = await self._post_request(
-                endpoint="/compute/jobs/path",
-                additional_headers={"X-Machine-Name": machine},
-                data=data,
-            )
-
-        return self._json_response([resp], 201)
-
-    async def _squeue_request(self, machine: str, jobs=None):
-        jobs = [] if jobs is None else jobs
-        params = {}
-        if jobs:
-            params = {"jobs": ",".join([str(j) for j in jobs])}
-
-        resp = await self._get_request(
-            endpoint="/compute/jobs",
-            additional_headers={"X-Machine-Name": machine},
-            params=params,
-        )
-        return self._json_response([resp], 200)
-
-    async def _acct_request(
-        self, machine: str, jobs=None, start_time=None, end_time=None
-    ):
-        jobs = [] if jobs is None else jobs
-        params = {}
-        if jobs:
-            params["jobs"] = ",".join(jobs)
-
-        if start_time:
-            params["starttime"] = start_time
-
-        if end_time:
-            params["endtime"] = end_time
-
-        resp = await self._get_request(
-            endpoint="/compute/acct",
-            additional_headers={"X-Machine-Name": machine},
-            params=params,
-        )
-        return self._json_response([resp], 200)
-
     async def submit(
         self,
         machine: str,
         job_script: str,
         local_file: Optional[bool] = True,
         account: Optional[str] = None,
+        env_vars: Optional[dict[str, Any]] = None
     ) -> t.JobSubmit:
         """Submits a batch script to SLURM on the target system
 
@@ -1018,17 +958,21 @@ class AsyncFirecrest:
         :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
         :param local_file: batch file can be local (default) or on the machine's filesystem
         :param account: submit the job with this project account
+        :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         """
+        env = json.dumps(env_vars) if env_vars else None
+        data = {}
+        if account:
+            data["account"] = account
+
+        if env:
+            data["env"] = env
+
         if local_file:
             with open(job_script, "rb") as f:
-                if account:
-                    data = {"account": account}
-                else:
-                    data = None
-
                 resp = await self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
@@ -1036,10 +980,7 @@ class AsyncFirecrest:
                     data=data,
                 )
         else:
-            data = {"targetPath": job_script}
-            if account:
-                data["account"] = account
-
+            data["targetPath"] = job_script
             resp = await self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
