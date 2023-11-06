@@ -773,15 +773,15 @@ class Firecrest:
 
     # Compute
     def _submit_request(self, machine: str, job_script, local_file, account=None, env_vars=None):
+        data = {}
+        if account:
+            data["account"] = account
+
+        if env_vars:
+            data["env"] = env_vars
+
         if local_file:
             with open(job_script, "rb") as f:
-                data = {}
-                if account:
-                    data["account"] = account
-
-                if env_vars:
-                    data["env"] = env_vars
-
                 resp = self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
@@ -789,13 +789,7 @@ class Firecrest:
                     data=data,
                 )
         else:
-            data = {"targetPath": job_script}
-            if account:
-                data["account"] = account
-
-            if env_vars:
-                data["env"] = env_vars
-
+            data["targetPath"] = job_script
             resp = self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
@@ -855,7 +849,7 @@ class Firecrest:
         :param type_submission: options are `local_file`, `remote_file` and `local_create`
         :param local_file: [deprecated] batch file can be local (default) or on the machine's filesystem
         :param account: submit the job with this project account
-        :param env_vars: dictionary (varName, value) to be loaded as environment variables for the job
+        :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`

@@ -958,21 +958,21 @@ class AsyncFirecrest:
         :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
         :param local_file: batch file can be local (default) or on the machine's filesystem
         :param account: submit the job with this project account
-        :param env_vars: dictionary (varName, value) to be loaded as environment variables for the job
+        :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         """
         env = json.dumps(env_vars) if env_vars else None
+        data = {}
+        if account:
+            data["account"] = account
+
+        if env:
+            data["env"] = env
+
         if local_file:
             with open(job_script, "rb") as f:
-                data = {}
-                if account:
-                    data["account"] = account
-
-                if env:
-                    data["env"] = env
-
                 resp = await self._post_request(
                     endpoint="/compute/jobs/upload",
                     additional_headers={"X-Machine-Name": machine},
@@ -980,13 +980,7 @@ class AsyncFirecrest:
                     data=data,
                 )
         else:
-            data = {"targetPath": job_script}
-            if account:
-                data["account"] = account
-
-            if env:
-                data["env"] = env
-
+            data["targetPath"] = job_script
             resp = await self._post_request(
                 endpoint="/compute/jobs/path",
                 additional_headers={"X-Machine-Name": machine},
