@@ -19,6 +19,7 @@ class Parameter(TypedDict):
     name: str
     unit: str
     value: Any
+    description: str
 
 
 class Parameters(TypedDict):
