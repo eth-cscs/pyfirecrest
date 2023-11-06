@@ -1022,12 +1022,12 @@ class AsyncFirecrest:
             if not is_path:
                 logger.info(f"Created temporary directory {tmpdirname}")
                 with open(os.path.join(tmpdirname, "script.batch"), "w") as temp_file:
-                    temp_file.write(script_str)
+                    temp_file.write(script_str)  # type: ignore
 
                 job_script_file = os.path.join(tmpdirname, "script.batch")
 
             if is_local:
-                with open(job_script_file, "rb") as f:
+                with open(job_script_file, "rb") as f:  # type: ignore
                     resp = await self._post_request(
                         endpoint="/compute/jobs/upload",
                         additional_headers={"X-Machine-Name": machine},
@@ -1035,6 +1035,7 @@ class AsyncFirecrest:
                         data=data,
                     )
             else:
+                assert isinstance(job_script_file, str)
                 data["targetPath"] = job_script_file
                 resp = await self._post_request(
                     endpoint="/compute/jobs/path",

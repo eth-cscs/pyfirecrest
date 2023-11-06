@@ -904,7 +904,7 @@ class Firecrest:
             if not is_path:
                 logger.info(f"Created temporary directory {tmpdirname}")
                 with open(os.path.join(tmpdirname, "script.batch"), "w") as temp_file:
-                    temp_file.write(script_str)
+                    temp_file.write(script_str)  # type: ignore
 
                 job_script_file = os.path.join(tmpdirname, "script.batch")
 
