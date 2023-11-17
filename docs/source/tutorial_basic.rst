@@ -106,7 +106,7 @@ This is how can make a simple job submission, when the batch script is on your l
 
 .. code-block:: Python
 
-    job = client.submit("cluster", "script.sh")
+    job = client.submit("cluster", script_local_path="script.sh")
     print(job)
 
 For a successful submission the output would look like this.
@@ -128,7 +128,7 @@ From the returned fields, you can see the result of the job submission (``result
 All requests that involve the scheduler will create a FirecREST task and be part of an internal queue.
 When you upload a batch script, FirecREST will create a new directory called ``firecrest``, and a subdirectory there with the Firecrest task ID. It will upload the batchscript there and submit the job from this directory.
 
-If you choose to submit the job with a batch script in the machine's filesystem, with the option ``local_file=False``, then FirecREST will submit the job from the directory of the batch script.
+If you choose to submit the job with a batch script in the machine's filesystem, with the option ``script_remote_path=/path/to/script``, then FirecREST will submit the job from the directory of the batch script.
 
 This method hides the multiple requests and will be blocking, but you can find more information about the job submission `here <https://firecrest.readthedocs.io/en/latest/tutorial.html#upload-a-small-file-with-the-blocking-call>`__.
 
