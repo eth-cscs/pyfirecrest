@@ -158,20 +158,27 @@ def parameters():
     """Configurable parameters of FirecREST"""
     try:
         result = client.parameters()
-        storage_table = create_table(
-            "Storage parameters",
-            result["storage"],
+        info = [
             ("Name", "name"),
             ("Value", "value"),
             ("Unit", "unit"),
+        ]
+        if "description" in result["storage"][0]:
+            info.append(("Description", "description"))
+
+        storage_table = create_table(
+            "Storage parameters",
+            result["storage"],
+            *info
         )
+
+        if "description" in result["utilities"][0]:
+            info.append(("Description", "description"))
 
         utilities_table = create_table(
             "Utilities parameters",
             result["utilities"],
-            ("Name", "name"),
-            ("Value", "value"),
-            ("Unit", "unit"),
+            *info
         )
 
         console.print(storage_table, utilities_table, overflow="fold")
