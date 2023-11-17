@@ -809,9 +809,12 @@ def submit(
         help="The batch file can be local (default) or on the system's filesystem.",
     ),
 ):
-    """Submit a batch script to the workload manger of the target system"""
+    """Submit a batch script to the workload manager of the target system"""
     try:
-        console.print(client.submit(system, job_script, local, account=account))
+        if local:
+            console.print(client.submit(system, script_local_path=job_script, account=account))
+        else:
+            console.print(client.submit(system, script_remote_path=job_script, account=account))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

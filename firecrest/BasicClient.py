@@ -9,9 +9,11 @@ from __future__ import annotations
 import itertools
 import jwt
 import logging
+import os
 import pathlib
 import requests
 import sys
+import tempfile
 import time
 
 from contextlib import nullcontext
@@ -834,26 +836,85 @@ class Firecrest:
     def submit(
         self,
         machine: str,
-        job_script: str,
+        job_script: Optional[str] = None,
         local_file: Optional[bool] = True,
+        script_str: Optional[str] = None,
+        script_local_path: Optional[str] = None,
+        script_remote_path: Optional[str] = None,
         account: Optional[str] = None,
-        env_vars: Optional[dict[str, Any]] = None
+        env_vars: Optional[dict[str, Any]] = None,
     ) -> t.JobSubmit:
-        """Submits a batch script to SLURM on the target system
+        """Submits a batch script to SLURM on the target system. One of `script_str`, `script_local` and `script_remote` needs to be set.
 
         :param machine: the machine name where the scheduler belongs to
-        :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
-        :param local_file: batch file can be local (default) or on the machine's filesystem
+        :param job_script: [deprecated] use `script_str`, `script_local_path` or `script_remote_path`
+        :param local_file: [deprecated]
+        :param script_str: the content of the script to be submitted
+        :param script_local_path: the path of the script on the local file system
+        :param script_remote_path: the full path of the script on the remote file system
         :param account: submit the job with this project account
         :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         """
+        if [
+            script_str is None,
+            script_local_path is None,
+            script_remote_path is None,
+            job_script is None
+        ].count(False) != 1:
+            logger.error(
+                "Only one of the arguments  `script_str`, `script_local_path`, "
+                "`script_remote_path`, and `job_script` can be set at a time. "
+                "`job_script` is deprecated, so prefer one of the others."
+            )
+            raise ValueError(
+                "Only one of the arguments  `script_str`, `script_local_path`, "
+                "`script_remote_path`, and `job_script` can be set at a time. "
+            )
+
+        if job_script is not None:
+            logger.warning("`local_file` argument is deprecated, please use one of "
+                           "`script_str`, `script_local_path` or `script_remote_path` instead")
+
+            if local_file:
+                script_local_path = job_script
+            else:
+                script_remote_path = job_script
+
+        if script_str is not None:
+            is_path = False
+            is_local = True
+            job_script_file = None
+        elif script_local_path is not None:
+            is_path = True
+            is_local = True
+            job_script_file = script_local_path
+        elif script_remote_path is not None:
+            is_path = True
+            is_local = False
+            job_script_file = script_remote_path
+
         self._current_method_requests = []
-        env = json.dumps(env_vars) if env_vars else None
-        json_response = self._submit_request(machine, job_script, local_file, account, env)
-        logger.info(f"Job submission task: {json_response['task_id']}")
+
+        # Check if `job_script` is a filename or a job script and create a file if necessary
+        context: Any = (
+            tempfile.TemporaryDirectory()
+            if not is_path
+            else nullcontext(None)
+        )
+        with context as tmpdirname:
+            if not is_path:
+                logger.info(f"Created temporary directory {tmpdirname}")
+                with open(os.path.join(tmpdirname, "script.batch"), "w") as temp_file:
+                    temp_file.write(script_str)  # type: ignore
+
+                job_script_file = os.path.join(tmpdirname, "script.batch")
+
+            env = json.dumps(env_vars) if env_vars else None
+            json_response = self._submit_request(machine, job_script_file, is_local, account, env)
+            logger.info(f"Job submission task: {json_response['task_id']}")
 
         # Inject taskid in the result
         result = self._poll_tasks(
