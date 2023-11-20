@@ -293,6 +293,11 @@ def ls(
 
 @app.command(rich_help_panel="Utilities commands")
 def mkdir(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -317,6 +322,11 @@ def mkdir(
 
 @app.command(rich_help_panel="Utilities commands")
 def mv(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -337,6 +347,11 @@ def mv(
 
 @app.command(rich_help_panel="Utilities commands")
 def chmod(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -357,6 +372,11 @@ def chmod(
 
 @app.command(rich_help_panel="Utilities commands")
 def chown(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -381,6 +401,11 @@ def chown(
 
 @app.command(rich_help_panel="Utilities commands")
 def cp(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -401,6 +426,11 @@ def cp(
 
 @app.command(rich_help_panel="Utilities commands")
 def file(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -420,6 +450,11 @@ def file(
 
 @app.command(rich_help_panel="Utilities commands")
 def stat(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -509,6 +544,11 @@ def stat(
 
 @app.command(rich_help_panel="Utilities commands")
 def symlink(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -529,6 +569,11 @@ def symlink(
 
 @app.command(rich_help_panel="Utilities commands")
 def rm(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -557,6 +602,11 @@ def rm(
 
 @app.command(rich_help_panel="Utilities commands")
 def checksum(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -576,6 +626,11 @@ def checksum(
 
 @app.command(rich_help_panel="Utilities commands")
 def head(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -631,6 +686,11 @@ def head(
 
 @app.command(rich_help_panel="Utilities commands")
 def tail(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -686,6 +746,11 @@ def tail(
 
 @app.command(rich_help_panel="Utilities commands")
 def whoami(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         None,
         "-s",
@@ -711,6 +776,11 @@ class TransferType(str, Enum):
 
 @app.command(rich_help_panel="Storage commands")
 def download(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -762,6 +832,11 @@ def download(
 
 @app.command(rich_help_panel="Storage commands")
 def upload(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -824,6 +899,11 @@ def upload(
 
 @app.command(rich_help_panel="Compute commands")
 def submit(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -854,6 +934,11 @@ def submit(
 
 @submit_template_app.command("mv")
 def submit_mv(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -897,6 +982,11 @@ def submit_mv(
 
 @submit_template_app.command("cp")
 def submit_cp(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -940,6 +1030,11 @@ def submit_cp(
 
 @submit_template_app.command("rsync")
 def submit_rsync(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -983,6 +1078,11 @@ def submit_rsync(
 
 @submit_template_app.command("rm")
 def submit_rm(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -1023,6 +1123,11 @@ def submit_rm(
 
 @app.command(rich_help_panel="Compute commands")
 def poll(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -1069,6 +1174,11 @@ def poll(
 
 @app.command(rich_help_panel="Compute commands")
 def poll_active(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -1107,6 +1217,11 @@ def poll_active(
 
 @app.command(rich_help_panel="Compute commands")
 def cancel(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -1122,6 +1237,11 @@ def cancel(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def list(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -1137,6 +1257,11 @@ def list(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def create(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -1167,6 +1292,11 @@ def create(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def update(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -1197,6 +1327,11 @@ def update(
 
 @reservation_app.command(rich_help_panel="Reservation commands")
 def delete(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
