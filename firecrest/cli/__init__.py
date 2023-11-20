@@ -100,7 +100,6 @@ def version_callback(value: bool):
 
 
 def config_parent_load_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
-    print('getting config from parent')
     ctx.default_map = ctx.parent.default_map
 
 
@@ -112,7 +111,6 @@ def config_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 
             ctx.default_map = ctx.default_map or {}
             ctx.default_map.update(config)
-            print('loading config')
         except Exception as ex:
             raise typer.BadParameter(str(ex))
 
@@ -244,7 +242,7 @@ def tasks(
 
 @app.command(rich_help_panel="Utilities commands")
 def ls(
-    config: str = typer.Option(None,
+    config_from_parent: str = typer.Option(None,
         callback=config_parent_load_callback,
         is_eager=True,
         hidden=True
@@ -1176,10 +1174,11 @@ def delete(
 
 @app.callback()
 def main(
-    config: str = typer.Option("config.yaml" if os.path.isfile("config.yaml")  else None,
+    config: Optional[str] = typer.Option(
+        None,
+        envvar="FIRECREST_CONFIG",
         callback=config_callback,
         is_eager=True,
-        hidden=True
     ),
     version: Optional[bool] = typer.Option(
         None,
