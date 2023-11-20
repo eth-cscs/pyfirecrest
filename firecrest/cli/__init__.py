@@ -5,7 +5,6 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #
 import logging
-import os
 import typer
 import yaml
 
@@ -100,7 +99,7 @@ def version_callback(value: bool):
 
 
 def config_parent_load_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
-    ctx.default_map = ctx.parent.default_map
+    ctx.default_map = ctx.parent.default_map  # type: ignore
 
 
 def config_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
