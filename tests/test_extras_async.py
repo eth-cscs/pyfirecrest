@@ -52,7 +52,7 @@ def invalid_client(fc_server):
 @pytest.fixture
 def fc_server(httpserver):
     httpserver.expect_request(
-        re.compile("^/tasks/.*"), method="GET"
+        "/tasks", method="GET"
     ).respond_with_handler(basic_extras.tasks_handler)
 
     return httpserver
@@ -157,8 +157,7 @@ async def test_one_task(valid_client):
 
 @pytest.mark.asyncio
 async def test_invalid_task(valid_client):
-    with pytest.raises(firecrest.FirecrestException):
-        await valid_client._tasks(["invalid_id"])
+    assert await valid_client._tasks(["invalid_id"]) == {}
 
 
 @pytest.mark.asyncio

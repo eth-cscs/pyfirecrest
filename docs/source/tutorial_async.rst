@@ -35,7 +35,7 @@ Here is an example of the calls we saw in the previous section:
     print(files)
 
     # Submit a job
-    job = await client.submit("cluster", "script.sh")
+    job = await client.submit("cluster", script_local_path="script.sh")
     print(job)
 
 
@@ -86,7 +86,7 @@ Here is a more complete example for how you could use the asynchronous client:
 
     async def workflow(client, i):
         logger.info(f"{i}: Starting workflow")
-        job = await client.submit(machine, local_script_path)
+        job = await client.submit(machine, script_local_path=local_script_path)
         logger.info(f"{i}: Submitted job with jobid: {job['jobid']}")
         while True:
             poll_res = await client.poll_active(machine, [job["jobid"]])

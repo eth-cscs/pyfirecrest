@@ -21,8 +21,7 @@ ERROR_HEADERS = {
 
 
 class FirecrestException(Exception):
-    """Base class for exceptions raised when using PyFirecREST.
-    """
+    """Base class for exceptions raised when using PyFirecREST."""
 
     def __init__(self, responses):
         super().__init__()
@@ -42,32 +41,28 @@ class FirecrestException(Exception):
 
 
 class NotFound(FirecrestException):
-    """Exception raised by an invalid path
-    """
+    """Exception raised by an invalid path"""
 
     def __str__(self):
         return f"{super().__str__()}: FirecREST endpoint not found"
 
 
 class UnauthorizedException(FirecrestException):
-    """Exception raised by an unauthorized request
-    """
+    """Exception raised by an unauthorized request"""
 
     def __str__(self):
         return f"{super().__str__()}: unauthorized request"
 
 
 class ClientsCredentialsException(FirecrestException):
-    """Exception raised by the request to the authorization server
-    """
+    """Exception raised by the request to the authorization server"""
 
     def __str__(self):
         return f"{super().__str__()}: Client credentials error"
 
 
 class HeaderException(FirecrestException):
-    """Exception raised by a request with an error header
-    """
+    """Exception raised by a request with an error header"""
 
     def __str__(self):
         s = f"{super().__str__()}: "
@@ -80,8 +75,7 @@ class HeaderException(FirecrestException):
 
 
 class UnexpectedStatusException(FirecrestException):
-    """Exception raised when a request gets an unexpected status
-    """
+    """Exception raised when a request gets an unexpected status"""
 
     def __init__(self, responses, expected_status_code):
         super().__init__(responses)
@@ -92,18 +86,15 @@ class UnexpectedStatusException(FirecrestException):
 
 
 class NoJSONException(FirecrestException):
-    """Exception raised when JSON in not included in the response
-    """
+    """Exception raised when JSON in not included in the response"""
 
     def __str__(self):
         return f"{super().__str__()}: JSON is not included in the response"
 
 
 class StorageDownloadException(FirecrestException):
-    """Exception raised by a failed external download
-    """
+    """Exception raised by a failed external download"""
 
 
 class StorageUploadException(FirecrestException):
-    """Exception raised by a failed external upload
-    """
+    """Exception raised by a failed external upload"""

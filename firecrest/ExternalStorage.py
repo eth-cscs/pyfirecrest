@@ -35,8 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExternalStorage:
-    """External storage object.
-    """
+    """External storage object."""
 
     _final_states: set[str]
 
@@ -58,14 +57,12 @@ class ExternalStorage:
 
     @property
     def client(self) -> Firecrest:
-        """Returns the client that will be used to get information for the task.
-        """
+        """Returns the client that will be used to get information for the task."""
         return self._client
 
     @property
     def task_id(self) -> str:
-        """Returns the FirecREST task ID that is associated with this transfer.
-        """
+        """Returns the FirecREST task ID that is associated with this transfer."""
         return self._task_id
 
     def _update(self) -> None:

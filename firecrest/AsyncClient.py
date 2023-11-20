@@ -11,21 +11,15 @@ import httpx
 from io import BytesIO
 import jwt
 import logging
+import os
 import pathlib
 import requests
 import sys
+import tempfile
 import time
 
 from contextlib import nullcontext
-from typing import (
-    Any,
-    ContextManager,
-    Optional,
-    overload,
-    Sequence,
-    Tuple,
-    List,
-)
+from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
 from requests.compat import json  # type: ignore
 from packaging.version import Version, parse
 
@@ -41,6 +35,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 # This function is temporarily here
 def handle_response(response):
     print("\nResponse status code:")
@@ -55,8 +50,7 @@ def handle_response(response):
 
 
 class ComputeTask:
-    """Helper object for blocking methods that require multiple requests
-    """
+    """Helper object for blocking methods that require multiple requests"""
 
     def __init__(
         self,
@@ -116,7 +110,7 @@ class AsyncFirecrest:
                         default=resp.headers.get("RateLimit-Reset", default=10),
                     )
                     reset = int(reset)
-                    microservice = kwargs['endpoint'].split("/")[1]
+                    microservice = kwargs["endpoint"].split("/")[1]
                     client = args[0]
                     logger.info(
                         f"Rate limit in `{microservice}` is reached, next "
@@ -187,6 +181,15 @@ class AsyncFirecrest:
             "utilities": asyncio.Lock(),
         }
 
+        # The following objects are used to "merge" requests in the same endpoints,
+        # for example requests to tasks or polling for jobs
+        self._polling_ids: dict[str, set] = {"compute": set(), "tasks": set()}
+        self._polling_results: dict[str, List] = {"compute": [], "tasks": []}
+        self._polling_events: dict[str, Optional[asyncio.Event]] = {
+            "compute": None,
+            "tasks": None,
+        }
+
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be assumed that you are
         using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
@@ -194,9 +197,76 @@ class AsyncFirecrest:
         self._api_version = parse(api_version)
 
     @_retry_requests  # type: ignore
-    async def _get_request(self, endpoint, additional_headers=None, params=None) -> httpx.Response:
+    async def _get_request(
+        self, endpoint, additional_headers=None, params=None
+    ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
+
+        async def _merged_get(event):
+            await self._stall_request(microservice)
+            async with self._locks[microservice]:
+                results = self._polling_results[microservice]
+                ids = self._polling_ids[microservice].copy()
+                self._polling_events[microservice] = None
+                self._polling_ids[microservice] = set()
+                comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
+                if ids == {"*"}:
+                    if comma_sep_par in params:
+                        del params[comma_sep_par]
+                else:
+                    params[comma_sep_par] = ",".join(ids)
+
+                headers = {
+                    "Authorization": f"Bearer {self._authorization.get_access_token()}"
+                }
+                if additional_headers:
+                    headers.update(additional_headers)
+
+                logger.info(f"Making GET request to {endpoint}")
+                resp = await self._session.get(
+                    url=url, headers=headers, params=params, timeout=self.timeout
+                )
+
+                self._next_request_ts[microservice] = (
+                    time.time() + self.time_between_calls[microservice]
+                )
+
+                results.append(resp)
+                event.set()
+
+            return
+
+        if microservice == "tasks" or endpoint in ("/compute/jobs", "/compute/acct"):
+            async with self._locks[microservice]:
+                if self._polling_ids[microservice] != {"*"}:
+                    comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
+                    if comma_sep_par not in params:
+                        self._polling_ids[microservice] = {"*"}
+                    else:
+                        task_ids = params[comma_sep_par].split(",")
+                        self._polling_ids[microservice].update(task_ids)
+
+                if self._polling_events[microservice] is None:
+                    self._polling_events[microservice] = asyncio.Event()
+                    my_event = self._polling_events[microservice]
+                    self._polling_results[microservice] = []
+                    my_result = self._polling_results[microservice]
+                    waiter = True
+                    task = asyncio.create_task(_merged_get(my_event))
+                else:
+                    waiter = False
+                    my_event = self._polling_events[microservice]
+                    my_result = self._polling_results[microservice]
+
+            if waiter:
+                await task
+
+            await my_event.wait()  # type: ignore
+            resp = my_result[0]
+            return resp
+
+        # Otherwise just do what you usually do
         async with self._locks[microservice]:
             await self._stall_request(microservice)
             headers = {
@@ -240,7 +310,9 @@ class AsyncFirecrest:
         return resp
 
     @_retry_requests  # type: ignore
-    async def _put_request(self, endpoint, additional_headers=None, data=None) -> httpx.Response:
+    async def _put_request(
+        self, endpoint, additional_headers=None, data=None
+    ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
@@ -385,17 +457,16 @@ class AsyncFirecrest:
         """
         task_ids = [] if task_ids is None else task_ids
         responses = [] if responses is None else responses
-        endpoint = "/tasks/"
-        if len(task_ids) == 1:
-            endpoint += task_ids[0]
+        endpoint = "/tasks"
+        params = {}
+        if task_ids:
+            params = {"tasks": ",".join([str(j) for j in task_ids])}
 
-        resp = await self._get_request(endpoint=endpoint)
+        resp = await self._get_request(endpoint=endpoint, params=params)
         responses.append(resp)
         taskinfo = self._json_response(responses, 200)
         if len(task_ids) == 0:
             return taskinfo["tasks"]
-        elif len(task_ids) == 1:
-            return {task_ids[0]: taskinfo["task"]}
         else:
             return {k: v for k, v in taskinfo["tasks"].items() if k in task_ids}
 
@@ -875,112 +946,115 @@ class AsyncFirecrest:
             return None
 
     # Compute
-    async def _submit_request(self, machine: str, job_script, local_file, account=None):
-        if local_file:
-            with open(job_script, "rb") as f:
-                if account:
-                    data = {"account": account}
-                else:
-                    data = None
-
-                resp = await self._post_request(
-                    endpoint="/compute/jobs/upload",
-                    additional_headers={"X-Machine-Name": machine},
-                    files={"file": f},
-                    data=data,
-                )
-        else:
-            data = {"targetPath": job_script}
-            if account:
-                data["account"] = account
-
-            resp = await self._post_request(
-                endpoint="/compute/jobs/path",
-                additional_headers={"X-Machine-Name": machine},
-                data=data,
-            )
-
-        return self._json_response([resp], 201)
-
-    async def _squeue_request(self, machine: str, jobs=None):
-        jobs = [] if jobs is None else jobs
-        params = {}
-        if jobs:
-            params = {"jobs": ",".join([str(j) for j in jobs])}
-
-        resp = await self._get_request(
-            endpoint="/compute/jobs",
-            additional_headers={"X-Machine-Name": machine},
-            params=params,
-        )
-        return self._json_response([resp], 200)
-
-    async def _acct_request(
-        self, machine: str, jobs=None, start_time=None, end_time=None
-    ):
-        jobs = [] if jobs is None else jobs
-        params = {}
-        if jobs:
-            params["jobs"] = ",".join(jobs)
-
-        if start_time:
-            params["starttime"] = start_time
-
-        if end_time:
-            params["endtime"] = end_time
-
-        resp = await self._get_request(
-            endpoint="/compute/acct",
-            additional_headers={"X-Machine-Name": machine},
-            params=params,
-        )
-        return self._json_response([resp], 200)
-
     async def submit(
         self,
         machine: str,
-        job_script: str,
+        job_script: Optional[str] = None,
         local_file: Optional[bool] = True,
+        script_str: Optional[str] = None,
+        script_local_path: Optional[str] = None,
+        script_remote_path: Optional[str] = None,
         account: Optional[str] = None,
+        env_vars: Optional[dict[str, Any]] = None,
     ) -> t.JobSubmit:
-        """Submits a batch script to SLURM on the target system
+        """Submits a batch script to SLURM on the target system. One of `script_str`, `script_local` and `script_remote` needs to be set.
 
         :param machine: the machine name where the scheduler belongs to
-        :param job_script: the path of the script (if it's local it can be relative path, if it is on the machine it has to be the absolute path)
-        :param local_file: batch file can be local (default) or on the machine's filesystem
+        :param job_script: [deprecated] use `script_str`, `script_local_path` or `script_remote_path`
+        :param local_file: [deprecated]
+        :param script_str: the content of the script to be submitted
+        :param script_local_path: the path of the script on the local file system
+        :param script_remote_path: the full path of the script on the remote file system
         :param account: submit the job with this project account
+        :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
                 GET `/tasks/{taskid}`
         """
-        if local_file:
-            with open(job_script, "rb") as f:
-                if account:
-                    data = {"account": account}
-                else:
-                    data = None
+        if [
+            script_str is None,
+            script_local_path is None,
+            script_remote_path is None,
+            job_script is None
+        ].count(False) != 1:
+            logger.error(
+                "Only one of the arguments  `script_str`, `script_local_path`, "
+                "`script_remote_path`, and `job_script` can be set at a time. "
+                "`job_script` is deprecated, so prefer one of the others."
+            )
+            raise ValueError(
+                "Only one of the arguments  `script_str`, `script_local_path`, "
+                "`script_remote_path`, and `job_script` can be set at a time. "
+            )
 
+        if job_script is not None:
+            logger.warning("`local_file` argument is deprecated, please use one of "
+                           "`script_str`, `script_local_path` or `script_remote_path` instead")
+
+            if local_file:
+                script_local_path = job_script
+            else:
+                script_remote_path = job_script
+
+        if script_str is not None:
+            is_path = False
+            is_local = True
+            job_script_file = None
+        elif script_local_path is not None:
+            is_path = True
+            is_local = True
+            job_script_file = script_local_path
+        elif script_remote_path is not None:
+            is_path = True
+            is_local = False
+            job_script_file = script_remote_path
+
+        env = json.dumps(env_vars) if env_vars else None
+        data = {}
+        if account:
+            data["account"] = account
+
+        if env:
+            data["env"] = env
+
+        context: Any = (
+            tempfile.TemporaryDirectory()
+            if not is_path
+            else nullcontext(None)
+        )
+        with context as tmpdirname:
+            if not is_path:
+                logger.info(f"Created temporary directory {tmpdirname}")
+                with open(os.path.join(tmpdirname, "script.batch"), "w") as temp_file:
+                    temp_file.write(script_str)  # type: ignore
+
+                job_script_file = os.path.join(tmpdirname, "script.batch")
+
+            if is_local:
+                with open(job_script_file, "rb") as f:  # type: ignore
+                    resp = await self._post_request(
+                        endpoint="/compute/jobs/upload",
+                        additional_headers={"X-Machine-Name": machine},
+                        files={"file": f},
+                        data=data,
+                    )
+            else:
+                assert isinstance(job_script_file, str)
+                data["targetPath"] = job_script_file
                 resp = await self._post_request(
-                    endpoint="/compute/jobs/upload",
+                    endpoint="/compute/jobs/path",
                     additional_headers={"X-Machine-Name": machine},
-                    files={"file": f},
                     data=data,
                 )
-        else:
-            data = {"targetPath": job_script}
-            if account:
-                data["account"] = account
-
-            resp = await self._post_request(
-                endpoint="/compute/jobs/path",
-                additional_headers={"X-Machine-Name": machine},
-                data=data,
-            )
 
         json_response = self._json_response([resp], 201)
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
-        return await t.poll_task("200")
+
+        # Inject taskid in the result
+        result = await t.poll_task("200")
+        result["firecrest_taskid"] = json_response["task_id"]
+        return result
 
     async def poll(
         self,
@@ -1023,6 +1097,10 @@ class AsyncFirecrest:
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
             return list(res.values())
+        elif jobids:
+            # Filter since the request may have been merged with others
+            ret = [i for i in res if i["jobid"] in jobids]
+            return ret
         else:
             return res
 
@@ -1039,7 +1117,7 @@ class AsyncFirecrest:
                 GET `/tasks/{taskid}`
         """
         jobs = jobs if jobs else []
-        jobids = [str(j) for j in jobs]
+        jobids = {str(j) for j in jobs}
         params = {}
         if jobs:
             params = {"jobs": ",".join([str(j) for j in jobids])}
@@ -1053,7 +1131,12 @@ class AsyncFirecrest:
         logger.info(f"Job active polling task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
         dict_result = await t.poll_task("200")
-        return list(dict_result.values())
+        if len(jobids):
+            ret = [i for i in dict_result.values() if i["jobid"] in jobids]
+        else:
+            ret = list(dict_result.values())
+
+        return ret
 
     async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
