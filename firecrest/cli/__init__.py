@@ -10,7 +10,7 @@ import typer
 import firecrest as fc
 
 from firecrest import __app_name__, __version__
-from typing import List, Optional
+from typing import Dict, List, Optional
 from enum import Enum
 
 from rich import box
@@ -797,6 +797,15 @@ def upload(
         raise typer.Exit(code=1)
 
 
+import re
+def validate_env_var_format(value: List[str]):
+    pattern = re.compile(r'^[A-Za-z_]\w*=[\S]*$')
+    for item in value:
+        if not pattern.match(item):
+            raise typer.BadParameter(f"Invalid format for environment variable: {item}")
+    return value
+
+
 @app.command(rich_help_panel="Compute commands")
 def submit(
     system: str = typer.Option(
@@ -815,13 +824,27 @@ def submit(
         True,
         help="The batch file can be local (default) or on the system's filesystem.",
     ),
+    env_vars: Optional[List[str]] = typer.Option(
+        ..., "-e", "--env-var",
+        help="Environment variable to be exported in the environment where the job script will be submitted",
+        # callback=validate_env_var_format
+    )
 ):
     """Submit a batch script to the workload manager of the target system"""
+    envvars = {}
+    for var_value_pair in env_vars:
+        try:
+            var, val = var_value_pair.split(':', 1)
+            envvars[var] = val
+        except Exception as e:
+            examine_exeption(e)
+            raise typer.BadParameter(f"Invalid format for environment variable: {var_value_pair}")
+
     try:
         if local:
-            console.print(client.submit(system, script_local_path=job_script, account=account))
+            console.print(client.submit(system, script_local_path=job_script, account=account, env_vars=envvars))
         else:
-            console.print(client.submit(system, script_remote_path=job_script, account=account))
+            console.print(client.submit(system, script_remote_path=job_script, account=account, env_vars=envvars))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
