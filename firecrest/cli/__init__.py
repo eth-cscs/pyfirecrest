@@ -10,7 +10,7 @@ import typer
 import firecrest as fc
 
 from firecrest import __app_name__, __version__
-from typing import Dict, List, Optional
+from typing import List, Optional
 from enum import Enum
 
 from rich import box
