@@ -5,6 +5,7 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #
 import logging
+import re
 import typer
 
 import firecrest as fc
@@ -797,12 +798,11 @@ def upload(
         raise typer.Exit(code=1)
 
 
-import re
 def validate_env_var_format(value: List[str]):
-    pattern = re.compile(r'^[A-Za-z_]\w*=[\S]*$')
+    pattern = re.compile(r'\S+=\S+')
     for item in value:
         if not pattern.match(item):
-            raise typer.BadParameter(f"Invalid format for environment variable: {item}")
+            raise typer.BadParameter(f"Please use the format `var=val`.")
     return value
 
 
@@ -825,20 +825,16 @@ def submit(
         help="The batch file can be local (default) or on the system's filesystem.",
     ),
     env_vars: Optional[List[str]] = typer.Option(
-        ..., "-e", "--env-var",
+        [], "-e", "--env-var",
         help="Environment variable to be exported in the environment where the job script will be submitted",
-        # callback=validate_env_var_format
+        callback=validate_env_var_format
     )
 ):
     """Submit a batch script to the workload manager of the target system"""
     envvars = {}
     for var_value_pair in env_vars:
-        try:
-            var, val = var_value_pair.split(':', 1)
-            envvars[var] = val
-        except Exception as e:
-            examine_exeption(e)
-            raise typer.BadParameter(f"Invalid format for environment variable: {var_value_pair}")
+        var, val = var_value_pair.split('=', 1)
+        envvars[var] = val
 
     try:
         if local:
