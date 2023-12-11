@@ -593,8 +593,9 @@ class AsyncFirecrest:
 
     async def mkdir(
         self, machine: str, target_path: str, p: Optional[bool] = None
-    ) -> None:
+    ) -> str:
         """Creates a new directory.
+        When successful, the method returns a string with the path of the newly created directory.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
@@ -611,9 +612,11 @@ class AsyncFirecrest:
             data=data,
         )
         self._json_response([resp], 201)
+        return target_path
 
-    async def mv(self, machine: str, source_path: str, target_path: str) -> None:
+    async def mv(self, machine: str, source_path: str, target_path: str) -> str:
         """Rename/move a file, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem.
+        When successful, the method returns a string with the new path of the file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
@@ -626,6 +629,7 @@ class AsyncFirecrest:
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 200)
+        return target_path
 
     async def chmod(self, machine: str, target_path: str, mode: str) -> None:
         """Changes the file mod bits of a given file according to the specified mode.
@@ -675,8 +679,9 @@ class AsyncFirecrest:
         )
         self._json_response([resp], 200)
 
-    async def copy(self, machine: str, source_path: str, target_path: str) -> None:
+    async def copy(self, machine: str, source_path: str, target_path: str) -> str:
         """Copies file from `source_path` to `target_path`.
+        When successful, the method returns a string with the path of the newly created file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
@@ -689,6 +694,7 @@ class AsyncFirecrest:
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 201)
+        return target_path
 
     async def file_type(self, machine: str, target_path: str) -> str:
         """Uses the `file` linux application to determine the type of a file.
@@ -726,8 +732,9 @@ class AsyncFirecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    async def symlink(self, machine: str, target_path: str, link_path: str) -> None:
+    async def symlink(self, machine: str, target_path: str, link_path: str) -> str:
         """Creates a symbolic link.
+        When successful, the method returns a string with the path of the newly created link.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute path that the symlink will point to
@@ -740,6 +747,7 @@ class AsyncFirecrest:
             data={"targetPath": target_path, "linkPath": link_path},
         )
         self._json_response([resp], 201)
+        return target_path
 
     async def simple_download(
         self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO
