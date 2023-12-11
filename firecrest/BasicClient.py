@@ -419,8 +419,9 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def mkdir(self, machine: str, target_path: str, p: Optional[bool] = None) -> None:
+    def mkdir(self, machine: str, target_path: str, p: Optional[bool] = None) -> str:
         """Creates a new directory.
+        When successful, the method returns a string with the path of the newly created directory.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
@@ -437,9 +438,11 @@ class Firecrest:
             data=data,
         )
         self._json_response([resp], 201)
+        return target_path
 
-    def mv(self, machine: str, source_path: str, target_path: str) -> None:
+    def mv(self, machine: str, source_path: str, target_path: str) -> str:
         """Rename/move a file, directory, or symlink at the `source_path` to the `target_path` on `machine`'s filesystem.
+        When successful, the method returns a string with the new path of the file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
@@ -452,6 +455,7 @@ class Firecrest:
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 200)
+        return target_path
 
     def chmod(self, machine: str, target_path: str, mode: str) -> None:
         """Changes the file mod bits of a given file according to the specified mode.
@@ -501,8 +505,9 @@ class Firecrest:
         )
         self._json_response([resp], 200)
 
-    def copy(self, machine: str, source_path: str, target_path: str) -> None:
+    def copy(self, machine: str, source_path: str, target_path: str) -> str:
         """Copies file from `source_path` to `target_path`.
+        When successful, the method returns a string with the path of the newly created file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
@@ -515,6 +520,7 @@ class Firecrest:
             data={"targetPath": target_path, "sourcePath": source_path},
         )
         self._json_response([resp], 201)
+        return target_path
 
     def file_type(self, machine: str, target_path: str) -> str:
         """Uses the `file` linux application to determine the type of a file.
@@ -552,8 +558,9 @@ class Firecrest:
         )
         return self._json_response([resp], 200)["output"]
 
-    def symlink(self, machine: str, target_path: str, link_path: str) -> None:
+    def symlink(self, machine: str, target_path: str, link_path: str) -> str:
         """Creates a symbolic link.
+        When successful, the method returns a string with the path of the newly created link.
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute path that the symlink will point to
@@ -566,6 +573,7 @@ class Firecrest:
             data={"targetPath": target_path, "linkPath": link_path},
         )
         self._json_response([resp], 201)
+        return target_path
 
     def simple_download(
         self, machine: str, source_path: str, target_path: str | pathlib.Path | BytesIO
