@@ -5,6 +5,7 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #
 import logging
+import re
 import typer
 import yaml
 
@@ -896,6 +897,15 @@ def upload(
         raise typer.Exit(code=1)
 
 
+def validate_env_var_format(value: List[str]):
+    pattern = re.compile(r'\S+=\S+')
+    for item in value:
+        if not pattern.match(item):
+            raise typer.BadParameter(f"Please use the format `VAR=VALUE`.")
+
+    return value
+
+
 @app.command(rich_help_panel="Compute commands")
 def submit(
     config_from_parent: str = typer.Option(None,
@@ -919,13 +929,24 @@ def submit(
         True,
         help="The batch file can be local (default) or on the system's filesystem.",
     ),
+    env_vars: List[str] = typer.Option(
+        [], "-e", "--env-var",
+        metavar="VAR=VALUE",
+        help="Environment variable to be exported in the environment where the job script will be submitted (format `VAR=VALUE`).",
+        callback=validate_env_var_format
+    )
 ):
     """Submit a batch script to the workload manager of the target system"""
+    envvars = {}
+    for var_value_pair in env_vars:
+        var, val = var_value_pair.split('=', 1)
+        envvars[var] = val
+
     try:
         if local:
-            console.print(client.submit(system, script_local_path=job_script, account=account))
+            console.print(client.submit(system, script_local_path=job_script, account=account, env_vars=envvars))
         else:
-            console.print(client.submit(system, script_remote_path=job_script, account=account))
+            console.print(client.submit(system, script_remote_path=job_script, account=account, env_vars=envvars))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
