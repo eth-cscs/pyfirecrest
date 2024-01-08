@@ -802,7 +802,8 @@ def validate_env_var_format(value: List[str]):
     pattern = re.compile(r'\S+=\S+')
     for item in value:
         if not pattern.match(item):
-            raise typer.BadParameter(f"Please use the format `var=val`.")
+            raise typer.BadParameter(f"Please use the format `VAR=VALUE`.")
+
     return value
 
 
@@ -826,7 +827,8 @@ def submit(
     ),
     env_vars: List[str] = typer.Option(
         [], "-e", "--env-var",
-        help="Environment variable to be exported in the environment where the job script will be submitted",
+        metavar="VAR=VALUE",
+        help="Environment variable to be exported in the environment where the job script will be submitted (format `VAR=VALUE`).",
         callback=validate_env_var_format
     )
 ):
