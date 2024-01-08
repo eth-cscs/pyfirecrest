@@ -824,7 +824,7 @@ def submit(
         True,
         help="The batch file can be local (default) or on the system's filesystem.",
     ),
-    env_vars: Optional[List[str]] = typer.Option(
+    env_vars: List[str] = typer.Option(
         [], "-e", "--env-var",
         help="Environment variable to be exported in the environment where the job script will be submitted",
         callback=validate_env_var_format
