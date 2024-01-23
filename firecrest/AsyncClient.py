@@ -1098,10 +1098,10 @@ class AsyncFirecrest:
             params["endtime"] = end_time
 
         if page_size is not None:
-            params["pageSize"] = page_size
+            params["pageSize"] = str(page_size)
 
         if page_number is not None:
-            params["pageNumber"] = page_number
+            params["pageNumber"] = str(page_number)
 
         resp = await self._get_request(
             endpoint="/compute/acct",
@@ -1147,10 +1147,10 @@ class AsyncFirecrest:
             params["jobs"] = ",".join([str(j) for j in jobids])
 
         if page_size is not None:
-            params["pageSize"] = page_size
+            params["pageSize"] = str(page_size)
 
         if page_number is not None:
-            params["pageNumber"] = page_number
+            params["pageNumber"] = str(page_number)
 
         resp = await self._get_request(
             endpoint="/compute/jobs",
