@@ -807,11 +807,17 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 201)
 
-    def _squeue_request(self, machine: str, jobs=None):
+    def _squeue_request(self, machine: str, jobs=None, page_size=None, page_number=None):
         jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
-            params = {"jobs": ",".join([str(j) for j in jobs])}
+            params["jobs"] = ",".join([str(j) for j in jobs])
+
+        if page_size is not None:
+            params["pageSize"] = page_size
+
+        if page_number is not None:
+            params["pageNumber"] = page_number
 
         resp = self._get_request(
             endpoint="/compute/jobs",
@@ -821,7 +827,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         return self._json_response(self._current_method_requests, 200)
 
-    def _acct_request(self, machine: str, jobs=None, start_time=None, end_time=None):
+    def _acct_request(self, machine: str, jobs=None, start_time=None, end_time=None, page_size=None, page_number=None):
         jobs = [] if jobs is None else jobs
         params = {}
         if jobs:
@@ -832,6 +838,12 @@ class Firecrest:
 
         if end_time:
             params["endtime"] = end_time
+
+        if page_size is not None:
+            params["pageSize"] = page_size
+
+        if page_number is not None:
+            params["pageNumber"] = page_number
 
         resp = self._get_request(
             endpoint="/compute/acct",
@@ -937,6 +949,8 @@ class Firecrest:
         jobs: Optional[Sequence[str | int]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
     ) -> List[t.JobAcct]:
         """Retrieves information about submitted jobs.
         This call uses the `sacct` command.
@@ -945,6 +959,8 @@ class Firecrest:
         :param jobs: list of the IDs of the jobs
         :param start_time: Start time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
         :param end_time: End time (and/or date) of job's query. Allowed formats are HH:MM[:SS] [AM|PM] MMDD[YY] or MM/DD[/YY] or MM.DD[.YY] MM/DD[/YY]-HH:MM[:SS] YYYY-MM-DD[THH:MM[:SS]]
+        :param page_size: number of entries returned (when `page_number` is not `None`, the default value is 25)
+        :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/acct`
 
                 GET `/tasks/{taskid}`
@@ -956,7 +972,7 @@ class Firecrest:
             )
 
         jobids = [str(j) for j in jobs] if jobs else []
-        json_response = self._acct_request(machine, jobids, start_time, end_time)
+        json_response = self._acct_request(machine, jobids, start_time, end_time, page_size, page_number)
         logger.info(f"Job polling task: {json_response['task_id']}")
         res = self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
@@ -968,13 +984,19 @@ class Firecrest:
             return res
 
     def poll_active(
-        self, machine: str, jobs: Optional[Sequence[str | int]] = None
+        self,
+        machine: str,
+        jobs: Optional[Sequence[str | int]] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
     ) -> List[t.JobQueue]:
         """Retrieves information about active jobs.
         This call uses the `squeue -u <username>` command.
 
         :param machine: the machine name where the scheduler belongs to
         :param jobs: list of the IDs of the jobs
+        :param page_size: number of entries returned (when `page_number` is not `None`, the default value is 25)
+        :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/jobs`
 
                 GET `/tasks/{taskid}`
@@ -987,7 +1009,7 @@ class Firecrest:
 
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
-        json_response = self._squeue_request(machine, jobids)
+        json_response = self._squeue_request(machine, jobids, page_size, page_number)
         logger.info(f"Job active polling task: {json_response['task_id']}")
         dict_result = self._poll_tasks(
             json_response["task_id"], "200", itertools.cycle([1, 5, 10])
