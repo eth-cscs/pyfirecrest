@@ -64,6 +64,12 @@ class Firecrest:
         def wrapper(*args, **kwargs):
             client = args[0]
             num_retries = 0
+            try:
+                f = kwargs["files"]["file"]
+                file_original_position = f[1].tell() if isinstance(f, tuple) else f.tell()
+            except KeyError:
+                file_original_position = None
+
             resp = func(*args, **kwargs)
             while True:
                 if resp.status_code != client.TOO_MANY_REQUESTS_CODE:
@@ -87,6 +93,20 @@ class Firecrest:
                         f"{reset} seconds and try again"
                     )
                     reset = int(reset)
+                    try:
+                        f = kwargs["files"]["file"]
+                        logger.debug(
+                            f"Resetting the file pointer of the uploaded file "
+                            f"to {file_original_position}"
+                        )
+                        if isinstance(f, tuple):
+                            f[1].seek(file_original_position)
+                        else:
+                            f.seek(file_original_position)
+
+                    except KeyError:
+                        pass
+
                     time.sleep(reset)
                     resp = func(*args, **kwargs)
                     num_retries += 1
