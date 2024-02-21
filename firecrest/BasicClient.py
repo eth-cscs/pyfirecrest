@@ -25,6 +25,7 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
+from firecrest.utilities import time_block
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -137,13 +138,15 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making GET request to {endpoint}")
-        resp = self._session.get(
-            url=url,
-            headers=headers,
-            params=params,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+        with time_block(f"GET request to {endpoint}", logger):
+            resp = self._session.get(
+                url=url,
+                headers=headers,
+                params=params,
+                verify=self._verify,
+                timeout=self.timeout,
+            )
+
         return resp
 
     @_retry_requests  # type: ignore
@@ -156,14 +159,16 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making POST request to {endpoint}")
-        resp = self._session.post(
-            url=url,
-            headers=headers,
-            data=data,
-            files=files,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+        with time_block(f"POST request to {endpoint}", logger):
+            resp = self._session.post(
+                url=url,
+                headers=headers,
+                data=data,
+                files=files,
+                verify=self._verify,
+                timeout=self.timeout,
+            )
+
         return resp
 
     @_retry_requests  # type: ignore
@@ -176,13 +181,15 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making PUT request to {endpoint}")
-        resp = self._session.put(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+        with time_block(f"PUT request to {endpoint}", logger):
+            resp = self._session.put(
+                url=url,
+                headers=headers,
+                data=data,
+                verify=self._verify,
+                timeout=self.timeout,
+            )
+
         return resp
 
     @_retry_requests  # type: ignore
@@ -195,13 +202,15 @@ class Firecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making DELETE request to {endpoint}")
-        resp = self._session.delete(
-            url=url,
-            headers=headers,
-            data=data,
-            verify=self._verify,
-            timeout=self.timeout,
-        )
+        with time_block(f"DELETE request to {endpoint}", logger):
+            resp = self._session.delete(
+                url=url,
+                headers=headers,
+                data=data,
+                verify=self._verify,
+                timeout=self.timeout,
+            )
+
         return resp
 
     @overload
