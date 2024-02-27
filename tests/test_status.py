@@ -60,6 +60,10 @@ def fc_server(httpserver):
         parameters_handler
     )
 
+    httpserver.expect_request("/status/filesystems", method="GET").respond_with_handler(
+        filesystems_handler
+    )
+
     return httpserver
 
 
@@ -191,6 +195,38 @@ def parameters_handler(request: Request):
                 {"name": "UTILITIES_TIMEOUT", "unit": "seconds", "value": "5"},
             ],
         },
+    }
+    return Response(json.dumps(ret), status=200, content_type="application/json")
+
+
+def filesystems_handler(request: Request):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
+
+    ret = {
+        "description": "Filesystem information",
+        "out": {
+            "cluster": [
+                {
+                    "description": "Users home filesystem",
+                    "name": "HOME",
+                    "path": "/home",
+                    "status": "available",
+                    "status_code": 200
+                },
+                {
+                    "description": "Scratch filesystem",
+                    "name": "SCRATCH",
+                    "path": "/scratch",
+                    "status": "not available",
+                    "status_code": 400
+                }
+            ]
+        }
     }
     return Response(json.dumps(ret), status=200, content_type="application/json")
 
@@ -334,3 +370,37 @@ def test_cli_parameters(valid_credentials):
 def test_parameters_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.parameters()
+
+
+def test_filesystems(valid_client):
+    assert valid_client.filesystems() == {
+        "cluster": [
+            {
+                "description": "Users home filesystem",
+                "name": "HOME",
+                "path": "/home",
+                "status": "available",
+                "status_code": 200
+            },
+            {
+                "description": "Scratch filesystem",
+                "name": "SCRATCH",
+                "path": "/scratch",
+                "status": "not available",
+                "status_code": 400
+            }
+        ]
+    }
+
+
+def test_cli_filesystems(valid_credentials):
+    args = valid_credentials + ["filesystems"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Status of filesystems for `cluster`" in stdout
+
+
+def test_filesystems_invalid(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.filesystems()

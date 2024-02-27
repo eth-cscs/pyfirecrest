@@ -589,6 +589,16 @@ class AsyncFirecrest:
         resp = await self._get_request(endpoint="/status/parameters")
         return self._json_response([resp], 200)["out"]
 
+    async def filesystems(self) -> dict[str, List[t.Filesystem]]:
+        """Returns the status of the filesystems per system.
+
+        :calls: GET `/status/filesystems`
+
+        .. warning:: This is available only for FirecREST>=1.15.0
+        """
+        resp = await self._get_request(endpoint="/status/filesystems")
+        return self._json_response([resp], 200)["out"]
+
     # Utilities
     async def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False

@@ -208,6 +208,27 @@ def parameters():
 
 
 @app.command(rich_help_panel="Status commands")
+def filesystems():
+    """Information about the filesystems that are available through FirecREST"""
+    try:
+        result = client.filesystems()
+        for system in result.keys():
+            table = create_table(
+                f"Status of filesystems for `{system}`",
+                result[system],
+                ("Name", "name"),
+                ("Path", "path"),
+                ("Status code", "status_code"),
+                ("Status", "status"),
+                ("Description", "description"),
+            )
+            console.print(table, overflow="fold")
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Status commands")
 def tasks(
     taskids: Optional[List[str]] = typer.Argument(
         None, help="List of task IDs to display."

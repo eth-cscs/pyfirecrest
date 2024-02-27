@@ -62,6 +62,10 @@ def fc_server(httpserver):
         basic_status.parameters_handler
     )
 
+    httpserver.expect_request("/status/filesystems", method="GET").respond_with_handler(
+        basic_status.filesystems_handler
+    )
+
     return httpserver
 
 
@@ -167,3 +171,31 @@ async def test_parameters(valid_client):
 async def test_parameters_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         await invalid_client.parameters()
+
+
+@pytest.mark.asyncio
+async def test_filesystems(valid_client):
+    assert await valid_client.filesystems() == {
+        "cluster": [
+            {
+                "description": "Users home filesystem",
+                "name": "HOME",
+                "path": "/home",
+                "status": "available",
+                "status_code": 200
+            },
+            {
+                "description": "Scratch filesystem",
+                "name": "SCRATCH",
+                "path": "/scratch",
+                "status": "not available",
+                "status_code": 400
+            }
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_filesystems_invalid(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        await invalid_client.filesystems()
