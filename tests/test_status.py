@@ -426,7 +426,7 @@ def test_filesystems(valid_client):
 
 def test_cli_filesystems(valid_credentials):
     # Clean up the env var that may be set in the environment
-    os.environ.pop("FIRECREST_SYSTEM")
+    os.environ.pop("FIRECREST_SYSTEM", None)
     args = valid_credentials + ["filesystems"]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
