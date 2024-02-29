@@ -417,15 +417,25 @@ class Firecrest:
         resp = self._get_request(endpoint="/status/parameters")
         return self._json_response([resp], 200)["out"]
 
-    def filesystems(self) -> dict[str, List[t.Filesystem]]:
+    def filesystems(self, system_name: Optional[str] = None) -> dict[str, List[t.Filesystem]]:
         """Returns the status of the filesystems per system.
 
+        :param system_name: the system name
         :calls: GET `/status/filesystems`
+        :calls: GET `/status/filesystems/{system_name}`
 
         .. warning:: This is available only for FirecREST>=1.15.0
         """
-        resp = self._get_request(endpoint="/status/filesystems")
-        return self._json_response([resp], 200)["out"]
+        if system_name:
+            resp = self._get_request(endpoint=f"/status/filesystems/{system_name}")
+            # Return the result in the same structure
+            result = {
+                system_name: self._json_response([resp], 200)["out"]
+            }
+            return result
+        else:
+            resp = self._get_request(endpoint="/status/filesystems")
+            return self._json_response([resp], 200)["out"]
 
     # Utilities
     def list_files(

@@ -62,9 +62,9 @@ def fc_server(httpserver):
         basic_status.parameters_handler
     )
 
-    httpserver.expect_request("/status/filesystems", method="GET").respond_with_handler(
-        basic_status.filesystems_handler
-    )
+    httpserver.expect_request(
+        re.compile("^/status/filesystems.*"), method="GET"
+    ).respond_with_handler(basic_status.filesystems_handler)
 
     return httpserver
 
@@ -176,6 +176,25 @@ async def test_parameters_invalid(invalid_client):
 @pytest.mark.asyncio
 async def test_filesystems(valid_client):
     assert await valid_client.filesystems() == {
+        "cluster": [
+            {
+                "description": "Users home filesystem",
+                "name": "HOME",
+                "path": "/home",
+                "status": "available",
+                "status_code": 200
+            },
+            {
+                "description": "Scratch filesystem",
+                "name": "SCRATCH",
+                "path": "/scratch",
+                "status": "not available",
+                "status_code": 400
+            }
+        ]
+    }
+
+    assert await valid_client.filesystems(system_name="cluster") == {
         "cluster": [
             {
                 "description": "Users home filesystem",

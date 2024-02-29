@@ -208,10 +208,18 @@ def parameters():
 
 
 @app.command(rich_help_panel="Status commands")
-def filesystems():
+def filesystems(
+    system: Optional[str] = typer.Option(
+        None,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystems belongs to.",
+        envvar="FIRECREST_SYSTEM",
+    ),
+):
     """Information about the filesystems that are available through FirecREST"""
     try:
-        result = client.filesystems()
+        result = client.filesystems(system)
         for system in result.keys():
             table = create_table(
                 f"Status of filesystems for `{system}`",
