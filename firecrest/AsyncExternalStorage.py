@@ -249,5 +249,5 @@ class AsyncExternalDownload(AsyncExternalStorage):
             if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
             else nullcontext(target_path)
         )
-        with urllib.request.urlopen(url) as response, context as out_file:
+        with urllib.request.urlopen(url['url']) as response, context as out_file:
             shutil.copyfileobj(response, out_file)
