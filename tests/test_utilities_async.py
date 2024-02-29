@@ -651,3 +651,25 @@ async def test_whoami_invalid_machine(valid_client):
 async def test_whoami_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         await invalid_client.whoami("cluster1")
+
+
+@pytest.mark.asyncio
+async def test_groups(valid_client):
+    assert await valid_client.groups("cluster1") == {
+        "group": {"id": "1000", "name": "group1"},
+        "groups": [{"id": "1000", "name": "group1"}, {"id": "1001", "name": "group2"}],
+        "user": {"id": "10000", "name": "test_user"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_groups_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        await valid_client.groups("cluster2")
+
+
+@pytest.mark.asyncio
+async def test_groups_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        await invalid_client.groups("cluster1")
+

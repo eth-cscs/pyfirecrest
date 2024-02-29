@@ -140,3 +140,16 @@ class JobSubmit(TypedDict):
     job_file_out: str
     jobid: int
     result: str
+
+
+class Id(TypedDict):
+    name: str
+    id: str
+
+
+class UserId(TypedDict):
+    """A record from the `id` command"""
+
+    user: Id
+    group: Id
+    groups: list[Id]
