@@ -229,7 +229,7 @@ class AsyncExternalDownload(AsyncExternalStorage):
         :calls: GET `/tasks/{taskid}`
         """
         if self._client._api_version > Version("1.13.0"):
-            return await self.object_storage_data["url"]
+            return (await self.object_storage_data)["url"]
         else:
             return await self.object_storage_data
 
@@ -240,7 +240,7 @@ class AsyncExternalDownload(AsyncExternalStorage):
 
         :param target_path: the local path to save the file
         """
-        url = await self.object_storage_data
+        url = await self.object_storage_link
         logger.info(f"Downloading the file from {url} and saving to {target_path}")
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")

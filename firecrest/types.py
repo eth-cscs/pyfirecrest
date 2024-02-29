@@ -46,6 +46,16 @@ class System(TypedDict):
     system: str
 
 
+class Filesystem(TypedDict):
+    """A filesystem record, from `status/filesystems`"""
+
+    name: str
+    path: str
+    description: str
+    status: int
+    status_code: str
+
+
 class Task(TypedDict):
     """A task record, from `/tasks`"""
 
