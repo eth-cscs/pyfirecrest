@@ -730,8 +730,21 @@ def whoami_handler(request: Request):
             content_type="application/json",
         )
 
+    groups = request.args.get("groups", False)
+    if groups:
+        ret = {
+            "description": "User information",
+            "output": {
+                "group": {"id": "1000", "name": "group1"},
+                "groups": [{"id": "1000", "name": "group1"}, {"id": "1001", "name": "group2"}],
+                "user": {"id": "10000", "name": "test_user"},
+            }
+        }
+    else:
+        ret = {"description": "Success on whoami operation.", "output": "username"}
+
     return Response(
-        json.dumps({"description": "Success on whoami operation.", "output": "username"}),
+        json.dumps(ret),
         status=200,
         content_type="application/json",
     )
@@ -1510,3 +1523,37 @@ def test_whoami_invalid_machine(valid_client):
 def test_whoami_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.whoami("cluster1")
+
+
+def test_cli_whoami(valid_credentials):
+    args = valid_credentials + ["whoami", "--system", "cluster1"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "username" in stdout
+
+
+def test_groups(valid_client):
+    assert valid_client.groups("cluster1") == {
+        "group": {"id": "1000", "name": "group1"},
+        "groups": [{"id": "1000", "name": "group1"}, {"id": "1001", "name": "group2"}],
+        "user": {"id": "10000", "name": "test_user"},
+    }
+
+
+def test_groups_invalid_machine(valid_client):
+    with pytest.raises(firecrest.HeaderException):
+        valid_client.groups("cluster2")
+
+
+def test_groups_invalid_client(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.groups("cluster1")
+
+
+def test_cli_id(valid_credentials):
+    args = valid_credentials + ["id", "--system", "cluster1"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "uid=10000(test_user) gid=1000(group1) groups=1000(group1),1001(group2)" in stdout

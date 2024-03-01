@@ -2,6 +2,7 @@ import common
 import json
 import pytest
 import re
+import os
 import test_authorisation as auth
 
 from context import firecrest
@@ -59,6 +60,10 @@ def fc_server(httpserver):
     httpserver.expect_request("/status/parameters", method="GET").respond_with_handler(
         parameters_handler
     )
+
+    httpserver.expect_request(
+        re.compile("^/status/filesystems.*"), method="GET"
+    ).respond_with_handler(filesystems_handler)
 
     return httpserver
 
@@ -193,6 +198,49 @@ def parameters_handler(request: Request):
         },
     }
     return Response(json.dumps(ret), status=200, content_type="application/json")
+
+
+def filesystems_handler(request: Request):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
+
+    ret = {
+        "description": "Filesystem information",
+        "out": {
+            "cluster": [
+                {
+                    "description": "Users home filesystem",
+                    "name": "HOME",
+                    "path": "/home",
+                    "status": "available",
+                    "status_code": 200
+                },
+                {
+                    "description": "Scratch filesystem",
+                    "name": "SCRATCH",
+                    "path": "/scratch",
+                    "status": "not available",
+                    "status_code": 400
+                }
+            ]
+        }
+    }
+    ret_status = 200
+    uri = request.url
+    if not uri.endswith("/status/filesystems"):
+        system = uri.split("/")[-1]
+        if system == "cluster":
+            ret["description"] = f"Filesystem information for system {system}"
+            ret["out"] = ret["out"][system]
+        else:
+            ret = {"description": f"System '{system}' does not exists."}
+            ret_status = 400
+
+    return Response(json.dumps(ret), status=ret_status, content_type="application/json")
 
 
 def test_all_services(valid_client):
@@ -334,3 +382,69 @@ def test_cli_parameters(valid_credentials):
 def test_parameters_invalid(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.parameters()
+
+
+def test_filesystems(valid_client):
+    assert valid_client.filesystems() == {
+        "cluster": [
+            {
+                "description": "Users home filesystem",
+                "name": "HOME",
+                "path": "/home",
+                "status": "available",
+                "status_code": 200
+            },
+            {
+                "description": "Scratch filesystem",
+                "name": "SCRATCH",
+                "path": "/scratch",
+                "status": "not available",
+                "status_code": 400
+            }
+        ]
+    }
+
+    assert valid_client.filesystems(system_name="cluster") == {
+        "cluster": [
+            {
+                "description": "Users home filesystem",
+                "name": "HOME",
+                "path": "/home",
+                "status": "available",
+                "status_code": 200
+            },
+            {
+                "description": "Scratch filesystem",
+                "name": "SCRATCH",
+                "path": "/scratch",
+                "status": "not available",
+                "status_code": 400
+            }
+        ]
+    }
+
+
+def test_cli_filesystems(valid_credentials):
+    # Clean up the env var that may be set in the environment
+    os.environ.pop("FIRECREST_SYSTEM", None)
+    args = valid_credentials + ["filesystems"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Status of filesystems for `cluster`" in stdout
+
+    args = valid_credentials + ["filesystems", "--system", "cluster"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Status of filesystems for `cluster`" in stdout
+
+    args = valid_credentials + ["filesystems", "--system", "invalid_cluster"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 1
+
+
+def test_filesystems_invalid(invalid_client):
+    with pytest.raises(firecrest.UnauthorizedException):
+        invalid_client.filesystems()

@@ -426,6 +426,26 @@ class Firecrest:
         resp = self._get_request(endpoint="/status/parameters")
         return self._json_response([resp], 200)["out"]
 
+    def filesystems(self, system_name: Optional[str] = None) -> dict[str, List[t.Filesystem]]:
+        """Returns the status of the filesystems per system.
+
+        :param system_name: the system name
+        :calls: GET `/status/filesystems`
+        :calls: GET `/status/filesystems/{system_name}`
+
+        .. warning:: This is available only for FirecREST>=1.15.0
+        """
+        if system_name:
+            resp = self._get_request(endpoint=f"/status/filesystems/{system_name}")
+            # Return the result in the same structure
+            result = {
+                system_name: self._json_response([resp], 200)["out"]
+            }
+            return result
+        else:
+            resp = self._get_request(endpoint="/status/filesystems")
+            return self._json_response([resp], 200)["out"]
+
     # Utilities
     def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False
@@ -807,6 +827,22 @@ class Firecrest:
         except Exception:
             # Invalid token, cannot retrieve username
             return None
+
+    def groups(self, machine) -> t.UserId:
+        """Returns the output of the `id` command, user and group ids.
+
+        :calls: GET `/utilities/whoami`
+
+        .. warning:: This is available only for FirecREST>=1.15.0
+        """
+        resp = self._get_request(
+            endpoint="/utilities/whoami",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "groups": True
+            }
+        )
+        return self._json_response([resp], 200)["output"]
 
     # Compute
     def _submit_request(self, machine: str, job_script, local_file, account=None, env_vars=None):
