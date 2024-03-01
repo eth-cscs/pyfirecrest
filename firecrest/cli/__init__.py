@@ -798,6 +798,34 @@ def whoami(
         raise typer.Exit(code=1)
 
 
+@app.command(rich_help_panel="Utilities commands")
+def id(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
+    system: str = typer.Option(
+        None,
+        "-s",
+        "--system",
+        help="The name of the system where the `id` command will run.",
+        envvar="FIRECREST_SYSTEM",
+    ),
+):
+    """Return the identity of the user in the remote system.
+    """
+    try:
+        result = client.groups(system)
+        user = f"{result['user']['id']}({result['user']['name']})"
+        group = f"{result['group']['id']}({result['group']['name']})"
+        all_groups = ",".join([f"{g['id']}({g['name']})" for g in result["groups"]])
+        console.print(f"uid={user} gid={group} groups={all_groups}")
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
 class TransferType(str, Enum):
     direct = "direct"
     external = "external"

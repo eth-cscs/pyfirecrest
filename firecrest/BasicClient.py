@@ -819,6 +819,22 @@ class Firecrest:
             # Invalid token, cannot retrieve username
             return None
 
+    def groups(self, machine) -> t.UserId:
+        """Returns the output of the `id` command, user and group ids.
+
+        :calls: GET `/utilities/whoami`
+
+        .. warning:: This is available only for FirecREST>=1.15.0
+        """
+        resp = self._get_request(
+            endpoint="/utilities/whoami",
+            additional_headers={"X-Machine-Name": machine},
+            params={
+                "groups": True
+            }
+        )
+        return self._json_response([resp], 200)["output"]
+
     # Compute
     def _submit_request(self, machine: str, job_script, local_file, account=None, env_vars=None):
         data = {}
