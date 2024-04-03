@@ -357,7 +357,7 @@ class AsyncFirecrest:
     @_retry_requests  # type: ignore
     async def _delete_request(
         self, endpoint, additional_headers=None, data=None
-    ) -> requests.Response:
+    ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
         async with self._locks[microservice]:
@@ -369,10 +369,15 @@ class AsyncFirecrest:
                 headers.update(additional_headers)
 
             logger.info(f"Making DELETE request to {endpoint}")
-            # TODO: httpx doesn't support data in delete so we will have to
-            # keep using the `requests` package for this
-            resp = requests.delete(
-                url=url, headers=headers, data=data, timeout=self.timeout
+            # httpx doesn't support data in the `delete` method so we will have to
+            # use the generic `request` method
+            # https://www.python-httpx.org/compatibility/#request-body-on-http-methods
+            resp = await self._session.request(
+                method="DELETE",
+                url=url,
+                headers=headers,
+                data=data,
+                timeout=self.timeout,
             )
             self._next_request_ts[microservice] = (
                 time.time() + self.time_between_calls[microservice]
