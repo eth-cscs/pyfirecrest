@@ -228,6 +228,11 @@ class AsyncFirecrest:
 
         self._session = httpx.AsyncClient()
 
+    @property
+    def is_session_closed(self) -> bool:
+        """Check if the httpx session is closed"""
+        return self._session.is_closed
+
     @_retry_requests  # type: ignore
     async def _get_request(
         self, endpoint, additional_headers=None, params=None
