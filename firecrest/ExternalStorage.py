@@ -52,7 +52,7 @@ class ExternalStorage:
         self._status: Optional[str] = None
         self._data = None
         self._object_storage_data = None
-        self._sleep_time = itertools.cycle([1, 5, 10])
+        self._sleep_time = itertools.cycle([1])
         self._responses = previous_responses
 
     @property
