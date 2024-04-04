@@ -217,6 +217,22 @@ class AsyncFirecrest:
         """
         self._api_version = parse(api_version)
 
+    async def close_session(self) -> None:
+        """Close the httpx session"""
+        await self._session.aclose()
+
+    async def create_new_session(self) -> None:
+        """Create a new httpx session"""
+        if not self._session.is_closed:
+            await self._session.aclose()
+
+        self._session = httpx.AsyncClient()
+
+    @property
+    def is_session_closed(self) -> bool:
+        """Check if the httpx session is closed"""
+        return self._session.is_closed
+
     @_retry_requests  # type: ignore
     async def _get_request(
         self, endpoint, additional_headers=None, params=None
