@@ -51,14 +51,14 @@ async def main():
 
     # Set up the desired polling rate for each microservice. The float number
     # represents the number of seconds between consecutive requests in each
-    # microservice. Default is 5 seconds for now.
+    # microservice.
     client.time_between_calls = {
-        "compute": 5,
-        "reservations": 5,
-        "status": 5,
-        "storage": 5,
-        "tasks": 5,
-        "utilities": 5,
+        "compute": 1,
+        "reservations": 0.5,
+        "status": 0.5,
+        "storage": 0.5,
+        "tasks": 0.5,
+        "utilities": 0.5,
     }
 
     workflows = [workflow(client, i) for i in range(5)]
