@@ -371,7 +371,7 @@ class Firecrest:
         logger.info(f"Polling task {task_id} until status is {final_status}")
         resp = self._task_safe(task_id)
         while resp["status"] < final_status:
-            t = next(sleep_time)
+            t = next(sleep_time, t)
             logger.info(
                 f'Status of {task_id} is {resp["status"]}, sleeping for {t} sec'
             )
@@ -1003,7 +1003,7 @@ class Firecrest:
 
         # Inject taskid in the result
         result = self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
         result["firecrest_taskid"] = json_response["task_id"]
         return result
@@ -1040,7 +1040,7 @@ class Firecrest:
         json_response = self._acct_request(machine, jobids, start_time, end_time, page_size, page_number)
         logger.info(f"Job polling task: {json_response['task_id']}")
         res = self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
@@ -1077,7 +1077,7 @@ class Firecrest:
         json_response = self._squeue_request(machine, jobids, page_size, page_number)
         logger.info(f"Job active polling task: {json_response['task_id']}")
         dict_result = self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
         return list(dict_result.values())
 
@@ -1100,7 +1100,7 @@ class Firecrest:
         json_response = self._json_response(self._current_method_requests, 200)
         logger.info(f"Job cancellation task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
 
     # Storage
@@ -1177,7 +1177,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
 
     def submit_copy_job(
@@ -1220,7 +1220,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
 
     def submit_rsync_job(
@@ -1263,7 +1263,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
 
     def submit_delete_job(
@@ -1304,7 +1304,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", itertools.cycle([1])
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
 
     def external_upload(

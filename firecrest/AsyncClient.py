@@ -178,12 +178,12 @@ class AsyncFirecrest:
 
         #: Seconds between requests in each microservice
         self.time_between_calls: dict[str, float] = {  # TODO more detailed docs
-            "compute": 5,
-            "reservations": 5,
-            "status": 5,
-            "storage": 5,
-            "tasks": 5,
-            "utilities": 5,
+            "compute": 1,
+            "reservations": 0.1,
+            "status": 0.1,
+            "storage": 0.1,
+            "tasks": 0.1,
+            "utilities": 0.1,
         }
         self._next_request_ts: dict[str, float] = {
             "compute": 0,
