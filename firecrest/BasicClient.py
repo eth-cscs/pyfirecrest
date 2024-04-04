@@ -370,6 +370,7 @@ class Firecrest:
     def _poll_tasks(self, task_id: str, final_status, sleep_time):
         logger.info(f"Polling task {task_id} until status is {final_status}")
         resp = self._task_safe(task_id)
+        t = 1
         while resp["status"] < final_status:
             t = next(sleep_time, t)
             logger.info(
