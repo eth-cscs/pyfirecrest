@@ -293,11 +293,17 @@ def ls(
         "--show-hidden",
         help="Include directory entries whose names begin with a dot (‘.’).",
     ),
+    recursive: bool = typer.Option(
+        False,
+        "-R",
+        "--recursive",
+        help="Recursively list directories encountered.",
+    ),
     raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
     """List directory contents"""
     try:
-        result = client.list_files(system, path, show_hidden)
+        result = client.list_files(system, path, show_hidden, recursive)
         if raw:
             console.print(result)
         else:
@@ -448,6 +454,62 @@ def cp(
     """Copy files"""
     try:
         client.copy(system, source, destination)
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
+def compress(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
+    system: str = typer.Option(
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+):
+    """Compress files using gzip compression.
+    You can name the output file as you like, but typically these files have a .tar.gz extension.
+    """
+    try:
+        client.compress(system, source, destination)
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Utilities commands")
+def extract(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
+    system: str = typer.Option(
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+    extension: str = typer.Argument("auto", help="Extension of file. Possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`."),
+):
+    """Extract files.
+    If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
+    Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
+    """
+    try:
+        client.extract(system, source, destination)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1145,6 +1207,107 @@ def submit_rsync(
     try:
         console.print(
             client.submit_rsync_job(
+                system, source, destination, job_name, time, jobid, account
+            )
+        )
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@submit_template_app.command("compress")
+def submit_compress(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
+    system: str = typer.Option(
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+    job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
+    time: Optional[str] = typer.Option(
+        None,
+        help="""
+        Limit on the total run time of the job.
+
+        Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
+        """,
+    ),
+    jobid: Optional[str] = typer.Option(
+        None, help="Transfer data after job with ID JOBID is completed."
+    ),
+    account: Optional[str] = typer.Option(
+        None,
+        help="""
+        Name of the project account to be used in SLURM script.
+        If not set, system default is taken.
+        """,
+    ),
+):
+    """Compress files using gzip compression.
+    You can name the output file as you like, but typically these files have a .tar.gz extension."""
+    try:
+        console.print(
+            client.submit_compress_job(
+                system, source, destination, job_name, time, jobid, account
+            )
+        )
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@submit_template_app.command("extract")
+def submit_extract(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
+    system: str = typer.Option(
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
+    ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: str = typer.Argument(..., help="The absolute destination path."),
+    extension: str = typer.Argument("auto", help="File extension, possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`."),
+    job_name: Optional[str] = typer.Option(None, help="Job name in the script."),
+    time: Optional[str] = typer.Option(
+        None,
+        help="""
+        Limit on the total run time of the job.
+
+        Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
+        """,
+    ),
+    jobid: Optional[str] = typer.Option(
+        None, help="Transfer data after job with ID JOBID is completed."
+    ),
+    account: Optional[str] = typer.Option(
+        None,
+        help="""
+        Name of the project account to be used in SLURM script.
+        If not set, system default is taken.
+        """,
+    ),
+):
+    """Extract files.
+    If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
+    Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
+    """
+    try:
+        console.print(
+            client.submit_compress_job(
                 system, source, destination, job_name, time, jobid, account
             )
         )
