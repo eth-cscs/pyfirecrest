@@ -1293,6 +1293,54 @@ def poll_active(
 
 
 @app.command(rich_help_panel="Compute commands")
+def get_nodes(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
+    ),
+    nodes: Optional[List[str]] = typer.Argument(
+        None, help="List of specific compute nodes to query."
+    ),
+    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+):
+    """Retrieves information about the compute nodes.
+    This call uses the `scontrol show nodes` command
+    """
+    try:
+        results = client.get_nodes(system, nodes)
+        if raw:
+            console.print(result)
+        else:
+            parsed_results = []
+            for item in results:
+                parsed_item = {}
+                for key, value in item.items():
+                    if isinstance(value, list):
+                        parsed_item[key] = ", ".join(value)
+                    else:
+                        parsed_item[key] = value
+
+                parsed_results.append(parsed_item)
+
+            table = create_table(
+                "Information about jobs in the queue",
+                parsed_results,
+                ("Name", "NodeName"),
+                ("Partitions", "Partitions"),
+                ("State", "State"),
+                ("Active Features", "ActiveFeatures"),
+            )
+            console.print(table)
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Compute commands")
 def cancel(
     config_from_parent: str = typer.Option(None,
         callback=config_parent_load_callback,
@@ -1312,8 +1360,8 @@ def cancel(
         raise typer.Exit(code=1)
 
 
-@reservation_app.command(rich_help_panel="Reservation commands")
-def list(
+@reservation_app.command(name='list', rich_help_panel="Reservation commands")
+def list_command(
     config_from_parent: str = typer.Option(None,
         callback=config_parent_load_callback,
         is_eager=True,

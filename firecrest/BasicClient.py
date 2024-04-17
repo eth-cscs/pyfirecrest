@@ -1049,6 +1049,7 @@ class Firecrest:
         else:
             return res
 
+
     def poll_active(
         self,
         machine: str,
@@ -1081,6 +1082,36 @@ class Firecrest:
             json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
         return list(dict_result.values())
+
+    def get_nodes(
+        self,
+        machine: str,
+        nodes: Optional[Sequence[str]] = None,
+    ) -> List[t.JobQueue]:
+        """Retrieves information about the compute nodes.
+        This call uses the `scontrol show nodes` command.
+
+        :param machine: the machine name where the scheduler belongs to
+        :param nodes: specific compute nodes to query
+        :calls: GET `/compute/nodes`
+
+                GET `/tasks/{taskid}`
+        """
+        params = {}
+        if nodes:
+            params['nodes'] = ','.join(nodes)
+
+        resp = self._get_request(
+            endpoint="/compute/nodes",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        self._current_method_requests.append(resp)
+        json_response = self._json_response(self._current_method_requests, 200)
+        dict_result = self._poll_tasks(
+            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+        )
+        return list(dict_result)
 
     def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.

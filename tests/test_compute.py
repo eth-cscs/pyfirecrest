@@ -123,6 +123,28 @@ def submit_path_handler(request: Request):
     )
 
 
+def nodes_request_handler(request: Request):
+    if not request.query_string or request.query_string == b'nodes=nid001':
+        ret = {
+            "success": "Task created",
+            "task_id": "nodes_info",
+            "task_url": "/tasks/nodes_info"
+        }
+        status_code = 200
+
+    if request.query_string == b'nodes=nidunknown':
+        ret = {
+            "success": "Task created",
+            "task_id": "info_unknown_node",
+            "task_url": "/tasks/info_unknown_node"
+        }
+        status_code = 200
+
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
+
+
 def submit_upload_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return Response(
@@ -845,6 +867,62 @@ def tasks_handler(request: Request):
             }
             status_code = 200
 
+    if taskid == "nodes_info":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-16T09:47:06",
+                    "data": [
+                        {
+                            "ActiveFeatures": [
+                                "f7t"
+                            ],
+                            "NodeName": "nid001",
+                            "Partitions": [
+                                "part01",
+                                "part02",
+                            ],
+                            "State": [
+                                "IDLE"
+                            ]
+                        }
+                    ],
+                    "description": "Finished successfully",
+                    "hash_id": "nodes_info",
+                    "last_modify": "2024-04-16T09:47:06",
+                    "service": "compute",
+                    "status": "200",
+                    "system": "cluster",
+                    "task_id": "nodes_info",
+                    "task_url": "/tasks/nodes_info",
+                    "updated_at": "2024-04-16T09:47:06",
+                    "user": "service-account-firecrest-sample"
+                }
+            }
+        }
+        status_code = 200
+
+    if taskid == "info_unknown_node":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-16T09:56:14",
+                    "data": "Node nidunknown not found",
+                    "description": "Finished with errors",
+                    "hash_id": "info_unknown_node",
+                    "last_modify": "2024-04-16T09:56:14",
+                    "service": "compute",
+                    "status": "400",
+                    "system": "cluster",
+                    "task_id": "info_unknown_node",
+                    "task_url": "/tasks/info_unknown_node",
+                    "updated_at": "2024-04-16T09:56:14",
+                    "user": "service-account-firecrest-sample"
+                }
+            }
+        }
+        status_code = 400
+
     return Response(
         json.dumps(ret), status=status_code, content_type="application/json"
     )
@@ -875,6 +953,10 @@ def fc_server(httpserver):
     httpserver.expect_request(
         "/tasks", method="GET"
     ).respond_with_handler(tasks_handler)
+
+    httpserver.expect_request(
+        "/compute/nodes", method="GET"
+    ).respond_with_handler(nodes_request_handler)
 
     return httpserver
 
@@ -1216,6 +1298,17 @@ def test_poll_active(valid_client):
     ]
 
 
+def test_cli_get_nodes(valid_credentials):
+    args = valid_credentials + ["get-nodes", "--system", "cluster1", "nid001"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Information about jobs in the queue" in stdout
+    assert "nid001" in stdout
+    assert "part01, part02" in stdout
+    assert "IDLE" in stdout
+    assert "f7t" in stdout
+
 def test_cli_poll_active(valid_credentials):
     global queue_retry
     queue_retry = 0
@@ -1294,3 +1387,38 @@ def test_cancel_invalid_machine(valid_client):
 def test_cancel_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.cancel(machine="cluster1", job_id=35360071)
+
+
+def test_get_nodes(valid_client):
+    response = [{
+        "ActiveFeatures": ["f7t"],
+        "NodeName": "nid001",
+        "Partitions": [
+            "part01",
+            "part02"
+        ],
+        "State": [
+            "IDLE"
+        ]
+    }]
+    assert valid_client.get_nodes(machine="cluster1") == response
+
+
+def test_get_nodes_from_list(valid_client):
+    response = [{
+        "ActiveFeatures": ["f7t"],
+        "NodeName": "nid001",
+        "Partitions": [
+            "part01",
+            "part02"
+        ],
+        "State": [
+            "IDLE"
+        ]
+    }]
+    assert valid_client.get_nodes(machine="cluster1", nodes=["nid001"]) == response
+
+
+def test_get_nodes_unknown(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.get_nodes(machine="cluster1", nodes=["nidunknown"])

@@ -1200,6 +1200,7 @@ class AsyncFirecrest:
         else:
             return res
 
+
     async def poll_active(
         self,
         machine: str,
@@ -1245,6 +1246,34 @@ class AsyncFirecrest:
             ret = list(dict_result.values())
 
         return ret
+
+    async def get_nodes(
+        self,
+        machine: str,
+        nodes: Optional[Sequence[str]] = None,
+    ) -> List[t.JobQueue]:
+        """Retrieves information about the compute nodes.
+        This call uses the `scontrol show nodes` command.
+
+        :param machine: the machine name where the scheduler belongs to
+        :param nodes: specific compute nodes to query
+        :calls: GET `/compute/nodes`
+
+                GET `/tasks/{taskid}`
+        """
+        params = {}
+        if nodes:
+            params['nodes'] = ",".join(nodes)
+
+        resp = await self._get_request(
+            endpoint="/compute/nodes",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        json_response = self._json_response([resp], 200)
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        dict_result = await t.poll_task("200")
+        return list(dict_result)
 
     async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.

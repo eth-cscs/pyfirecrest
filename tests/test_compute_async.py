@@ -92,6 +92,10 @@ def fc_server(httpserver):
         "/tasks", method="GET"
     ).respond_with_handler(basic_compute.tasks_handler)
 
+    httpserver.expect_request(
+        "/compute/nodes", method="GET"
+    ).respond_with_handler(basic_compute.nodes_request_handler)
+
     return httpserver
 
 
@@ -407,3 +411,43 @@ async def test_cancel_invalid_machine(valid_client):
 async def test_cancel_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         await invalid_client.cancel(machine="cluster1", job_id=35360071)
+
+
+@pytest.mark.asyncio
+async def test_get_nodes(valid_client):
+    response = [{
+        "ActiveFeatures": ["f7t"],
+        "NodeName": "nid001",
+        "Partitions": [
+            "part01",
+            "part02"
+        ],
+        "State": [
+            "IDLE"
+        ]
+    }]
+    assert await valid_client.get_nodes(machine="cluster1") == response
+
+
+@pytest.mark.asyncio
+async def test_get_nodes_from_list(valid_client):
+    response = [{
+        "ActiveFeatures": ["f7t"],
+        "NodeName": "nid001",
+        "Partitions": [
+            "part01",
+            "part02"
+        ],
+        "State": [
+            "IDLE"
+        ]
+    }]
+    assert await valid_client.get_nodes(machine="cluster1",
+                                        nodes=["nid001"]) == response
+
+
+@pytest.mark.asyncio
+async def test_get_nodes_unknown(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        await valid_client.get_nodes(machine="cluster1",
+                                     nodes=["nidunknown"])
