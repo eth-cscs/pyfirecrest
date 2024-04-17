@@ -1322,7 +1322,7 @@ def get_nodes(
                     if isinstance(value, list):
                         parsed_item[key] = ", ".join(value)
                     else:
-                        parsed_item[key] = value
+                        parsed_item[key] = str(value)
 
                 parsed_results.append(parsed_item)
 
