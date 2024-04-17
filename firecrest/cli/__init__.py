@@ -1313,7 +1313,7 @@ def get_nodes(
     try:
         results = client.get_nodes(system, nodes)
         if raw:
-            console.print(results:)
+            console.print(results)
         else:
             parsed_results = []
             for item in results:
