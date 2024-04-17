@@ -1200,7 +1200,6 @@ class AsyncFirecrest:
         else:
             return res
 
-
     async def poll_active(
         self,
         machine: str,
