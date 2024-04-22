@@ -333,6 +333,86 @@ def copy_handler(request: Request):
     )
 
 
+def compress_handler(request: Request):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        return Response(
+            json.dumps(
+                {"description": "Error on compress operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
+
+    extra_headers = None
+    source_path = request.form["sourcePath"]
+    target_path = request.form["targetPath"]
+    if (
+        source_path == "/path/to/valid/source"
+        and target_path == "/path/to/valid/destination.tar.gz"
+    ):
+        ret = {"description": "Success to compress file or directory.", "output": ""}
+        status_code = 201
+    else:
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
+        ret = {"description": "Error on compress operation"}
+        status_code = 400
+
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
+
+
+def extract_handler(request: Request):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
+
+    if request.headers["X-Machine-Name"] != "cluster1":
+        return Response(
+            json.dumps(
+                {"description": "Error on compress operation", "error": "Machine does not exist"}
+            ),
+            status=400,
+            headers={"X-Machine-Does-Not-Exist": "Machine does not exist"},
+            content_type="application/json",
+        )
+
+    extra_headers = None
+    source_path = request.form["sourcePath"]
+    target_path = request.form["targetPath"]
+    if (
+        source_path == "/path/to/valid/source.tar.gz"
+        and target_path == "/path/to/valid/destination"
+    ):
+        ret = {"description": "Success to extract file or directory.", "output": ""}
+        status_code = 201
+    else:
+        extra_headers = {"X-Invalid-Path": "path is an invalid path"}
+        ret = {"description": "Error on extract operation"}
+        status_code = 400
+
+    return Response(
+        json.dumps(ret),
+        status=status_code,
+        headers=extra_headers,
+        content_type="application/json",
+    )
+
+
 def file_type_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return Response(
@@ -776,6 +856,14 @@ def fc_server(httpserver):
         copy_handler
     )
 
+    httpserver.expect_request("/utilities/compress", method="POST").respond_with_handler(
+        compress_handler
+    )
+
+    httpserver.expect_request("/utilities/extract", method="POST").respond_with_handler(
+        extract_handler
+    )
+
     httpserver.expect_request("/utilities/file", method="GET").respond_with_handler(
         file_type_handler
     )
@@ -1111,6 +1199,52 @@ def test_copy_invalid_machine(valid_client):
 def test_copy_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.copy("cluster1", "/path/to/source", "/path/to/destination")
+
+
+def test_compress(valid_client):
+    # Mostly sure this doesn't raise an error
+    assert (
+        valid_client.compress(
+            "cluster1",
+            "/path/to/valid/source",
+            "/path/to/valid/destination.tar.gz"
+        ) == "/path/to/valid/destination.tar.gz"
+    )
+
+
+def test_cli_compress(valid_credentials):
+    args = valid_credentials + [
+        "compress",
+        "--system",
+        "cluster1",
+        "/path/to/valid/source",
+        "/path/to/valid/destination.tar.gz",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+
+
+def test_extract(valid_client):
+    # Mostly sure this doesn't raise an error
+    assert (
+        valid_client.extract(
+            "cluster1",
+            "/path/to/valid/source.tar.gz",
+            "/path/to/valid/destination"
+        ) == "/path/to/valid/destination"
+    )
+
+
+def test_cli_extract(valid_credentials):
+    args = valid_credentials + [
+        "extract",
+        "--system",
+        "cluster1",
+        "/path/to/valid/source.tar.gz",
+        "/path/to/valid/destination",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
 
 
 def test_file_type(valid_client):

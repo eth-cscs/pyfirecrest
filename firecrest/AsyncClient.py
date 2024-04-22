@@ -19,14 +19,13 @@ import tempfile
 import time
 
 from contextlib import nullcontext
-from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
+from typing import Any, ContextManager, Optional, overload, Sequence, List
 from requests.compat import json  # type: ignore
 from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
-from firecrest.utilities import time_block
 
 
 if sys.version_info >= (3, 8):
