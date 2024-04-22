@@ -459,6 +459,8 @@ class Firecrest:
         :param show_hidden: show hidden files
         :param recursive: recursively list directories encountered
         :calls: GET `/utilities/ls`
+
+        .. warning:: The argument ``recursive`` is available only for FirecREST>=1.16.0
         """
         params: dict[str, Any] = {"targetPath": f"{target_path}"}
         if show_hidden is True:
