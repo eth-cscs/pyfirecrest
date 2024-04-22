@@ -772,6 +772,8 @@ class AsyncFirecrest:
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :calls: POST `/utilities/compress`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         resp = await self._post_request(
             endpoint="/utilities/compress",
@@ -781,7 +783,7 @@ class AsyncFirecrest:
         self._json_response([resp], 201)
         return target_path
 
-    async def extract(self, machine: str, source_path: str, target_path: str, extension: str = 'auto') -> str:
+    async def extract(self, machine: str, source_path: str, target_path: str, extension: str = "auto") -> str:
         """Extract files.
         If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
@@ -792,6 +794,8 @@ class AsyncFirecrest:
         :param target_path: the absolute target path where the `source_path` is extracted
         :param file_extension: possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
         :calls: POST `/utilities/extract`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         resp = await self._post_request(
             endpoint="/utilities/extract",
@@ -1461,6 +1465,8 @@ class AsyncFirecrest:
         :calls: POST `/storage/xfer-internal/compress`
 
                 GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/compress"
@@ -1484,7 +1490,7 @@ class AsyncFirecrest:
         machine: str,
         source_path: str,
         target_path: str,
-        extension: str = 'auto',
+        extension: str = "auto",
         job_name: Optional[str] = None,
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
@@ -1506,6 +1512,8 @@ class AsyncFirecrest:
         :calls: POST `/storage/xfer-internal/extract`
 
                 GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/extract"

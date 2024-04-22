@@ -586,6 +586,8 @@ class Firecrest:
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :calls: POST `/utilities/compress`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         resp = self._post_request(
             endpoint="/utilities/compress",
@@ -595,7 +597,7 @@ class Firecrest:
         self._json_response([resp], 201)
         return target_path
 
-    def extract(self, machine: str, source_path: str, target_path: str, extension: str = 'auto') -> str:
+    def extract(self, machine: str, source_path: str, target_path: str, extension: str = "auto") -> str:
         """Extract files.
         If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
@@ -606,6 +608,8 @@ class Firecrest:
         :param target_path: the absolute target path where the `source_path` is extracted
         :param extension: file extension, possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
         :calls: POST `/utilities/extract`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         resp = self._post_request(
             endpoint="/utilities/extract",
@@ -1417,6 +1421,8 @@ class Firecrest:
         :calls: POST `/storage/xfer-internal/compress`
 
                 GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/compress"
@@ -1462,6 +1468,8 @@ class Firecrest:
         :calls: POST `/storage/xfer-internal/extract`
 
                 GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/extract"

@@ -1307,7 +1307,7 @@ def submit_extract(
     """
     try:
         console.print(
-            client.submit_compress_job(
+            client.submit_extract_job(
                 system, source, destination, job_name, time, jobid, account
             )
         )
