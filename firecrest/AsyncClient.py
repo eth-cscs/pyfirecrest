@@ -1246,7 +1246,7 @@ class AsyncFirecrest:
 
         return ret
 
-    async def get_nodes(
+    async def nodes(
         self,
         machine: str,
         nodes: Optional[Sequence[str]] = None,
@@ -1259,10 +1259,12 @@ class AsyncFirecrest:
         :calls: GET `/compute/nodes`
 
                 GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         params = {}
         if nodes:
-            params['nodes'] = ",".join(nodes)
+            params["nodes"] = ",".join(nodes)
 
         resp = await self._get_request(
             endpoint="/compute/nodes",
@@ -1271,8 +1273,8 @@ class AsyncFirecrest:
         )
         json_response = self._json_response([resp], 200)
         t = ComputeTask(self, json_response["task_id"], [resp])
-        dict_result = await t.poll_task("200")
-        return list(dict_result)
+        result = await t.poll_task("200")
+        return result
 
     async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.

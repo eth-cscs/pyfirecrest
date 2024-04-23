@@ -1049,7 +1049,6 @@ class Firecrest:
         else:
             return res
 
-
     def poll_active(
         self,
         machine: str,
@@ -1083,7 +1082,7 @@ class Firecrest:
         )
         return list(dict_result.values())
 
-    def get_nodes(
+    def nodes(
         self,
         machine: str,
         nodes: Optional[Sequence[str]] = None,
@@ -1096,10 +1095,12 @@ class Firecrest:
         :calls: GET `/compute/nodes`
 
                 GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
         """
         params = {}
         if nodes:
-            params['nodes'] = ','.join(nodes)
+            params["nodes"] = ",".join(nodes)
 
         resp = self._get_request(
             endpoint="/compute/nodes",
@@ -1108,10 +1109,10 @@ class Firecrest:
         )
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
-        dict_result = self._poll_tasks(
+        result = self._poll_tasks(
             json_response["task_id"], "200", iter([1, 0.5, 0.25])
         )
-        return list(dict_result)
+        return result
 
     def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.

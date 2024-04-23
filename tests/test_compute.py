@@ -1401,7 +1401,7 @@ def test_get_nodes(valid_client):
             "IDLE"
         ]
     }]
-    assert valid_client.get_nodes(machine="cluster1") == response
+    assert valid_client.nodes(machine="cluster1") == response
 
 
 def test_get_nodes_from_list(valid_client):
@@ -1416,9 +1416,9 @@ def test_get_nodes_from_list(valid_client):
             "IDLE"
         ]
     }]
-    assert valid_client.get_nodes(machine="cluster1", nodes=["nid001"]) == response
+    assert valid_client.nodes(machine="cluster1", nodes=["nid001"]) == response
 
 
 def test_get_nodes_unknown(valid_client):
     with pytest.raises(firecrest.FirecrestException):
-        valid_client.get_nodes(machine="cluster1", nodes=["nidunknown"])
+        valid_client.nodes(machine="cluster1", nodes=["nidunknown"])

@@ -426,7 +426,7 @@ async def test_get_nodes(valid_client):
             "IDLE"
         ]
     }]
-    assert await valid_client.get_nodes(machine="cluster1") == response
+    assert await valid_client.nodes(machine="cluster1") == response
 
 
 @pytest.mark.asyncio
@@ -442,12 +442,12 @@ async def test_get_nodes_from_list(valid_client):
             "IDLE"
         ]
     }]
-    assert await valid_client.get_nodes(machine="cluster1",
+    assert await valid_client.nodes(machine="cluster1",
                                         nodes=["nid001"]) == response
 
 
 @pytest.mark.asyncio
 async def test_get_nodes_unknown(valid_client):
     with pytest.raises(firecrest.FirecrestException):
-        await valid_client.get_nodes(machine="cluster1",
+        await valid_client.nodes(machine="cluster1",
                                      nodes=["nidunknown"])

@@ -1311,7 +1311,7 @@ def get_nodes(
     This call uses the `scontrol show nodes` command
     """
     try:
-        results = client.get_nodes(system, nodes)
+        results = client.nodes(system, nodes)
         if raw:
             console.print(results)
         else:
