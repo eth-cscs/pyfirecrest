@@ -443,11 +443,11 @@ async def test_get_nodes_from_list(valid_client):
         ]
     }]
     assert await valid_client.nodes(machine="cluster1",
-                                        nodes=["nid001"]) == response
+                                    nodes=["nid001"]) == response
 
 
 @pytest.mark.asyncio
 async def test_get_nodes_unknown(valid_client):
     with pytest.raises(firecrest.FirecrestException):
         await valid_client.nodes(machine="cluster1",
-                                     nodes=["nidunknown"])
+                                 nodes=["nidunknown"])
