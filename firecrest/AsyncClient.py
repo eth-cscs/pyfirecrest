@@ -1246,6 +1246,36 @@ class AsyncFirecrest:
 
         return ret
 
+    async def nodes(
+        self,
+        machine: str,
+        nodes: Optional[Sequence[str]] = None,
+    ) -> List[t.JobQueue]:
+        """Retrieves information about the compute nodes.
+        This call uses the `scontrol show nodes` command.
+
+        :param machine: the machine name where the scheduler belongs to
+        :param nodes: specific compute nodes to query
+        :calls: GET `/compute/nodes`
+
+                GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
+        """
+        params = {}
+        if nodes:
+            params["nodes"] = ",".join(nodes)
+
+        resp = await self._get_request(
+            endpoint="/compute/nodes",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        json_response = self._json_response([resp], 200)
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        result = await t.poll_task("200")
+        return result
+
     async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
         This call uses the `scancel` command.
