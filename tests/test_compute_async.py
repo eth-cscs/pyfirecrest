@@ -96,6 +96,10 @@ def fc_server(httpserver):
         "/compute/nodes", method="GET"
     ).respond_with_handler(basic_compute.nodes_request_handler)
 
+    httpserver.expect_request(
+        "/compute/partitions", method="GET"
+    ).respond_with_handler(basic_compute.partitions_request_handler)
+
     return httpserver
 
 
@@ -451,3 +455,70 @@ async def test_get_nodes_unknown(valid_client):
     with pytest.raises(firecrest.FirecrestException):
         await valid_client.nodes(machine="cluster1",
                                  nodes=["nidunknown"])
+
+
+@pytest.mark.asyncio
+async def test_get_partitions(valid_client):
+    response = [
+        {
+            "Default": "YES",
+            "PartitionName": "part01",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "part02",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "xfer",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        }
+    ]
+    assert await valid_client.partitions(machine="cluster1") == response
+
+
+@pytest.mark.asyncio
+async def test_get_partitions_from_list(valid_client):
+    response = [
+        {
+            "Default": "YES",
+            "PartitionName": "part01",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "part02",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "xfer",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        }
+    ]
+    assert await valid_client.partitions(
+        machine="cluster1", partitions=["part01", "part02", "xfer"]
+    ) == response
+
+
+@pytest.mark.asyncio
+async def test_get_partitions_unknown(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        await valid_client.partitions(
+            machine="cluster1",
+            partitions=["invalid_part"]
+        )

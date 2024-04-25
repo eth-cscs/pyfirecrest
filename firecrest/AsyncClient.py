@@ -1250,7 +1250,7 @@ class AsyncFirecrest:
         self,
         machine: str,
         nodes: Optional[Sequence[str]] = None,
-    ) -> List[t.JobQueue]:
+    ) -> List[t.NodeInfo]:
         """Retrieves information about the compute nodes.
         This call uses the `scontrol show nodes` command.
 
@@ -1268,6 +1268,36 @@ class AsyncFirecrest:
 
         resp = await self._get_request(
             endpoint="/compute/nodes",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        json_response = self._json_response([resp], 200)
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        result = await t.poll_task("200")
+        return result
+
+    async def partitions(
+        self,
+        machine: str,
+        partitions: Optional[Sequence[str]] = None,
+    ) -> List[t.PartitionInfo]:
+        """Retrieves information about the partitions.
+        This call uses the `scontrol show partitions` command.
+
+        :param machine: the machine name where the scheduler belongs to
+        :param partitions: specific partitions nodes to query
+        :calls: GET `/compute/partitions`
+
+                GET `/tasks/{taskid}`
+
+        .. warning:: This is available only for FirecREST>=1.16.0
+        """
+        params = {}
+        if partitions:
+            params["partitions"] = ",".join(partitions)
+
+        resp = await self._get_request(
+            endpoint="/compute/partitions",
             additional_headers={"X-Machine-Name": machine},
             params=params,
         )
