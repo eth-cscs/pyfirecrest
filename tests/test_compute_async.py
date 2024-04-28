@@ -96,6 +96,10 @@ def fc_server(httpserver):
         "/compute/nodes", method="GET"
     ).respond_with_handler(basic_compute.nodes_request_handler)
 
+    httpserver.expect_request(
+        "/compute/reservations", method="GET"
+    ).respond_with_handler(basic_compute.reservations_request_handler)
+
     return httpserver
 
 
@@ -451,3 +455,26 @@ async def test_get_nodes_unknown(valid_client):
     with pytest.raises(firecrest.FirecrestException):
         await valid_client.nodes(machine="cluster1",
                                  nodes=["nidunknown"])
+
+
+@pytest.mark.asyncio
+async def test_get_reservations(valid_client):
+    response = [
+        {
+            "EndTime": "2024-05-01T15:00:00",
+            "Features": "(null)",
+            "Nodes": "nid001",
+            "ReservationName": "res01",
+            "StartTime": "2024-05-01T12:00:00",
+            "State": "INACTIVE"
+        },
+        {
+            "EndTime": "2024-06-01T15:00:00",
+            "Features": ["f7t1", "f7t2"],
+            "Nodes": "nid002",
+            "ReservationName": "res04",
+            "StartTime": "2024-06-01T12:00:00",
+            "State": "INACTIVE"
+        }
+    ]
+    assert await valid_client.reservations(machine="cluster1") == response
