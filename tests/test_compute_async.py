@@ -527,6 +527,7 @@ async def test_get_partitions_unknown(valid_client):
             partitions=["invalid_part"]
         )
 
+
 @pytest.mark.asyncio
 async def test_get_reservations(valid_client):
     response = [

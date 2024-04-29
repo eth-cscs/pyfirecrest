@@ -1311,7 +1311,7 @@ class AsyncFirecrest:
         machine: str,
         reservations: Optional[Sequence[str]] = None,
     ) -> List[t.ReservationInfo]:
-        """Retrieves information about the partitions.
+        """Retrieves information about the reservations.
         This call uses the `scontrol show reservations` command.
         :param machine: the machine name where the scheduler belongs to
         :param reservations: specific reservations to query

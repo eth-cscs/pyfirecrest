@@ -146,7 +146,6 @@ def nodes_request_handler(request: Request):
 
 
 def reservations_request_handler(request: Request):
-    print(request.query_string)
     if not request.query_string or request.query_string == b"reservations=res01":
         ret = {
             "success": "Task created",
@@ -169,7 +168,6 @@ def reservations_request_handler(request: Request):
 
 
 def partitions_request_handler(request: Request):
-    print(request.query_string)
     if (
         not request.query_string or
         request.query_string == b'partitions=part01%2Cpart02%2Cxfer'
@@ -1027,7 +1025,6 @@ def tasks_handler(request: Request):
             }
         }
         status_code = 200
-
     elif taskid == "reservations_info":
         ret = {
             "tasks": {
