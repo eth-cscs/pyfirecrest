@@ -1306,6 +1306,33 @@ class AsyncFirecrest:
         result = await t.poll_task("200")
         return result
 
+    async def reservations(
+        self,
+        machine: str,
+        reservations: Optional[Sequence[str]] = None,
+    ) -> List[t.ReservationInfo]:
+        """Retrieves information about the reservations.
+        This call uses the `scontrol show reservations` command.
+        :param machine: the machine name where the scheduler belongs to
+        :param reservations: specific reservations to query
+        :calls: GET `/compute/reservations`
+                GET `/tasks/{taskid}`
+        .. warning:: This is available only for FirecREST>=1.16.0
+        """
+        params = {}
+        if reservations:
+            params["reservations"] = ",".join(reservations)
+
+        resp = await self._get_request(
+            endpoint="/compute/reservations",
+            additional_headers={"X-Machine-Name": machine},
+            params=params,
+        )
+        json_response = self._json_response([resp], 200)
+        t = ComputeTask(self, json_response["task_id"], [resp])
+        result = await t.poll_task("200")
+        return result
+
     async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
         This call uses the `scancel` command.

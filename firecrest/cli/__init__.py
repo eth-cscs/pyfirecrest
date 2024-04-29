@@ -1409,8 +1409,8 @@ def cancel(
         raise typer.Exit(code=1)
 
 
-@reservation_app.command(name='list', rich_help_panel="Reservation commands")
-def list_command(
+@app.command(rich_help_panel="Compute commands")
+def get_reservations(
     config_from_parent: str = typer.Option(None,
         callback=config_parent_load_callback,
         is_eager=True,
@@ -1419,101 +1419,41 @@ def list_command(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
+    reservations: Optional[List[str]] = typer.Argument(
+        None, help="List of specific reservations to query."
+    ),
+    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
 ):
-    """List all active reservations and their status"""
+    """Retrieves information about the reservations.
+    This call uses the `scontrol show reservations` command
+    """
     try:
-        res = client.all_reservations(system)
-        console.print(res)
-    except Exception as e:
-        examine_exeption(e)
-        raise typer.Exit(code=1)
+        results = client.reservations(system, reservations)
+        if raw:
+            console.print(results)
+        else:
+            parsed_results = []
+            for item in results:
+                parsed_item = {}
+                for key, value in item.items():
+                    if isinstance(value, list):
+                        parsed_item[key] = ", ".join(value)
+                    else:
+                        parsed_item[key] = str(value)
 
+                parsed_results.append(parsed_item)
 
-@reservation_app.command(rich_help_panel="Reservation commands")
-def create(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
-    system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
-    ),
-    name: str = typer.Argument(..., help="The reservation name."),
-    account: str = typer.Argument(
-        ..., help="The account in SLURM to which the reservation is made for."
-    ),
-    num_nodes: str = typer.Argument(
-        ..., help="The number of nodes needed for the reservation."
-    ),
-    node_type: str = typer.Argument(..., help="The node type."),
-    start_time: str = typer.Argument(
-        ..., help="The start time for reservation (YYYY-MM-DDTHH:MM:SS)."
-    ),
-    end_time: str = typer.Argument(
-        ..., help="The end time for reservation (YYYY-MM-DDTHH:MM:SS)."
-    ),
-):
-    """Create a reservation"""
-    try:
-        client.create_reservation(
-            system, name, account, num_nodes, node_type, start_time, end_time
-        )
-    except Exception as e:
-        examine_exeption(e)
-        raise typer.Exit(code=1)
-
-
-@reservation_app.command(rich_help_panel="Reservation commands")
-def update(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
-    system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
-    ),
-    name: str = typer.Argument(..., help="The reservation name."),
-    account: str = typer.Argument(
-        ..., help="The account in SLURM to which the reservation is made for."
-    ),
-    num_nodes: str = typer.Argument(
-        ..., help="The number of nodes needed for the reservation."
-    ),
-    node_type: str = typer.Argument(..., help="The node type."),
-    start_time: str = typer.Argument(
-        ..., help="The start time for reservation (YYYY-MM-DDTHH:MM:SS)."
-    ),
-    end_time: str = typer.Argument(
-        ..., help="The end time for reservation (YYYY-MM-DDTHH:MM:SS)."
-    ),
-):
-    """Update a reservation"""
-    try:
-        client.update_reservation(
-            system, name, account, num_nodes, node_type, start_time, end_time
-        )
-    except Exception as e:
-        examine_exeption(e)
-        raise typer.Exit(code=1)
-
-
-@reservation_app.command(rich_help_panel="Reservation commands")
-def delete(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
-    system: str = typer.Option(
-        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
-    ),
-    name: str = typer.Argument(..., help="The reservation name."),
-):
-    """Delete a reservation"""
-    try:
-        client.delete_reservation(system, name)
+            table = create_table(
+                "Information about reservations in the system",
+                parsed_results,
+                ("Name", "ReservationName"),
+                ("State", "State"),
+                ("Nodes", "Nodes"),
+                ("StartTime", "StartTime"),
+                ("EndTime", "EndTime"),
+                ("Features", "Features"),
+            )
+            console.print(table)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

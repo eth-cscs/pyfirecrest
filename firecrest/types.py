@@ -158,6 +158,16 @@ class PartitionInfo(TypedDict):
     TotalNodes: str
 
 
+class ReservationInfo(TypedDict):
+    """A job queue record, from `compute/reservations`"""
+
+    ReservationName: str
+    State: str
+    Nodes: str
+    StartTime: str
+    EndTime: str
+    Features: str
+
 
 class JobSubmit(TypedDict):
     """A job submit record, from `compute/jobs`"""
