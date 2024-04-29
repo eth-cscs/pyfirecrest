@@ -139,6 +139,25 @@ class JobQueue(TypedDict):
     user: str
 
 
+class NodeInfo(TypedDict):
+    """A node record record, from `compute/nodes`"""
+
+    NodeName: str
+    ActiveFeatures: list[str]
+    Partitions: list[str]
+    State: list[str]
+
+
+class PartitionInfo(TypedDict):
+    """A node record record, from `compute/partitions`"""
+
+    Default: str
+    PartitionName: str
+    State: str
+    TotalCPUs: str
+    TotalNodes: str
+
+
 class ReservationInfo(TypedDict):
     """A job queue record, from `compute/reservations`"""
 
