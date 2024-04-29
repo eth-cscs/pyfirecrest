@@ -233,77 +233,108 @@ class AsyncFirecrest:
         """Check if the httpx session is closed"""
         return self._session.is_closed
 
+    # @_retry_requests  # type: ignore
+    # async def _get_request(
+    #     self, endpoint, additional_headers=None, params=None
+    # ) -> httpx.Response:
+    #     microservice = endpoint.split("/")[1]
+    #     url = f"{self._firecrest_url}{endpoint}"
+
+    #     async def _merged_get(event):
+    #         # await self._stall_request(microservice)
+    #         # context: ContextManager[BytesIO] = (
+    #         #     open(target_path, "wb")  # type: ignore
+    #         #     if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
+    #         #     else nullcontext(target_path)
+    #         # )
+    #         # with context as f:
+    #         #     f.write(resp.content)
+    #         async with self._locks[microservice]:
+    #             results = self._polling_results[microservice]
+    #             ids = self._polling_ids[microservice].copy()
+    #             self._polling_events[microservice] = None
+    #             self._polling_ids[microservice] = set()
+    #             comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
+    #             if ids == {"*"}:
+    #                 if comma_sep_par in params:
+    #                     del params[comma_sep_par]
+    #             else:
+    #                 params[comma_sep_par] = ",".join(ids)
+
+    #             headers = {
+    #                 "Authorization": f"Bearer {self._authorization.get_access_token()}"
+    #             }
+    #             if additional_headers:
+    #                 headers.update(additional_headers)
+
+    #             logger.info(f"Making GET request to {endpoint}")
+    #             resp = await self._session.get(
+    #                 url=url, headers=headers, params=params, timeout=self.timeout
+    #             )
+
+    #             self._next_request_ts[microservice] = (
+    #                 time.time() + self.time_between_calls[microservice]
+    #             )
+
+    #             results.append(resp)
+    #             event.set()
+
+    #         return
+
+    #     if microservice == "tasks" or endpoint in ("/compute/jobs", "/compute/acct"):
+    #         async with self._locks[microservice]:
+    #             if self._polling_ids[microservice] != {"*"}:
+    #                 comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
+    #                 if comma_sep_par not in params:
+    #                     self._polling_ids[microservice] = {"*"}
+    #                 else:
+    #                     task_ids = params[comma_sep_par].split(",")
+    #                     self._polling_ids[microservice].update(task_ids)
+
+    #             if self._polling_events[microservice] is None:
+    #                 self._polling_events[microservice] = asyncio.Event()
+    #                 my_event = self._polling_events[microservice]
+    #                 self._polling_results[microservice] = []
+    #                 my_result = self._polling_results[microservice]
+    #                 waiter = True
+    #                 task = asyncio.create_task(_merged_get(my_event))
+    #             else:
+    #                 waiter = False
+    #                 my_event = self._polling_events[microservice]
+    #                 my_result = self._polling_results[microservice]
+
+    #         if waiter:
+    #             await task
+
+    #         await my_event.wait()  # type: ignore
+    #         resp = my_result[0]
+    #         return resp
+
+    #     # Otherwise just do what you usually do
+    #     async with self._locks[microservice]:
+    #         await self._stall_request(microservice)
+    #         headers = {
+    #             "Authorization": f"Bearer {self._authorization.get_access_token()}"
+    #         }
+    #         if additional_headers:
+    #             headers.update(additional_headers)
+
+    #         logger.info(f"Making GET request to {endpoint}")
+    #         resp = await self._session.get(
+    #             url=url, headers=headers, params=params, timeout=self.timeout
+    #         )
+    #         self._next_request_ts[microservice] = (
+    #             time.time() + self.time_between_calls[microservice]
+    #         )
+
+    #     return resp
+
     @_retry_requests  # type: ignore
     async def _get_request(
         self, endpoint, additional_headers=None, params=None
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-
-        async def _merged_get(event):
-            await self._stall_request(microservice)
-            async with self._locks[microservice]:
-                results = self._polling_results[microservice]
-                ids = self._polling_ids[microservice].copy()
-                self._polling_events[microservice] = None
-                self._polling_ids[microservice] = set()
-                comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
-                if ids == {"*"}:
-                    if comma_sep_par in params:
-                        del params[comma_sep_par]
-                else:
-                    params[comma_sep_par] = ",".join(ids)
-
-                headers = {
-                    "Authorization": f"Bearer {self._authorization.get_access_token()}"
-                }
-                if additional_headers:
-                    headers.update(additional_headers)
-
-                logger.info(f"Making GET request to {endpoint}")
-                resp = await self._session.get(
-                    url=url, headers=headers, params=params, timeout=self.timeout
-                )
-
-                self._next_request_ts[microservice] = (
-                    time.time() + self.time_between_calls[microservice]
-                )
-
-                results.append(resp)
-                event.set()
-
-            return
-
-        if microservice == "tasks" or endpoint in ("/compute/jobs", "/compute/acct"):
-            async with self._locks[microservice]:
-                if self._polling_ids[microservice] != {"*"}:
-                    comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
-                    if comma_sep_par not in params:
-                        self._polling_ids[microservice] = {"*"}
-                    else:
-                        task_ids = params[comma_sep_par].split(",")
-                        self._polling_ids[microservice].update(task_ids)
-
-                if self._polling_events[microservice] is None:
-                    self._polling_events[microservice] = asyncio.Event()
-                    my_event = self._polling_events[microservice]
-                    self._polling_results[microservice] = []
-                    my_result = self._polling_results[microservice]
-                    waiter = True
-                    task = asyncio.create_task(_merged_get(my_event))
-                else:
-                    waiter = False
-                    my_event = self._polling_events[microservice]
-                    my_result = self._polling_results[microservice]
-
-            if waiter:
-                await task
-
-            await my_event.wait()  # type: ignore
-            resp = my_result[0]
-            return resp
-
-        # Otherwise just do what you usually do
         async with self._locks[microservice]:
             await self._stall_request(microservice)
             headers = {
