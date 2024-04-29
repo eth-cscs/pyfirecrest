@@ -74,6 +74,14 @@ def fc_server(httpserver):
         basic_utilities.copy_handler
     )
 
+    httpserver.expect_request("/utilities/compress", method="POST").respond_with_handler(
+        basic_utilities.compress_handler
+    )
+
+    httpserver.expect_request("/utilities/extract", method="POST").respond_with_handler(
+        basic_utilities.extract_handler
+    )
+
     httpserver.expect_request("/utilities/file", method="GET").respond_with_handler(
         basic_utilities.file_type_handler
     )
@@ -356,6 +364,30 @@ async def test_copy_invalid_machine(valid_client):
 async def test_copy_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         await invalid_client.copy("cluster1", "/path/to/source", "/path/to/destination")
+
+
+@pytest.mark.asyncio
+async def test_compress(valid_client):
+    # Mostly sure this doesn't raise an error
+    assert (
+       await valid_client.compress(
+            "cluster1",
+            "/path/to/valid/source",
+            "/path/to/valid/destination.tar.gz"
+        ) == "/path/to/valid/destination.tar.gz"
+    )
+
+
+@pytest.mark.asyncio
+async def test_extract(valid_client):
+    # Mostly sure this doesn't raise an error
+    assert (
+        await valid_client.extract(
+            "cluster1",
+            "/path/to/valid/source.tar.gz",
+            "/path/to/valid/destination"
+        ) == "/path/to/valid/destination"
+    )
 
 
 @pytest.mark.asyncio
