@@ -1341,6 +1341,55 @@ def get_nodes(
 
 
 @app.command(rich_help_panel="Compute commands")
+def get_partitions(
+    config_from_parent: str = typer.Option(None,
+        callback=config_parent_load_callback,
+        is_eager=True,
+        hidden=True
+    ),
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
+    ),
+    partitions: Optional[List[str]] = typer.Argument(
+        None, help="List of specific partitions to query."
+    ),
+    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+):
+    """Retrieves information about the partitions.
+    This call uses the `scontrol show partitions` command
+    """
+    try:
+        results = client.partitions(system, partitions)
+        if raw:
+            console.print(results)
+        else:
+            parsed_results = []
+            for item in results:
+                parsed_item = {}
+                for key, value in item.items():
+                    if isinstance(value, list):
+                        parsed_item[key] = ", ".join(value)
+                    else:
+                        parsed_item[key] = str(value)
+
+                parsed_results.append(parsed_item)
+
+            table = create_table(
+                "Information about partitions in the system",
+                parsed_results,
+                ("Name", "PartitionName"),
+                ("State", "State"),
+                ("Total CPUs", "TotalCPUs"),
+                ("Total Nodes", "TotalNodes"),
+                ("Is default", "Default"),
+            )
+            console.print(table)
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Compute commands")
 def cancel(
     config_from_parent: str = typer.Option(None,
         callback=config_parent_load_callback,
