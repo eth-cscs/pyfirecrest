@@ -123,6 +123,75 @@ def submit_path_handler(request: Request):
     )
 
 
+def nodes_request_handler(request: Request):
+    if not request.query_string or request.query_string == b"nodes=nid001":
+        ret = {
+            "success": "Task created",
+            "task_id": "nodes_info",
+            "task_url": "/tasks/nodes_info",
+        }
+        status_code = 200
+
+    if request.query_string == b"nodes=nidunknown":
+        ret = {
+            "success": "Task created",
+            "task_id": "info_unknown_node",
+            "task_url": "/tasks/info_unknown_node",
+        }
+        status_code = 200
+
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
+
+
+def reservations_request_handler(request: Request):
+    if not request.query_string or request.query_string == b"reservations=res01":
+        ret = {
+            "success": "Task created",
+            "task_id": "reservations_info",
+            "task_url": "/tasks/reservations_info",
+        }
+        status_code = 200
+
+    if request.query_string == b"reservations=invalid_res":
+        ret = {
+            "success": "Task created",
+            "task_id": "info_unknown_reservations",
+            "task_url": "/tasks/info_unknown_reservations",
+        }
+        status_code = 200
+
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
+
+
+def partitions_request_handler(request: Request):
+    if (
+        not request.query_string or
+        request.query_string == b'partitions=part01%2Cpart02%2Cxfer'
+    ):
+        ret = {
+            "success": "Task created",
+            "task_id": "partitions_info",
+            "task_url": "/tasks/partitions_info"
+        }
+        status_code = 200
+
+    if request.query_string == b'partitions=invalid_part':
+        ret = {
+            "success": "Task created",
+            "task_id": "info_unknown_partition",
+            "task_url": "/tasks/info_unknown_partition"
+        }
+        status_code = 200
+
+    return Response(
+        json.dumps(ret), status=status_code, content_type="application/json"
+    )
+
+
 def submit_upload_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return Response(
@@ -844,6 +913,175 @@ def tasks_handler(request: Request):
                 }
             }
             status_code = 200
+    elif taskid == "nodes_info":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-16T09:47:06",
+                    "data": [
+                        {
+                            "ActiveFeatures": ["f7t"],
+                            "NodeName": "nid001",
+                            "Partitions": [
+                                "part01",
+                                "part02",
+                            ],
+                            "State": ["IDLE"],
+                        }
+                    ],
+                    "description": "Finished successfully",
+                    "hash_id": "nodes_info",
+                    "last_modify": "2024-04-16T09:47:06",
+                    "service": "compute",
+                    "status": "200",
+                    "system": "cluster",
+                    "task_id": "nodes_info",
+                    "task_url": "/tasks/nodes_info",
+                    "updated_at": "2024-04-16T09:47:06",
+                    "user": "service-account-firecrest-sample",
+                }
+            }
+        }
+        status_code = 200
+    elif taskid == "info_unknown_node":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-16T09:56:14",
+                    "data": "Node nidunknown not found",
+                    "description": "Finished with errors",
+                    "hash_id": "info_unknown_node",
+                    "last_modify": "2024-04-16T09:56:14",
+                    "service": "compute",
+                    "status": "400",
+                    "system": "cluster",
+                    "task_id": "info_unknown_node",
+                    "task_url": "/tasks/info_unknown_node",
+                    "updated_at": "2024-04-16T09:56:14",
+                    "user": "service-account-firecrest-sample",
+                }
+            }
+        }
+        status_code = 200
+    elif taskid == "partitions_info":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-24T12:02:25",
+                    "data": [
+                        {
+                            "Default": "YES",
+                            "PartitionName": "part01",
+                            "State": "UP",
+                            "TotalCPUs": "2",
+                            "TotalNodes": "1"
+                        },
+                        {
+                            "Default": "NO",
+                            "PartitionName": "part02",
+                            "State": "UP",
+                            "TotalCPUs": "2",
+                            "TotalNodes": "1"
+                        },
+                        {
+                            "Default": "NO",
+                            "PartitionName": "xfer",
+                            "State": "UP",
+                            "TotalCPUs": "2",
+                            "TotalNodes": "1"
+                        }
+                    ],
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2024-04-24T12:02:25",
+                    "service": "compute",
+                    "status": "200",
+                    "system": "cluster",
+                    "task_id": taskid,
+                    "task_url": f"/tasks/{taskid}",
+                    "updated_at": "2024-04-24T12:02:25",
+                    "user": "service-account-firecrest-sample"
+                }
+            }
+        }
+        status_code = 200
+    elif taskid == "info_unknown_partition":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-24T12:17:13",
+                    "data": "Partition invalid_part not found",
+                    "description": "Finished with errors",
+                    "hash_id": taskid,
+                    "last_modify": "2024-04-24T12:02:25",
+                    "service": "compute",
+                    "status": "400",
+                    "system": "cluster",
+                    "task_id": taskid,
+                    "task_url": f"/tasks/{taskid}",
+                    "updated_at": "2024-04-24T12:17:14",
+                    "user": "service-account-firecrest-sample"
+                }
+            }
+        }
+        status_code = 200
+    elif taskid == "reservations_info":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-24T12:02:25",
+                    "data": [
+                        {
+                            "EndTime": "2024-05-01T15:00:00",
+                            "Features": "(null)",
+                            "Nodes": "nid001",
+                            "ReservationName": "res01",
+                            "StartTime": "2024-05-01T12:00:00",
+                            "State": "INACTIVE"
+                        },
+                        {
+                            "EndTime": "2024-06-01T15:00:00",
+                            "Features": ["f7t1", "f7t2"],
+                            "Nodes": "nid002",
+                            "ReservationName": "res04",
+                            "StartTime": "2024-06-01T12:00:00",
+                            "State": "INACTIVE"
+                        }
+                    ],
+                    "description": "Finished successfully",
+                    "hash_id": taskid,
+                    "last_modify": "2024-04-24T12:02:25",
+                    "service": "compute",
+                    "status": "200",
+                    "system": "cluster",
+                    "task_id": taskid,
+                    "task_url": f"/tasks/{taskid}",
+                    "updated_at": "2024-04-24T12:02:25",
+                    "user": "service-account-firecrest-sample",
+                }
+            }
+        }
+        status_code = 200
+    elif taskid == "info_unknown_reservations":
+        ret = {
+            "tasks": {
+                taskid: {
+                    "created_at": "2024-04-24T12:17:13",
+                    "data": [],
+                    "description": "Finished with errors",
+                    "hash_id": taskid,
+                    "last_modify": "2024-04-24T12:02:25",
+                    "service": "compute",
+                    "status": "200",
+                    "system": "cluster",
+                    "task_id": taskid,
+                    "task_url": f"/tasks/{taskid}",
+                    "updated_at": "2024-04-24T12:17:14",
+                    "user": "service-account-firecrest-sample",
+                }
+            }
+        }
+        status_code = 200
 
     return Response(
         json.dumps(ret), status=status_code, content_type="application/json"
@@ -872,9 +1110,21 @@ def fc_server(httpserver):
         re.compile("^/compute/jobs.*"), method="DELETE"
     ).respond_with_handler(cancel_handler)
 
+    httpserver.expect_request("/tasks", method="GET").respond_with_handler(
+        tasks_handler
+    )
+
+    httpserver.expect_request("/compute/nodes", method="GET").respond_with_handler(
+        nodes_request_handler
+    )
+
     httpserver.expect_request(
-        "/tasks", method="GET"
-    ).respond_with_handler(tasks_handler)
+        "/compute/reservations", method="GET"
+    ).respond_with_handler(reservations_request_handler)
+
+    httpserver.expect_request(
+        "/compute/partitions", method="GET"
+    ).respond_with_handler(partitions_request_handler)
 
     return httpserver
 
@@ -984,7 +1234,7 @@ def test_submit_local(valid_client, slurm_script):
 def test_cli_submit_local(valid_credentials, slurm_script):
     global submit_upload_retry
     submit_upload_retry = 0
-    args = valid_credentials + ["submit", "--system",  "cluster1", str(slurm_script)]
+    args = valid_credentials + ["submit", "--system", "cluster1", str(slurm_script)]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1219,7 +1469,14 @@ def test_poll_active(valid_client):
 def test_cli_poll_active(valid_credentials):
     global queue_retry
     queue_retry = 0
-    args = valid_credentials + ["poll-active", "--system", "cluster1", "352", "2", "334"]
+    args = valid_credentials + [
+        "poll-active",
+        "--system",
+        "cluster1",
+        "352",
+        "2",
+        "334",
+    ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
@@ -1294,3 +1551,151 @@ def test_cancel_invalid_machine(valid_client):
 def test_cancel_invalid_client(invalid_client):
     with pytest.raises(firecrest.UnauthorizedException):
         invalid_client.cancel(machine="cluster1", job_id=35360071)
+
+
+def test_get_nodes(valid_client):
+    response = [
+        {
+            "ActiveFeatures": ["f7t"],
+            "NodeName": "nid001",
+            "Partitions": ["part01", "part02"],
+            "State": ["IDLE"],
+        }
+    ]
+    assert valid_client.nodes(machine="cluster1") == response
+
+
+def test_get_nodes_from_list(valid_client):
+    response = [
+        {
+            "ActiveFeatures": ["f7t"],
+            "NodeName": "nid001",
+            "Partitions": ["part01", "part02"],
+            "State": ["IDLE"],
+        }
+    ]
+    assert valid_client.nodes(machine="cluster1", nodes=["nid001"]) == response
+
+
+def test_get_nodes_unknown(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.nodes(machine="cluster1", nodes=["nidunknown"])
+
+
+def test_cli_get_nodes(valid_credentials):
+    args = valid_credentials + ["get-nodes", "--system", "cluster1", "nid001"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Information about jobs in the queue" in stdout
+    assert "nid001" in stdout
+    assert "part01, part02" in stdout
+    assert "IDLE" in stdout
+    assert "f7t" in stdout
+
+
+def test_get_partitions(valid_client):
+    response = [
+        {
+            "Default": "YES",
+            "PartitionName": "part01",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "part02",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "xfer",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        }
+    ]
+    assert valid_client.partitions(machine="cluster1") == response
+
+
+def test_get_partitions_from_list(valid_client):
+    response = [
+        {
+            "Default": "YES",
+            "PartitionName": "part01",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "part02",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        },
+        {
+            "Default": "NO",
+            "PartitionName": "xfer",
+            "State": "UP",
+            "TotalCPUs": "2",
+            "TotalNodes": "1"
+        }
+    ]
+    assert valid_client.partitions(
+        machine="cluster1", partitions=["part01", "part02", "xfer"]
+    ) == response
+
+
+def test_get_partitions_unknown(valid_client):
+    with pytest.raises(firecrest.FirecrestException):
+        valid_client.partitions(
+            machine="cluster1",
+            partitions=["invalid_part"]
+        )
+
+
+def test_cli_get_partitions(valid_credentials):
+    args = (
+        valid_credentials +
+        ["get-partitions", "--system", "cluster1"]
+    )
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Information about partitions in the system" in stdout
+    assert "part01" in stdout
+    assert "part02" in stdout
+    assert "UP" in stdout
+
+def test_get_reservations(valid_client):
+    response = [
+        {
+            "EndTime": "2024-05-01T15:00:00",
+            "Features": "(null)",
+            "Nodes": "nid001",
+            "ReservationName": "res01",
+            "StartTime": "2024-05-01T12:00:00",
+            "State": "INACTIVE"
+        },
+        {
+            "EndTime": "2024-06-01T15:00:00",
+            "Features": ["f7t1", "f7t2"],
+            "Nodes": "nid002",
+            "ReservationName": "res04",
+            "StartTime": "2024-06-01T12:00:00",
+            "State": "INACTIVE"
+        }
+    ]
+    assert valid_client.reservations(machine="cluster1") == response
+
+
+def test_cli_get_reservations(valid_credentials):
+    args = valid_credentials + ["get-reservations", "--system", "cluster1"]
+    result = runner.invoke(cli.app, args=args)
+    stdout = common.clean_stdout(result.stdout)
+    assert result.exit_code == 0
+    assert "Information about reservations in the system" in stdout
