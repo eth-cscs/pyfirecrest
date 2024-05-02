@@ -335,21 +335,21 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        async with self._locks[microservice]:
-            await self._stall_request(microservice)
-            headers = {
-                "Authorization": f"Bearer {self._authorization.get_access_token()}"
-            }
-            if additional_headers:
-                headers.update(additional_headers)
+        # async with self._locks[microservice]:
+        # await self._stall_request(microservice)
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}"
+        }
+        if additional_headers:
+            headers.update(additional_headers)
 
-            logger.info(f"Making GET request to {endpoint}")
-            resp = await self._session.get(
-                url=url, headers=headers, params=params, timeout=self.timeout
-            )
-            self._next_request_ts[microservice] = (
-                time.time() + self.time_between_calls[microservice]
-            )
+        logger.info(f"Making GET request to {endpoint}")
+        resp = await self._session.get(
+            url=url, headers=headers, params=params, timeout=self.timeout
+        )
+        self._next_request_ts[microservice] = (
+            time.time() + self.time_between_calls[microservice]
+        )
 
         return resp
 
@@ -359,21 +359,21 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        async with self._locks[microservice]:
-            await self._stall_request(microservice)
-            headers = {
-                "Authorization": f"Bearer {self._authorization.get_access_token()}"
-            }
-            if additional_headers:
-                headers.update(additional_headers)
+        # async with self._locks[microservice]:
+        # await self._stall_request(microservice)
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}"
+        }
+        if additional_headers:
+            headers.update(additional_headers)
 
-            logger.info(f"Making POST request to {endpoint}")
-            resp = await self._session.post(
-                url=url, headers=headers, data=data, files=files, timeout=self.timeout
-            )
-            self._next_request_ts[microservice] = (
-                time.time() + self.time_between_calls[microservice]
-            )
+        logger.info(f"Making POST request to {endpoint}")
+        resp = await self._session.post(
+            url=url, headers=headers, data=data, files=files, timeout=self.timeout
+        )
+        self._next_request_ts[microservice] = (
+            time.time() + self.time_between_calls[microservice]
+        )
 
         return resp
 
@@ -383,21 +383,21 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        async with self._locks[microservice]:
-            await self._stall_request(microservice)
-            headers = {
-                "Authorization": f"Bearer {self._authorization.get_access_token()}"
-            }
-            if additional_headers:
-                headers.update(additional_headers)
+        # async with self._locks[microservice]:
+        #     await self._stall_request(microservice)
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}"
+        }
+        if additional_headers:
+            headers.update(additional_headers)
 
-            logger.info(f"Making PUT request to {endpoint}")
-            resp = await self._session.put(
-                url=url, headers=headers, data=data, timeout=self.timeout
-            )
-            self._next_request_ts[microservice] = (
-                time.time() + self.time_between_calls[microservice]
-            )
+        logger.info(f"Making PUT request to {endpoint}")
+        resp = await self._session.put(
+            url=url, headers=headers, data=data, timeout=self.timeout
+        )
+        self._next_request_ts[microservice] = (
+            time.time() + self.time_between_calls[microservice]
+        )
 
         return resp
 
@@ -407,28 +407,28 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        async with self._locks[microservice]:
-            await self._stall_request(microservice)
-            headers = {
-                "Authorization": f"Bearer {self._authorization.get_access_token()}"
-            }
-            if additional_headers:
-                headers.update(additional_headers)
+        # async with self._locks[microservice]:
+        #     await self._stall_request(microservice)
+        headers = {
+            "Authorization": f"Bearer {self._authorization.get_access_token()}"
+        }
+        if additional_headers:
+            headers.update(additional_headers)
 
-            logger.info(f"Making DELETE request to {endpoint}")
-            # httpx doesn't support data in the `delete` method so we will have to
-            # use the generic `request` method
-            # https://www.python-httpx.org/compatibility/#request-body-on-http-methods
-            resp = await self._session.request(
-                method="DELETE",
-                url=url,
-                headers=headers,
-                data=data,
-                timeout=self.timeout,
-            )
-            self._next_request_ts[microservice] = (
-                time.time() + self.time_between_calls[microservice]
-            )
+        logger.info(f"Making DELETE request to {endpoint}")
+        # httpx doesn't support data in the `delete` method so we will have to
+        # use the generic `request` method
+        # https://www.python-httpx.org/compatibility/#request-body-on-http-methods
+        resp = await self._session.request(
+            method="DELETE",
+            url=url,
+            headers=headers,
+            data=data,
+            timeout=self.timeout,
+        )
+        self._next_request_ts[microservice] = (
+            time.time() + self.time_between_calls[microservice]
+        )
 
         return resp
 
