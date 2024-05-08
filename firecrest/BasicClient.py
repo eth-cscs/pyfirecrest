@@ -467,8 +467,9 @@ class Firecrest:
             params["showhidden"] = show_hidden
 
         if recursive is True:
-            params["recursive"] =  recursive
-   
+            params["recursive"] =  recursive    
+  
+     
         resp = self._get_request(
             endpoint="/utilities/ls",
             additional_headers={"X-Machine-Name": machine},
