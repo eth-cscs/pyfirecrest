@@ -57,18 +57,25 @@ class ComputeTask:
         client: AsyncFirecrest,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
+        timeout: Optional[float] = 5
     ) -> None:
         self._responses = [] if previous_responses is None else previous_responses
         self._client = client
         self._task_id = task_id
+        self.timeout = timeout
 
     async def poll_task(self, final_status):
         logger.info(f"Polling task {self._task_id} until status is {final_status}")
         resp = await self._client._task_safe(self._task_id, self._responses)
+        start_time = time.time()
         while resp["status"] < final_status:
             # The rate limit is handled by the async client so no need to
             # add a `sleep` here
             resp = await self._client._task_safe(self._task_id, self._responses)
+
+        if time.time() - start_time > self.timeout:
+                raise fe.FirecrestException(f"Timeout polling task {self._task_id} before"
+                                            f"status was {final_status}")
 
         logger.info(f'Status of {self._task_id} is {resp["status"]}')
         return resp["data"]
@@ -168,7 +175,7 @@ class AsyncFirecrest:
         #: It can be a float or a tuple. More details here: https://www.python-httpx.org/advanced/#fine-tuning-the-configuration.
         self.timeout: Any = None
         # type is Any because of some incompatibility between https and requests library
-
+        self.task_poll_timeout: Optional[float] = 5
         #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
@@ -551,19 +558,6 @@ class AsyncFirecrest:
         responses.append(resp)
         return self._json_response(responses, 201, allow_none_result=True)
 
-    async def _poll_tasks(self, task_id: str, final_status, sleep_time):
-        logger.info(f"Polling task {task_id} until status is {final_status}")
-        resp = await self._task_safe(task_id)
-        while resp["status"] < final_status:
-            t = next(sleep_time)
-            logger.info(
-                f'Status of {task_id} is {resp["status"]}, sleeping for {t} sec'
-            )
-            await asyncio.sleep(t)
-            resp = await self._task_safe(task_id)
-
-        logger.info(f'Status of {task_id} is {resp["status"]}')
-        return resp["data"]
 
     # Status
     async def all_services(self) -> List[t.Service]:
@@ -1187,7 +1181,7 @@ class AsyncFirecrest:
 
         json_response = self._json_response([resp], 201)
         logger.info(f"Job submission task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], [resp])
+        t = ComputeTask(self, json_response["task_id"], [resp], timeout=self.task_poll_timeout)
 
         # Inject taskid in the result
         result = await t.poll_task("200")
@@ -1240,7 +1234,7 @@ class AsyncFirecrest:
         )
         json_response = self._json_response([resp], 200)
         logger.info(f"Job polling task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], [resp])
+        t = ComputeTask(self, json_response["task_id"], [resp], timeout=self.task_poll_timeout)
         res = await t.poll_task("200")
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
@@ -1289,7 +1283,7 @@ class AsyncFirecrest:
         )
         json_response = self._json_response([resp], 200)
         logger.info(f"Job active polling task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], [resp])
+        t = ComputeTask(self, json_response["task_id"], [resp], timeout=self.task_poll_timeout)
         dict_result = await t.poll_task("200")
         if len(jobids):
             ret = [i for i in dict_result.values() if i["jobid"] in jobids]
@@ -1324,7 +1318,7 @@ class AsyncFirecrest:
             params=params,
         )
         json_response = self._json_response([resp], 200)
-        t = ComputeTask(self, json_response["task_id"], [resp])
+        t = ComputeTask(self, json_response["task_id"], [resp], timeout=self.task_poll_timeout)
         result = await t.poll_task("200")
         return result
 
@@ -1354,7 +1348,7 @@ class AsyncFirecrest:
             params=params,
         )
         json_response = self._json_response([resp], 200)
-        t = ComputeTask(self, json_response["task_id"], [resp])
+        t = ComputeTask(self, json_response["task_id"], [resp], timeout=self.task_poll_timeout)
         result = await t.poll_task("200")
         return result
 
@@ -1381,7 +1375,7 @@ class AsyncFirecrest:
             params=params,
         )
         json_response = self._json_response([resp], 200)
-        t = ComputeTask(self, json_response["task_id"], [resp])
+        t = ComputeTask(self, json_response["task_id"], [resp], timeout=self.task_poll_timeout)
         result = await t.poll_task("200")
         return result
 
@@ -1401,7 +1395,7 @@ class AsyncFirecrest:
         )
         json_response = self._json_response([resp], 200)
         logger.info(f"Job cancellation task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], [resp])
+        t = ComputeTask(self, json_response["task_id"], [resp], timeout=self.task_poll_timeout)
         return await t.poll_task("200")
 
     # Storage
@@ -1483,7 +1477,7 @@ class AsyncFirecrest:
             resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], resp)
+        t = ComputeTask(self, json_response["task_id"], resp, timeout=self.task_poll_timeout)
         return await t.poll_task("200")
 
     async def submit_copy_job(
@@ -1526,7 +1520,7 @@ class AsyncFirecrest:
             resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], resp)
+        t = ComputeTask(self, json_response["task_id"], resp, timeout=self.task_poll_timeout)
         return await t.poll_task("200")
 
     async def submit_compress_job(
@@ -1570,7 +1564,7 @@ class AsyncFirecrest:
             resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], resp)
+        t = ComputeTask(self, json_response["task_id"], resp, timeout=self.task_poll_timeout)
         return await t.poll_task("200")
 
     async def submit_extract_job(
@@ -1617,7 +1611,7 @@ class AsyncFirecrest:
             resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], resp)
+        t = ComputeTask(self, json_response["task_id"], resp, timeout=self.task_poll_timeout)
         return await t.poll_task("200")
 
     async def submit_rsync_job(
@@ -1660,7 +1654,7 @@ class AsyncFirecrest:
             resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], resp)
+        t = ComputeTask(self, json_response["task_id"], resp, timeout=self.task_poll_timeout)
         return await t.poll_task("200")
 
     async def submit_delete_job(
@@ -1701,7 +1695,7 @@ class AsyncFirecrest:
             resp,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        t = ComputeTask(self, json_response["task_id"], resp)
+        t = ComputeTask(self, json_response["task_id"], resp, timeout=self.task_poll_timeout)
         return await t.poll_task("200")
 
     async def external_upload(

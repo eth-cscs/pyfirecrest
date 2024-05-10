@@ -136,6 +136,7 @@ class Firecrest:
         #:
         #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
         self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
+        self.task_poll_timeout: Optional[float] = 5
         #: Number of retries in case the rate limit is reached. When it is set to `None`, the
         #: client will keep trying until it gets a different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
@@ -371,6 +372,7 @@ class Firecrest:
         logger.info(f"Polling task {task_id} until status is {final_status}")
         resp = self._task_safe(task_id)
         t = 1
+        start_time = time.time()
         while resp["status"] < final_status:
             t = next(sleep_time, t)
             logger.info(
@@ -378,6 +380,10 @@ class Firecrest:
             )
             time.sleep(t)
             resp = self._task_safe(task_id)
+
+            if time.time() - start_time > self.task_poll_timeout:
+                raise fe.FirecrestException(f"Timeout polling task {task_id} before"
+                                            f"status was {final_status}")
 
         logger.info(f'Status of {task_id} is {resp["status"]}')
         return resp["data"]

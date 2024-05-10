@@ -174,6 +174,18 @@ async def test_submit_local(valid_client, slurm_script):
 
 
 @pytest.mark.asyncio
+async def test_submit_task_poll_timeout(valid_client):
+    # global submit_path_retry
+    # submit_path_retry = 0
+    valid_client.task_poll_timeout = -1
+    with pytest.raises(firecrest.FirecrestException):
+        await valid_client.submit(
+                machine="cluster1", job_script="/path/to/workdir/script.sh",
+                local_file=False
+        ) 
+
+
+@pytest.mark.asyncio
 async def test_submit_invalid_arguments(valid_client, non_slurm_script):
     with pytest.raises(firecrest.HeaderException):
         await valid_client.submit(
