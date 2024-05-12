@@ -125,20 +125,30 @@ class Firecrest:
     ) -> None:
         self._firecrest_url = firecrest_url
         self._authorization = authorization
-        # This should be used only for blocking operations that require multiple requests,
-        # not for external upload/download
+        # This should be used only for blocking operations that require
+        # multiple requests, not for external upload/download
         self._current_method_requests: List[requests.Response] = []
         self._verify = verify
         self._sa_role = sa_role
-        #: This attribute will be passed to all the requests that will be made.
-        #: How many seconds to wait for the server to send data before giving up.
-        #: After that time a `requests.exceptions.Timeout` error will be raised.
+        #: This attribute will be passed to all the requests that will be
+        #: made. How many seconds to wait for the server to send data before
+        #: giving up. After that time a `requests.exceptions.Timeout` error
+        #: will be raised.
         #:
-        #: It can be a float or a tuple. More details here: https://requests.readthedocs.io.
-        self.timeout: Optional[float | Tuple[float, float] | Tuple[float, None]] = None
-        #: Number of retries in case the rate limit is reached. When it is set to `None`, the
-        #: client will keep trying until it gets a different status code than 429.
+        #: It can be a float or a tuple. More details here:
+        #: https://requests.readthedocs.io.
+        self.timeout: Optional[
+            float | Tuple[float, float] | Tuple[float, None]
+        ] = None
+        #: Number of retries in case the rate limit is reached. When it is
+        #: set to `None`, the client will keep trying until it gets a
+        #: different status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
+        #: Set the sleep times for the polling of a task. When this is a
+        #: a list an error will be raised if the task is not finished after
+        #: the last sleep time. By default the sleep times will sum to
+        #: 10.5sec.
+        self.polling_sleep_times: list = [1, 0.5] + 4 * 60 * 9 * [0.25]
         self._api_version: Version = parse("1.13.1")
         self._session = requests.Session()
 
@@ -372,9 +382,14 @@ class Firecrest:
         resp = self._task_safe(task_id)
         t = 1
         while resp["status"] < final_status:
-            t = next(sleep_time, t)
+            try:
+                t = next(sleep_time)
+            except StopIteration:
+                raise fe.PollingIterException(task_id)
+
             logger.info(
-                f'Status of {task_id} is {resp["status"]}, sleeping for {t} sec'
+                f'Status of {task_id} is {resp["status"]}, sleeping for {t} '
+                f'sec'
             )
             time.sleep(t)
             resp = self._task_safe(task_id)
@@ -1057,7 +1072,7 @@ class Firecrest:
 
         # Inject taskid in the result
         result = self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
         result["firecrest_taskid"] = json_response["task_id"]
         return result
@@ -1094,7 +1109,7 @@ class Firecrest:
         json_response = self._acct_request(machine, jobids, start_time, end_time, page_size, page_number)
         logger.info(f"Job polling task: {json_response['task_id']}")
         res = self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
@@ -1131,7 +1146,7 @@ class Firecrest:
         json_response = self._squeue_request(machine, jobids, page_size, page_number)
         logger.info(f"Job active polling task: {json_response['task_id']}")
         dict_result = self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
         return list(dict_result.values())
 
@@ -1163,7 +1178,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
         result = self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
         return result
 
@@ -1195,7 +1210,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
         result = self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
         return result
 
@@ -1224,7 +1239,7 @@ class Firecrest:
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
         result = self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
         return result
 
@@ -1247,7 +1262,7 @@ class Firecrest:
         json_response = self._json_response(self._current_method_requests, 200)
         logger.info(f"Job cancellation task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
 
     # Storage
@@ -1328,7 +1343,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
 
     def submit_copy_job(
@@ -1371,7 +1386,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
 
     def submit_rsync_job(
@@ -1414,7 +1429,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
 
     def submit_delete_job(
@@ -1455,7 +1470,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
 
     def external_upload(
@@ -1533,7 +1548,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
 
     def submit_extract_job(
@@ -1581,7 +1596,7 @@ class Firecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
-            json_response["task_id"], "200", iter([1, 0.5, 0.25])
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
 
     # Reservation

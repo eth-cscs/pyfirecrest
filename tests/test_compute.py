@@ -20,9 +20,11 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    return firecrest.Firecrest(
+    client = firecrest.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
+    client.polling_sleep_times = [0, 0, 0]
+    return client
 
 
 @pytest.fixture
