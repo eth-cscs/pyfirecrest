@@ -7,7 +7,7 @@
 import sys
 
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 __app_name__ = "firecrest"
 MIN_PYTHON_VERSION = (3, 7, 0)
 
