@@ -26,6 +26,7 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
+from firecrest.utilities import time_block
 
 
 if sys.version_info >= (3, 8):
@@ -343,9 +344,11 @@ class AsyncFirecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making GET request to {endpoint}")
-        resp = await self._session.get(
-            url=url, headers=headers, params=params, timeout=self.timeout
-        )
+        with time_block(f"GET request to {endpoint}", logger):
+            resp = await self._session.get(
+                url=url, headers=headers, params=params, timeout=self.timeout
+            )
+
         self._next_request_ts[microservice] = (
             time.time() + self.time_between_calls[microservice]
         )
@@ -367,9 +370,11 @@ class AsyncFirecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making POST request to {endpoint}")
-        resp = await self._session.post(
-            url=url, headers=headers, data=data, files=files, timeout=self.timeout
-        )
+        with time_block(f"POST request to {endpoint}", logger):
+            resp = await self._session.post(
+                url=url, headers=headers, data=data, files=files, timeout=self.timeout
+            )
+
         self._next_request_ts[microservice] = (
             time.time() + self.time_between_calls[microservice]
         )
@@ -391,9 +396,11 @@ class AsyncFirecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making PUT request to {endpoint}")
-        resp = await self._session.put(
-            url=url, headers=headers, data=data, timeout=self.timeout
-        )
+        with time_block(f"PUT request to {endpoint}", logger):
+            resp = await self._session.put(
+                url=url, headers=headers, data=data, timeout=self.timeout
+            )
+
         self._next_request_ts[microservice] = (
             time.time() + self.time_between_calls[microservice]
         )
@@ -415,16 +422,17 @@ class AsyncFirecrest:
             headers.update(additional_headers)
 
         logger.info(f"Making DELETE request to {endpoint}")
-        # httpx doesn't support data in the `delete` method so we will have to
-        # use the generic `request` method
-        # https://www.python-httpx.org/compatibility/#request-body-on-http-methods
-        resp = await self._session.request(
-            method="DELETE",
-            url=url,
-            headers=headers,
-            data=data,
-            timeout=self.timeout,
-        )
+        with time_block(f"DELETE request to {endpoint}", logger):
+            # httpx doesn't support data in the `delete` method so we will
+            # have to use the generic `request` method
+            # https://www.python-httpx.org/compatibility/#request-body-on-http-methods
+            resp = await self._session.request(
+                method="DELETE",
+                url=url,
+                headers=headers,
+                data=data,
+                timeout=self.timeout,
+            )
         self._next_request_ts[microservice] = (
             time.time() + self.time_between_calls[microservice]
         )
