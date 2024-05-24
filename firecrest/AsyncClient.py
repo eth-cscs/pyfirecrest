@@ -361,8 +361,10 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        # async with self._locks[microservice]:
-        # await self._stall_request(microservice)
+        await self._stall_request(microservice)
+        self._next_request_ts[microservice] = (
+            time.time() + self.time_between_calls[microservice]
+        )
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}"
         }
@@ -375,10 +377,6 @@ class AsyncFirecrest:
                 url=url, headers=headers, data=data, files=files, timeout=self.timeout
             )
 
-        self._next_request_ts[microservice] = (
-            time.time() + self.time_between_calls[microservice]
-        )
-
         return resp
 
     @_retry_requests  # type: ignore
@@ -387,8 +385,10 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        # async with self._locks[microservice]:
-        #     await self._stall_request(microservice)
+        self._next_request_ts[microservice] = (
+            time.time() + self.time_between_calls[microservice]
+        )
+        await self._stall_request(microservice)
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}"
         }
@@ -401,10 +401,6 @@ class AsyncFirecrest:
                 url=url, headers=headers, data=data, timeout=self.timeout
             )
 
-        self._next_request_ts[microservice] = (
-            time.time() + self.time_between_calls[microservice]
-        )
-
         return resp
 
     @_retry_requests  # type: ignore
@@ -413,8 +409,10 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         microservice = endpoint.split("/")[1]
         url = f"{self._firecrest_url}{endpoint}"
-        # async with self._locks[microservice]:
-        #     await self._stall_request(microservice)
+        await self._stall_request(microservice)
+        self._next_request_ts[microservice] = (
+            time.time() + self.time_between_calls[microservice]
+        )
         headers = {
             "Authorization": f"Bearer {self._authorization.get_access_token()}"
         }
@@ -433,9 +431,6 @@ class AsyncFirecrest:
                 data=data,
                 timeout=self.timeout,
             )
-        self._next_request_ts[microservice] = (
-            time.time() + self.time_between_calls[microservice]
-        )
 
         return resp
 
