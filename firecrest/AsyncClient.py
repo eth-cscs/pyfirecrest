@@ -206,18 +206,18 @@ class AsyncFirecrest:
         # The following objects are used to "merge" requests in the same
         # endpoints, for example requests to tasks or polling for jobs
         self._polling_ids: dict[str, set] = {
-            "jobs": set(),
-            "accounting": set(),
+            "/compute/jobs": set(),
+            "/compute/acct": set(),
             "tasks": set()
         }
         self._polling_results: dict[str, List] = {
-            "jobs": [],
-            "accounting": [],
+            "/compute/jobs": [],
+            "/compute/acct": [],
             "tasks": []
         }
         self._polling_events: dict[str, Optional[asyncio.Event]] = {
-            "jobs": None,
-            "accounting": None,
+            "/compute/jobs": None,
+            "/compute/acct": None,
             "tasks": None,
         }
 
@@ -247,7 +247,73 @@ class AsyncFirecrest:
     async def _get_merge_request(
         self, endpoint, additional_headers=None, params=None
     ) -> httpx.Response:
-        pass
+        microservice = endpoint.split("/")[1]
+        url = f"{self._firecrest_url}{endpoint}"
+
+        async def _merged_get(event):
+            await self._stall_request(microservice)
+            async with self._locks[endpoint]:
+                results = self._polling_results[endpoint]
+                ids = self._polling_ids[endpoint].copy()
+                self._polling_events[endpoint] = None
+                self._polling_ids[endpoint] = set()
+                comma_sep_par = "tasks" if microservice == "tasks" else "jobs"
+                if ids == {"*"}:
+                    if comma_sep_par in params:
+                        del params[comma_sep_par]
+                else:
+                    params[comma_sep_par] = ",".join(ids)
+
+                headers = {
+                    "Authorization": f"Bearer {self._authorization.get_access_token()}"
+                }
+                if additional_headers:
+                    headers.update(additional_headers)
+
+                logger.info(f"Making GET request to {endpoint}")
+                with time_block(f"GET request to {endpoint}", logger):
+                    resp = await self._session.get(
+                        url=url, headers=headers,
+                        params=params,
+                        timeout=self.timeout
+                    )
+
+                self._next_request_ts[microservice] = (
+                    time.time() + self.time_between_calls[microservice]
+                )
+
+                results.append(resp)
+                event.set()
+
+            return
+
+        async with self._locks[endpoint]:
+            if self._polling_ids[endpoint] != {"*"}:
+                comma_sep_par = "tasks" if endpoint == "/tasks" else "jobs"
+                if comma_sep_par not in params:
+                    self._polling_ids[endpoint] = {"*"}
+                else:
+                    new_ids = params[comma_sep_par].split(",")
+                    self._polling_ids[endpoint].update(new_ids)
+
+            if self._polling_events[endpoint] is None:
+                self._polling_events[endpoint] = asyncio.Event()
+                my_event = self._polling_events[endpoint]
+                self._polling_results[endpoint] = []
+                my_result = self._polling_results[endpoint]
+                waiter = True
+                task = asyncio.create_task(_merged_get(my_event))
+            else:
+                waiter = False
+                my_event = self._polling_events[endpoint]
+                my_result = self._polling_results[endpoint]
+
+        if waiter:
+            await task
+
+        await my_event.wait()  # type: ignore
+        resp = my_result[0]
+        return resp
 
     @_retry_requests  # type: ignore
     async def _get_simple_request(
@@ -404,11 +470,13 @@ class AsyncFirecrest:
         if self._next_request_ts[microservice] is not None:
             while time.time() <= self._next_request_ts[microservice]:
                 logger.debug(
-                    f"`{microservice}` microservice has received too many requests. "
-                    f"Going to sleep for "
+                    f"`{microservice}` microservice has received too many "
+                    f"requests. Going to sleep for "
                     f"~{self._next_request_ts[microservice] - time.time()} sec"
                 )
-                await asyncio.sleep(self._next_request_ts[microservice] - time.time())
+                await asyncio.sleep(
+                    self._next_request_ts[microservice] - time.time()
+                )
 
     @overload
     def _json_response(
