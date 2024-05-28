@@ -198,27 +198,26 @@ class AsyncFirecrest:
             "utilities": 0,
         }
         self._locks = {
-            "jobs": asyncio.Lock(),
-            "accounting": asyncio.Lock(),
-            "tasks": asyncio.Lock(),
+            "/compute/jobs": asyncio.Lock(),
+            "/compute/acct": asyncio.Lock(),
+            "/tasks": asyncio.Lock(),
         }
-
         # The following objects are used to "merge" requests in the same
         # endpoints, for example requests to tasks or polling for jobs
         self._polling_ids: dict[str, set] = {
             "/compute/jobs": set(),
             "/compute/acct": set(),
-            "tasks": set()
+            "/tasks": set()
         }
         self._polling_results: dict[str, List] = {
             "/compute/jobs": [],
             "/compute/acct": [],
-            "tasks": []
+            "/tasks": []
         }
         self._polling_events: dict[str, Optional[asyncio.Event]] = {
             "/compute/jobs": None,
             "/compute/acct": None,
-            "tasks": None,
+            "/tasks": None,
         }
 
     def set_api_version(self, api_version: str) -> None:
