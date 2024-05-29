@@ -177,10 +177,10 @@ class AsyncFirecrest:
         self.num_retries_rate_limit: Optional[int] = None
         #: Set the sleep times for the polling of a task. When this is a
         #: a list an error will be raised if the task is not finished after
-        #: the last sleep time. By default this an list of 100 zeros in this
+        #: the last sleep time. By default this an list of 250 zeros in this
         #: client and the rate will be controlled by the request rate of the
         #: `tasks` microservice.
-        self.polling_sleep_times: list = 100 * [0]
+        self.polling_sleep_times: list = 250 * [0]
         self._api_version: Version = parse("1.13.1")
         self._session = httpx.AsyncClient()
 

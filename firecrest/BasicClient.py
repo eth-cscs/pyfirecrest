@@ -147,8 +147,8 @@ class Firecrest:
         #: Set the sleep times for the polling of a task. When this is a
         #: a list an error will be raised if the task is not finished after
         #: the last sleep time. By default the sleep times will sum to
-        #: 10.5sec.
-        self.polling_sleep_times: list = [1, 0.5] + 4 * 60 * 9 * [0.25]
+        #: 1 minute and the client will make 236 requests before failing.
+        self.polling_sleep_times: list = [1, 0.5] + 234 * [0.25]
         self._api_version: Version = parse("1.13.1")
         self._session = requests.Session()
 
