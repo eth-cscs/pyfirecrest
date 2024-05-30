@@ -98,3 +98,17 @@ class StorageDownloadException(FirecrestException):
 
 class StorageUploadException(FirecrestException):
     """Exception raised by a failed external upload"""
+
+
+class PollingIterException(Exception):
+    """Exception raised when the polling iterator is exhausted"""
+
+    def __init__(self, task_id):
+        self._task_id = task_id
+
+    def __str__(self):
+        return (
+            f"polling iterator for task {self._task_id} "
+            f"is exhausted. Update `polling_sleep_times` of the client "
+            f"to increase the number of polling attempts."
+        )
