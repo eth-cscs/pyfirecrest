@@ -594,10 +594,16 @@ class Firecrest:
         self._json_response([resp], 201)
         return target_path
 
-    def compress(self, machine: str, source_path: str, target_path: str) -> str:
+    def compress(
+            self,
+            machine: str,
+            source_path: str,
+            target_path: str,
+    ) -> str:
         """Compress files using gzip compression.
-        You can name the output file as you like, but typically these files have a .tar.gz extension.
-        When successful, the method returns a string with the path of the newly created file.
+        You can name the output file as you like, but typically these files
+        have a .tar.gz extension. When successful, the method returns a string
+        with the path of the newly created file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
@@ -1010,7 +1016,7 @@ class Firecrest:
         :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         if [
             script_str is None,
@@ -1097,7 +1103,7 @@ class Firecrest:
         :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/acct`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         if isinstance(jobs, str):
@@ -1133,7 +1139,7 @@ class Firecrest:
         :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/jobs`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         if isinstance(jobs, str):
@@ -1162,7 +1168,7 @@ class Firecrest:
         :param nodes: specific compute nodes to query
         :calls: GET `/compute/nodes`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1194,7 +1200,7 @@ class Firecrest:
         :param nodes: specific compute nodes to query
         :calls: GET `/compute/partitions`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1224,7 +1230,7 @@ class Firecrest:
         :param machine: the machine name where the scheduler belongs to
         :param nodes: specific reservations to query
         :calls: GET `/compute/reservations`
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         .. warning:: This is available only for FirecREST>=1.16.0
         """
         params = {}
@@ -1251,7 +1257,7 @@ class Firecrest:
         :param job_id: the ID of the job
         :calls: DELETE `/compute/jobs/{job_id}`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         resp = self._delete_request(
@@ -1327,7 +1333,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/mv`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/mv"
@@ -1370,7 +1376,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/cp`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/cp"
@@ -1413,7 +1419,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/rsync`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rsync"
@@ -1454,7 +1460,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/rm`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rm"
@@ -1530,7 +1536,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/compress`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1577,7 +1583,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/extract`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """

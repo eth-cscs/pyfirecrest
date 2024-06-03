@@ -1168,7 +1168,7 @@ class AsyncFirecrest:
         :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         if [
             script_str is None,
@@ -1275,7 +1275,7 @@ class AsyncFirecrest:
         :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/acct`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         jobids = [str(j) for j in jobs] if jobs else []
         params = {}
@@ -1329,7 +1329,7 @@ class AsyncFirecrest:
         :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/jobs`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         jobs = jobs if jobs else []
         jobids = {str(j) for j in jobs}
@@ -1371,7 +1371,7 @@ class AsyncFirecrest:
         :param nodes: specific compute nodes to query
         :calls: GET `/compute/nodes`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1401,7 +1401,7 @@ class AsyncFirecrest:
         :param partitions: specific partitions nodes to query
         :calls: GET `/compute/partitions`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1429,7 +1429,7 @@ class AsyncFirecrest:
         :param machine: the machine name where the scheduler belongs to
         :param reservations: specific reservations to query
         :calls: GET `/compute/reservations`
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         .. warning:: This is available only for FirecREST>=1.16.0
         """
         params = {}
@@ -1454,7 +1454,7 @@ class AsyncFirecrest:
         :param job_id: the ID of the job
         :calls: DELETE `/compute/jobs/{job_id}`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         resp = await self._delete_request(
             endpoint=f"/compute/jobs/{job_id}",
@@ -1528,7 +1528,7 @@ class AsyncFirecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/mv`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/mv"
@@ -1571,7 +1571,7 @@ class AsyncFirecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/cp`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/cp"
@@ -1613,7 +1613,7 @@ class AsyncFirecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/compress`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1660,7 +1660,7 @@ class AsyncFirecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/extract`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1705,7 +1705,7 @@ class AsyncFirecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/rsync`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/rsync"
@@ -1746,7 +1746,7 @@ class AsyncFirecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/rm`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         resp: List[requests.Response] = []
         endpoint = "/storage/xfer-internal/rm"
