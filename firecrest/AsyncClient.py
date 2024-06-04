@@ -162,7 +162,7 @@ class AsyncFirecrest:
         # This should be used only for blocking operations that require multiple requests,
         # not for external upload/download
         self._current_method_requests: List[requests.Response] = []
-        self._verify = verify  # TODO: not supported in httpx
+        self._verify = verify
         self._sa_role = sa_role
         #: This attribute will be passed to all the requests that will be made.
         #: How many seconds to wait for the server to send data before giving up.
@@ -182,7 +182,7 @@ class AsyncFirecrest:
         #: `tasks` microservice.
         self.polling_sleep_times: list = 250 * [0]
         self._api_version: Version = parse("1.13.1")
-        self._session = httpx.AsyncClient()
+        self._session = httpx.AsyncClient(self._verify)
 
         #: Seconds between requests in each microservice
         self.time_between_calls: dict[str, float] = {  # TODO more detailed docs
@@ -234,7 +234,7 @@ class AsyncFirecrest:
         if not self._session.is_closed:
             await self._session.aclose()
 
-        self._session = httpx.AsyncClient()
+        self._session = httpx.AsyncClient(self._verify)
 
     @property
     def is_session_closed(self) -> bool:
