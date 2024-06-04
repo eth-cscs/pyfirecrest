@@ -154,7 +154,7 @@ class AsyncFirecrest:
         self,
         firecrest_url: str,
         authorization: Any,
-        verify: Optional[str | bool] = None,
+        verify: Any = None,
         sa_role: str = "firecrest-sa",
     ) -> None:
         self._firecrest_url = firecrest_url
@@ -182,7 +182,7 @@ class AsyncFirecrest:
         #: `tasks` microservice.
         self.polling_sleep_times: list = 250 * [0]
         self._api_version: Version = parse("1.13.1")
-        self._session = httpx.AsyncClient(self._verify)
+        self._session = httpx.AsyncClient(verify=self._verify)
 
         #: Seconds between requests in each microservice
         self.time_between_calls: dict[str, float] = {  # TODO more detailed docs
@@ -234,7 +234,7 @@ class AsyncFirecrest:
         if not self._session.is_closed:
             await self._session.aclose()
 
-        self._session = httpx.AsyncClient(self._verify)
+        self._session = httpx.AsyncClient(verify=self._verify)
 
     @property
     def is_session_closed(self) -> bool:
