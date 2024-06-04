@@ -25,7 +25,7 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
-from firecrest.utilities import time_block
+from firecrest.utilities import time_block, slurm_state_completed
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -280,12 +280,12 @@ class Firecrest:
                 raise exc
 
         if status_code == 401:
-            logger.critical(f"Status of the response is 401")
+            logger.critical("Status of the response is 401")
             exc = fe.UnauthorizedException(responses)
             logger.critical(exc)
             raise exc
         elif status_code == 404:
-            logger.critical(f"Status of the response is 404")
+            logger.critical("Status of the response is 404")
             exc = fe.NotFound(responses)
             logger.critical(exc)
             raise exc
@@ -599,6 +599,7 @@ class Firecrest:
             machine: str,
             source_path: str,
             target_path: str,
+            fail_on_timeout: Optional[bool] = True
     ) -> str:
         """Compress files using gzip compression.
         You can name the output file as you like, but typically these files
@@ -617,14 +618,81 @@ class Firecrest:
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "sourcePath": source_path},
         )
-        self._json_response([resp], 201)
+        timeout_str = "Command has finished with timeout signal"
+        if (
+            resp.status_code == 201 or
+            fail_on_timeout or
+            resp.status_code != 400 or
+            resp.json().get('error', '') != timeout_str
+        ):
+            self._json_response([resp], 201)
+        else:
+            logger.debug(
+                f"Compression of {source_path} to {target_path} has finished "
+                f"with timeout signal. Will submit a job to compress the "
+                f"file."
+            )
+            job_info = self.submit_compress_job(
+                machine,
+                source_path,
+                target_path
+            )
+            jobid = job_info['jobid']
+            active_jobs = self.poll(
+                machine,
+                [jobid]
+            )
+            intervals = itertools.cycle(
+                [1, 1, 1, 1, 1,
+                 5, 5, 5, 5,
+                 10, 10, 10,
+                 30]
+            )
+            while (
+                active_jobs and
+                not slurm_state_completed(active_jobs[0]['state'])
+            ):
+                time.sleep(next(intervals))
+                active_jobs = self.poll_active(
+                    machine,
+                    [jobid]
+                )
+
+            if (
+                active_jobs and
+                active_jobs[0]['state'] != 'COMPLETED'
+            ):
+                raise Exception(
+                    f"compression job (jobid={jobid}) finished with "
+                    f"state {active_jobs[0]['state']}"
+                )
+
+            err_output = self.head(
+                machine,
+                job_info['job_file_err']
+            )
+            if (err_output != ''):
+                raise Exception(
+                    f"compression job (jobid={jobid}) has failed: "
+                    f"{err_output}"
+                )
+
         return target_path
 
-    def extract(self, machine: str, source_path: str, target_path: str, extension: str = "auto") -> str:
+    def extract(
+            self,
+            machine: str,
+            source_path: str,
+            target_path: str,
+            extension: str = "auto",
+            fail_on_timeout: Optional[bool] = True
+    ) -> str:
         """Extract files.
-        If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
+        If you don't select the extension, FirecREST will try to guess the
+        ight command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
-        When successful, the method returns a string with the path of the newly created file.
+        When successful, the method returns a string with the path of the
+        newly created file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute path of the file to be extracted
@@ -643,7 +711,66 @@ class Firecrest:
                 "extension": extension
             },
         )
-        self._json_response([resp], 201)
+        timeout_str = "Command has finished with timeout signal"
+        if (
+            resp.status_code == 201 or
+            fail_on_timeout or
+            resp.status_code != 400 or
+            resp.json().get('error', '') != timeout_str
+        ):
+            self._json_response([resp], 201)
+        else:
+            logger.debug(
+                f"Extraction of {source_path} to {target_path} has finished "
+                f"with timeout signal. Will submit a job to extract the "
+                f"file."
+            )
+
+            job_info = self.submit_extract_job(
+                machine,
+                source_path,
+                target_path,
+                extension
+            )
+            jobid = job_info['jobid']
+            active_jobs = self.poll(
+                machine,
+                [jobid]
+            )
+            intervals = itertools.cycle(
+                [1, 1, 1, 1, 1,
+                 5, 5, 5, 5,
+                 10, 10, 10,
+                 30]
+            )
+            while (
+                active_jobs and
+                not slurm_state_completed(active_jobs[0]['state'])
+            ):
+                time.sleep(next(intervals))
+                active_jobs = self.poll_active(
+                    machine,
+                    [jobid]
+                )
+
+            if (
+                active_jobs and
+                active_jobs[0]['state'] != 'COMPLETED'
+            ):
+                raise Exception(
+                    f"extract job (jobid={jobid}) finished with"
+                    f"state {active_jobs[0]['state']}"
+                )
+
+            err_output = self.head(
+                machine,
+                job_info['job_file_err']
+            )
+            if (err_output != ''):
+                raise Exception(
+                    f"extract job has failed: {err_output}"
+                )
+
         return target_path
 
     def file_type(self, machine: str, target_path: str) -> str:
