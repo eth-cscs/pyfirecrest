@@ -599,7 +599,7 @@ class Firecrest:
             machine: str,
             source_path: str,
             target_path: str,
-            fail_on_timeout: Optional[bool] = True
+            fail_on_timeout: bool = True
     ) -> str:
         """Compress files using gzip compression.
         You can name the output file as you like, but typically these files
@@ -638,7 +638,7 @@ class Firecrest:
                 target_path
             )
             jobid = job_info['jobid']
-            active_jobs = self.poll(
+            active_jobs = self.poll_active(
                 machine,
                 [jobid]
             )
@@ -733,7 +733,7 @@ class Firecrest:
                 extension
             )
             jobid = job_info['jobid']
-            active_jobs = self.poll(
+            active_jobs = self.poll_active(
                 machine,
                 [jobid]
             )

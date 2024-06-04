@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import httpx
 from io import BytesIO
+import itertools
 import jwt
 import logging
 import os
@@ -27,7 +28,7 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
-from firecrest.utilities import time_block
+from firecrest.utilities import time_block, slurm_state_completed
 
 
 if sys.version_info >= (3, 8):
@@ -826,7 +827,13 @@ class AsyncFirecrest:
         self._json_response([resp], 201)
         return target_path
 
-    async def compress(self, machine: str, source_path: str, target_path: str) -> str:
+    async def compress(
+            self,
+            machine: str,
+            source_path: str,
+            target_path: str,
+            fail_on_timeout: bool = True
+    ) -> str:
         """Compress files using gzip compression.
         You can name the output file as you like, but typically these files have a .tar.gz extension.
         When successful, the method returns a string with the path of the newly created file.
@@ -843,10 +850,76 @@ class AsyncFirecrest:
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "sourcePath": source_path},
         )
-        self._json_response([resp], 201)
+        timeout_str = "Command has finished with timeout signal"
+        if (
+            resp.status_code == 201 or
+            fail_on_timeout or
+            resp.status_code != 400 or
+            resp.json()["error"] != timeout_str
+        ):
+            self._json_response([resp], 201)
+        else:
+            logger.debug(
+                f"Compression of {source_path} to {target_path} has finished "
+                f"with timeout signal. Will submit a job to compress the "
+                f"file."
+            )
+            job_info = await self.submit_compress_job(
+                machine,
+                source_path,
+                target_path
+            )
+            jobid = job_info['jobid']
+            active_jobs = await self.poll_active(
+                machine,
+                [jobid]
+            )
+            intervals = itertools.cycle(
+                [5,  # We know it took at least 5 seconds
+                 1, 1, 1, 1, 1,
+                 5, 5, 5, 5,
+                 10, 10, 10,
+                 30]
+            )
+            while (
+                active_jobs and
+                not slurm_state_completed(active_jobs[0]['state'])
+            ):
+                await asyncio.sleep(next(intervals))
+                active_jobs = await self.poll_active(
+                    machine,
+                    [jobid]
+                )
+
+            if (
+                active_jobs and
+                active_jobs[0]['state'] != 'COMPLETED'
+            ):
+                raise Exception(
+                    f"compression job (jobid={jobid}) finished with "
+                    f"state {active_jobs[0]['state']}"
+                )
+
+            err_output = await self.head(
+                machine,
+                job_info['job_file_err']
+            )
+            if (err_output != ''):
+                raise Exception(
+                    f"compression job (jobid={jobid}) has failed: "
+                    f"{err_output}"
+                )
+
         return target_path
 
-    async def extract(self, machine: str, source_path: str, target_path: str, extension: str = "auto") -> str:
+    async def extract(
+            self,
+            machine: str,
+            source_path: str,
+            target_path: str,
+            extension: str = "auto",
+            fail_on_timeout: bool = True
+    ) -> str:
         """Extract files.
         If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
@@ -869,6 +942,67 @@ class AsyncFirecrest:
                 "extension": extension
             },
         )
+        timeout_str = "Command has finished with timeout signal"
+        if (
+            resp.status_code == 201 or
+            fail_on_timeout or
+            resp.status_code != 400 or
+            resp.json().get('error', '') != timeout_str
+        ):
+            self._json_response([resp], 201)
+        else:
+            logger.debug(
+                f"Extraction of {source_path} to {target_path} has finished "
+                f"with timeout signal. Will submit a job to extract the "
+                f"file."
+            )
+
+            job_info = await self.submit_extract_job(
+                machine,
+                source_path,
+                target_path,
+                extension
+            )
+            jobid = job_info['jobid']
+            active_jobs = await self.poll_active(
+                machine,
+                [jobid]
+            )
+            intervals = itertools.cycle(
+                [5,  # We know it took at least 5 seconds
+                 1, 1, 1, 1, 1,
+                 5, 5, 5, 5,
+                 10, 10, 10,
+                 30]
+            )
+            while (
+                active_jobs and
+                not slurm_state_completed(active_jobs[0]['state'])
+            ):
+                await asyncio.sleep(next(intervals))
+                active_jobs = await self.poll_active(
+                    machine,
+                    [jobid]
+                )
+
+            if (
+                active_jobs and
+                active_jobs[0]['state'] != 'COMPLETED'
+            ):
+                raise Exception(
+                    f"extract job (jobid={jobid}) finished with"
+                    f"state {active_jobs[0]['state']}"
+                )
+
+            err_output = await self.head(
+                machine,
+                job_info['job_file_err']
+            )
+            if (err_output != ''):
+                raise Exception(
+                    f"extract job has failed: {err_output}"
+                )
+
         self._json_response([resp], 201)
         return target_path
 
