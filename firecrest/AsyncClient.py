@@ -14,6 +14,7 @@ import logging
 import os
 import pathlib
 import requests
+import ssl
 import sys
 import tempfile
 import time
@@ -154,7 +155,7 @@ class AsyncFirecrest:
         self,
         firecrest_url: str,
         authorization: Any,
-        verify: Any = None,
+        verify: str | bool | ssl.SSLContext = True,
         sa_role: str = "firecrest-sa",
     ) -> None:
         self._firecrest_url = firecrest_url
