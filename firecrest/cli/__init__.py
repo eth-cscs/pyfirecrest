@@ -480,7 +480,7 @@ def compress(
     You can name the output file as you like, but typically these files have a .tar.gz extension.
     """
     try:
-        client.compress(system, source, destination)
+        client.compress(system, source, destination, fail_on_timeout=False)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -509,7 +509,7 @@ def extract(
     Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
     """
     try:
-        client.extract(system, source, destination)
+        client.extract(system, source, destination, extension, fail_on_timeout=False)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
