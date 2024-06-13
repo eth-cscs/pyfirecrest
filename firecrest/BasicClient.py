@@ -689,7 +689,7 @@ class Firecrest:
     ) -> str:
         """Extract files.
         If you don't select the extension, FirecREST will try to guess the
-        ight command based on the extension of the sourcePath.
+        right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
         When successful, the method returns a string with the path of the
         newly created file.
