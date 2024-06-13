@@ -642,12 +642,7 @@ class Firecrest:
                 machine,
                 [jobid]
             )
-            intervals = itertools.cycle(
-                [1, 1, 1, 1, 1,
-                 5, 5, 5, 5,
-                 10, 10, 10,
-                 30]
-            )
+            intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
                 not slurm_state_completed(active_jobs[0]['state'])
@@ -737,12 +732,7 @@ class Firecrest:
                 machine,
                 [jobid]
             )
-            intervals = itertools.cycle(
-                [1, 1, 1, 1, 1,
-                 5, 5, 5, 5,
-                 10, 10, 10,
-                 30]
-            )
+            intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
                 not slurm_state_completed(active_jobs[0]['state'])
