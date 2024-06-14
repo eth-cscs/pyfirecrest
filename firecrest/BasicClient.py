@@ -611,6 +611,10 @@ class Firecrest:
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :param dereference: follow symbolic links
+        :param fail_on_timeout: if `True`, the method will raise an exception
+        if the compression fails due to a timeout on the server side.
+        Otherwise, it will submit a job to compress the file and wait for the
+        job to finish.
         :calls: POST `/utilities/compress`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -652,12 +656,7 @@ class Firecrest:
                 machine,
                 [jobid]
             )
-            intervals = itertools.cycle(
-                [1, 1, 1, 1, 1,
-                 5, 5, 5, 5,
-                 10, 10, 10,
-                 30]
-            )
+            intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
                 not slurm_state_completed(active_jobs[0]['state'])
@@ -695,11 +694,11 @@ class Firecrest:
             source_path: str,
             target_path: str,
             extension: str = "auto",
-            fail_on_timeout: Optional[bool] = True
+            fail_on_timeout: bool = True
     ) -> str:
         """Extract files.
         If you don't select the extension, FirecREST will try to guess the
-        ight command based on the extension of the sourcePath.
+        right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
         When successful, the method returns a string with the path of the
         newly created file.
@@ -708,6 +707,10 @@ class Firecrest:
         :param source_path: the absolute path of the file to be extracted
         :param target_path: the absolute target path where the `source_path` is extracted
         :param extension: file extension, possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
+        :param fail_on_timeout: if `True`, the method will raise an exception
+        if the extraction fails due to a timeout on the server side.
+        Otherwise, it will submit a job to extract the file and wait for the
+        job to finish.
         :calls: POST `/utilities/extract`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -747,12 +750,7 @@ class Firecrest:
                 machine,
                 [jobid]
             )
-            intervals = itertools.cycle(
-                [1, 1, 1, 1, 1,
-                 5, 5, 5, 5,
-                 10, 10, 10,
-                 30]
-            )
+            intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
                 not slurm_state_completed(active_jobs[0]['state'])
