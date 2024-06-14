@@ -841,6 +841,10 @@ class AsyncFirecrest:
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param fail_on_timeout: if `True`, the method will raise an exception
+        if the compression fails due to a timeout on the server side.
+        Otherwise, it will submit a job to compress the file and wait for the
+        job to finish.
         :calls: POST `/utilities/compress`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -923,6 +927,10 @@ class AsyncFirecrest:
         :param source_path: the absolute path of the file to be extracted
         :param target_path: the absolute target path where the `source_path` is extracted
         :param file_extension: possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
+        :param fail_on_timeout: if `True`, the method will raise an exception
+        if the extraction fails due to a timeout on the server side.
+        Otherwise, it will submit a job to extract the file and wait for the
+        job to finish.
         :calls: POST `/utilities/extract`
 
         .. warning:: This is available only for FirecREST>=1.16.0
