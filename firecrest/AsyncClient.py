@@ -850,7 +850,7 @@ class AsyncFirecrest:
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
-        data = {
+        data: dict[str, str | bool]  = {
             "targetPath": target_path,
             "sourcePath": source_path,
         }

@@ -1256,7 +1256,13 @@ def submit_compress(
     try:
         console.print(
             client.submit_compress_job(
-                system, source, destination, job_name, time, jobid, account
+                machine=system,
+                source_path=source,
+                target_path=destination,
+                job_name=job_name,
+                time=time,
+                stage_out_job_id=jobid,
+                account=account
             )
         )
     except Exception as e:
