@@ -92,6 +92,7 @@ class AsyncFirecrest:
     """
 
     TOO_MANY_REQUESTS_CODE = 429
+    TIMEOUT_STR = "Command has finished with timeout signal"
 
     def _retry_requests(func):
         async def wrapper(*args, **kwargs):
@@ -841,10 +842,9 @@ class AsyncFirecrest:
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
-        :param fail_on_timeout: if `True`, the method will raise an exception
-        if the compression fails due to a timeout on the server side.
-        Otherwise, it will submit a job to compress the file and wait for the
-        job to finish.
+        :param dereference: follow symbolic links
+        :param fail_on_timeout: if `True` on timeout, this method will raise an
+        exception and won't fall back to submitting a long running job
         :calls: POST `/utilities/compress`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -854,12 +854,11 @@ class AsyncFirecrest:
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "sourcePath": source_path},
         )
-        timeout_str = "Command has finished with timeout signal"
         if (
             resp.status_code == 201 or
             fail_on_timeout or
             resp.status_code != 400 or
-            resp.json()["error"] != timeout_str
+            resp.json()["error"] != self.TIMEOUT_STR
         ):
             self._json_response([resp], 201)
         else:
@@ -927,10 +926,8 @@ class AsyncFirecrest:
         :param source_path: the absolute path of the file to be extracted
         :param target_path: the absolute target path where the `source_path` is extracted
         :param file_extension: possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
-        :param fail_on_timeout: if `True`, the method will raise an exception
-        if the extraction fails due to a timeout on the server side.
-        Otherwise, it will submit a job to extract the file and wait for the
-        job to finish.
+        :param fail_on_timeout: if `True` on timeout, this method will raise an
+        exception and won't fall back to submitting a long running job
         :calls: POST `/utilities/extract`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -944,12 +941,11 @@ class AsyncFirecrest:
                 "extension": extension
             },
         )
-        timeout_str = "Command has finished with timeout signal"
         if (
             resp.status_code == 201 or
             fail_on_timeout or
             resp.status_code != 400 or
-            resp.json().get('error', '') != timeout_str
+            resp.json().get('error', '') != self.TIMEOUT_STR
         ):
             self._json_response([resp], 201)
         else:
