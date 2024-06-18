@@ -630,6 +630,12 @@ class Firecrest:
             additional_headers={"X-Machine-Name": machine},
             data=data,
         )
+        # - If the response is 201, the request was successful so we can
+        #   return the target path
+        # - If `fail_on_timeout==True` we let `_json_response` take care of
+        #   possible errors by raising an exception
+        # - If the response is 400 and the error message is the timeout
+        #   message, we will submit a job to compress the file
         if (
             resp.status_code == 201 or
             fail_on_timeout or
@@ -720,6 +726,12 @@ class Firecrest:
                 "extension": extension
             },
         )
+        # - If the response is 201, the request was successful so we can
+        #   return the target path
+        # - If `fail_on_timeout==True` we let `_json_response` take care of
+        #   possible errors by raising an exception
+        # - If the response is 400 and the error message is the timeout
+        #   message, we will submit a job to compress the file
         if (
             resp.status_code == 201 or
             fail_on_timeout or
