@@ -60,6 +60,7 @@ class Firecrest:
     """
 
     TOO_MANY_REQUESTS_CODE = 429
+    TIMEOUT_STR = "Command has finished with timeout signal"
 
     def _retry_requests(func):
         def wrapper(*args, **kwargs):
@@ -611,10 +612,8 @@ class Firecrest:
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :param dereference: follow symbolic links
-        :param fail_on_timeout: if `True`, the method will raise an exception
-        if the compression fails due to a timeout on the server side.
-        Otherwise, it will submit a job to compress the file and wait for the
-        job to finish.
+        :param fail_on_timeout: if `True` on timeout, this method will raise an
+        exception and won't fall back to submitting a long running job
         :calls: POST `/utilities/compress`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -631,12 +630,11 @@ class Firecrest:
             additional_headers={"X-Machine-Name": machine},
             data=data,
         )
-        timeout_str = "Command has finished with timeout signal"
         if (
             resp.status_code == 201 or
             fail_on_timeout or
             resp.status_code != 400 or
-            resp.json().get('error', '') != timeout_str
+            resp.json().get('error', '') != self.TIMEOUT_STR
         ):
             self._json_response([resp], 201)
         else:
@@ -707,10 +705,8 @@ class Firecrest:
         :param source_path: the absolute path of the file to be extracted
         :param target_path: the absolute target path where the `source_path` is extracted
         :param extension: file extension, possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
-        :param fail_on_timeout: if `True`, the method will raise an exception
-        if the extraction fails due to a timeout on the server side.
-        Otherwise, it will submit a job to extract the file and wait for the
-        job to finish.
+        :param fail_on_timeout: if `True` on timeout, this method will raise an
+        exception and won't fall back to submitting a long running job
         :calls: POST `/utilities/extract`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -724,12 +720,11 @@ class Firecrest:
                 "extension": extension
             },
         )
-        timeout_str = "Command has finished with timeout signal"
         if (
             resp.status_code == 201 or
             fail_on_timeout or
             resp.status_code != 400 or
-            resp.json().get('error', '') != timeout_str
+            resp.json().get('error', '') != self.TIMEOUT_STR
         ):
             self._json_response([resp], 201)
         else:
