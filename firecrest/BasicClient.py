@@ -600,6 +600,7 @@ class Firecrest:
             machine: str,
             source_path: str,
             target_path: str,
+            dereference: bool = False,
             fail_on_timeout: bool = True
     ) -> str:
         """Compress files using gzip compression.
@@ -617,10 +618,17 @@ class Firecrest:
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
+        data: dict[str, str | bool] = {
+            "targetPath": target_path,
+            "sourcePath": source_path
+        }
+        if dereference:
+            data["dereference"] = dereference
+
         resp = self._post_request(
             endpoint="/utilities/compress",
             additional_headers={"X-Machine-Name": machine},
-            data={"targetPath": target_path, "sourcePath": source_path},
+            data=data,
         )
         # - If the response is 201, the request was successful so we can
         #   return the target path
@@ -644,7 +652,8 @@ class Firecrest:
             job_info = self.submit_compress_job(
                 machine,
                 source_path,
-                target_path
+                target_path,
+                dereference
             )
             jobid = job_info['jobid']
             active_jobs = self.poll_active(
@@ -801,7 +810,7 @@ class Firecrest:
 
         :param machine: the machine name where the filesystem belongs to
         :param target_path: the absolute target path
-        :param dereference: follow link (default False)
+        :param dereference: follow symbolic links
         :calls: GET `/utilities/stat`
         """
         params: dict[str, Any] = {"targetPath": target_path}
@@ -1416,6 +1425,7 @@ class Firecrest:
         stage_out_job_id,
         account,
         extension=None,
+        dereference=False,
     ):
         data = {"targetPath": target_path}
         if source_path:
@@ -1435,6 +1445,9 @@ class Firecrest:
 
         if extension:
             data["extension"] = extension
+
+        if dereference:
+            data["dereference"] = dereference
 
         resp = self._post_request(
             endpoint=endpoint, additional_headers={"X-Machine-Name": machine}, data=data
@@ -1651,6 +1664,7 @@ class Firecrest:
         machine: str,
         source_path: str,
         target_path: str,
+        dereference: bool = False,
         job_name: Optional[str] = None,
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
@@ -1663,6 +1677,7 @@ class Firecrest:
         :param machine: the machine name where the scheduler belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param dereference: follow symbolic links
         :param job_name: job name
         :param time: limit on the total run time of the job. Acceptable time formats 'minutes', 'minutes:seconds', 'hours:minutes:seconds', 'days-hours', 'days-hours:minutes' and 'days-hours:minutes:seconds'.
         :param stage_out_job_id: transfer data after job with ID {stage_out_job_id} is completed
@@ -1684,6 +1699,7 @@ class Firecrest:
             time,
             stage_out_job_id,
             account,
+            dereference=dereference,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
