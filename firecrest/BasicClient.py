@@ -25,7 +25,7 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
-from firecrest.utilities import time_block
+from firecrest.utilities import time_block, slurm_state_completed
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -60,6 +60,7 @@ class Firecrest:
     """
 
     TOO_MANY_REQUESTS_CODE = 429
+    TIMEOUT_STR = "Command has finished with timeout signal"
 
     def _retry_requests(func):
         def wrapper(*args, **kwargs):
@@ -280,12 +281,12 @@ class Firecrest:
                 raise exc
 
         if status_code == 401:
-            logger.critical(f"Status of the response is 401")
+            logger.critical("Status of the response is 401")
             exc = fe.UnauthorizedException(responses)
             logger.critical(exc)
             raise exc
         elif status_code == 404:
-            logger.critical(f"Status of the response is 404")
+            logger.critical("Status of the response is 404")
             exc = fe.NotFound(responses)
             logger.critical(exc)
             raise exc
@@ -594,14 +595,24 @@ class Firecrest:
         self._json_response([resp], 201)
         return target_path
 
-    def compress(self, machine: str, source_path: str, target_path: str) -> str:
+    def compress(
+            self,
+            machine: str,
+            source_path: str,
+            target_path: str,
+            fail_on_timeout: bool = True
+    ) -> str:
         """Compress files using gzip compression.
-        You can name the output file as you like, but typically these files have a .tar.gz extension.
-        When successful, the method returns a string with the path of the newly created file.
+        You can name the output file as you like, but typically these files
+        have a .tar.gz extension. When successful, the method returns a string
+        with the path of the newly created file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param dereference: follow symbolic links
+        :param fail_on_timeout: if `True` on timeout, this method will raise an
+        exception and won't fall back to submitting a long running job
         :calls: POST `/utilities/compress`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -611,19 +622,88 @@ class Firecrest:
             additional_headers={"X-Machine-Name": machine},
             data={"targetPath": target_path, "sourcePath": source_path},
         )
-        self._json_response([resp], 201)
+        # - If the response is 201, the request was successful so we can
+        #   return the target path
+        # - If `fail_on_timeout==True` we let `_json_response` take care of
+        #   possible errors by raising an exception
+        # - If the response is 400 and the error message is the timeout
+        #   message, we will submit a job to compress the file
+        if (
+            resp.status_code == 201 or
+            fail_on_timeout or
+            resp.status_code != 400 or
+            resp.json().get('error', '') != self.TIMEOUT_STR
+        ):
+            self._json_response([resp], 201)
+        else:
+            logger.debug(
+                f"Compression of {source_path} to {target_path} has finished "
+                f"with timeout signal. Will submit a job to compress the "
+                f"file."
+            )
+            job_info = self.submit_compress_job(
+                machine,
+                source_path,
+                target_path
+            )
+            jobid = job_info['jobid']
+            active_jobs = self.poll_active(
+                machine,
+                [jobid]
+            )
+            intervals = (2**i for i in itertools.count(start=0))
+            while (
+                active_jobs and
+                not slurm_state_completed(active_jobs[0]['state'])
+            ):
+                time.sleep(next(intervals))
+                active_jobs = self.poll_active(
+                    machine,
+                    [jobid]
+                )
+
+            if (
+                active_jobs and
+                active_jobs[0]['state'] != 'COMPLETED'
+            ):
+                raise Exception(
+                    f"compression job (jobid={jobid}) finished with "
+                    f"state {active_jobs[0]['state']}"
+                )
+
+            err_output = self.head(
+                machine,
+                job_info['job_file_err']
+            )
+            if (err_output != ''):
+                raise Exception(
+                    f"compression job (jobid={jobid}) has failed: "
+                    f"{err_output}"
+                )
+
         return target_path
 
-    def extract(self, machine: str, source_path: str, target_path: str, extension: str = "auto") -> str:
+    def extract(
+            self,
+            machine: str,
+            source_path: str,
+            target_path: str,
+            extension: str = "auto",
+            fail_on_timeout: bool = True
+    ) -> str:
         """Extract files.
-        If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
+        If you don't select the extension, FirecREST will try to guess the
+        right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
-        When successful, the method returns a string with the path of the newly created file.
+        When successful, the method returns a string with the path of the
+        newly created file.
 
         :param machine: the machine name where the filesystem belongs to
         :param source_path: the absolute path of the file to be extracted
         :param target_path: the absolute target path where the `source_path` is extracted
         :param extension: file extension, possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
+        :param fail_on_timeout: if `True` on timeout, this method will raise an
+        exception and won't fall back to submitting a long running job
         :calls: POST `/utilities/extract`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -637,7 +717,66 @@ class Firecrest:
                 "extension": extension
             },
         )
-        self._json_response([resp], 201)
+        # - If the response is 201, the request was successful so we can
+        #   return the target path
+        # - If `fail_on_timeout==True` we let `_json_response` take care of
+        #   possible errors by raising an exception
+        # - If the response is 400 and the error message is the timeout
+        #   message, we will submit a job to compress the file
+        if (
+            resp.status_code == 201 or
+            fail_on_timeout or
+            resp.status_code != 400 or
+            resp.json().get('error', '') != self.TIMEOUT_STR
+        ):
+            self._json_response([resp], 201)
+        else:
+            logger.debug(
+                f"Extraction of {source_path} to {target_path} has finished "
+                f"with timeout signal. Will submit a job to extract the "
+                f"file."
+            )
+
+            job_info = self.submit_extract_job(
+                machine,
+                source_path,
+                target_path,
+                extension
+            )
+            jobid = job_info['jobid']
+            active_jobs = self.poll_active(
+                machine,
+                [jobid]
+            )
+            intervals = (2**i for i in itertools.count(start=0))
+            while (
+                active_jobs and
+                not slurm_state_completed(active_jobs[0]['state'])
+            ):
+                time.sleep(next(intervals))
+                active_jobs = self.poll_active(
+                    machine,
+                    [jobid]
+                )
+
+            if (
+                active_jobs and
+                active_jobs[0]['state'] != 'COMPLETED'
+            ):
+                raise Exception(
+                    f"extract job (jobid={jobid}) finished with"
+                    f"state {active_jobs[0]['state']}"
+                )
+
+            err_output = self.head(
+                machine,
+                job_info['job_file_err']
+            )
+            if (err_output != ''):
+                raise Exception(
+                    f"extract job has failed: {err_output}"
+                )
+
         return target_path
 
     def file_type(self, machine: str, target_path: str) -> str:
@@ -1010,7 +1149,7 @@ class Firecrest:
         :param env_vars: dictionary (varName, value) defining environment variables to be exported for the job
         :calls: POST `/compute/jobs/upload` or POST `/compute/jobs/path`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         if [
             script_str is None,
@@ -1097,7 +1236,7 @@ class Firecrest:
         :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/acct`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         if isinstance(jobs, str):
@@ -1133,7 +1272,7 @@ class Firecrest:
         :param page_number: page number (if set to `None` the default value is 0)
         :calls: GET `/compute/jobs`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         if isinstance(jobs, str):
@@ -1162,7 +1301,7 @@ class Firecrest:
         :param nodes: specific compute nodes to query
         :calls: GET `/compute/nodes`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1194,7 +1333,7 @@ class Firecrest:
         :param nodes: specific compute nodes to query
         :calls: GET `/compute/partitions`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1224,7 +1363,7 @@ class Firecrest:
         :param machine: the machine name where the scheduler belongs to
         :param nodes: specific reservations to query
         :calls: GET `/compute/reservations`
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         .. warning:: This is available only for FirecREST>=1.16.0
         """
         params = {}
@@ -1251,7 +1390,7 @@ class Firecrest:
         :param job_id: the ID of the job
         :calls: DELETE `/compute/jobs/{job_id}`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         resp = self._delete_request(
@@ -1327,7 +1466,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/mv`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/mv"
@@ -1370,7 +1509,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/cp`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/cp"
@@ -1413,7 +1552,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/rsync`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rsync"
@@ -1454,7 +1593,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/rm`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
         """
         self._current_method_requests = []
         endpoint = "/storage/xfer-internal/rm"
@@ -1530,7 +1669,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/compress`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
@@ -1577,7 +1716,7 @@ class Firecrest:
         :param account: name of the bank account to be used in SLURM. If not set, system default is taken.
         :calls: POST `/storage/xfer-internal/extract`
 
-                GET `/tasks/{taskid}`
+                GET `/tasks`
 
         .. warning:: This is available only for FirecREST>=1.16.0
         """
