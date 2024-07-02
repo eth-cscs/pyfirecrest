@@ -455,11 +455,11 @@ class FcPath(os.PathLike):
             return False
         return stat.S_ISSOCK(st_mode)
 
-    def iterdir(self, hidden=True) -> Iterator[Self]:
+    def iterdir(self, hidden=True, recursive=False) -> Iterator[Self]:
         """Iterate over the directory entries."""
         with self.convert_header_exceptions():
             results = self._client.list_files(
-                self._machine, self.path, show_hidden=hidden
+                self._machine, self.path, show_hidden=hidden, recursive=recursive
             )
         for entry in results:
             yield self._new_path(
