@@ -396,7 +396,7 @@ class Firecrest:
             resp = self._task_safe(task_id)
 
         logger.info(f'Status of {task_id} is {resp["status"]}')
-        return resp["data"], resp.get("system")
+        return resp["data"], resp.get("system", "")
 
     # Status
     def all_services(self) -> List[t.Service]:
@@ -656,8 +656,9 @@ class Firecrest:
                 dereference
             )
             jobid = job_info['jobid']
+            xfer_system = job_info["system"]
             active_jobs = self.poll_active(
-                machine,
+                xfer_system,
                 [jobid]
             )
             intervals = (2**i for i in itertools.count(start=0))
@@ -667,7 +668,7 @@ class Firecrest:
             ):
                 time.sleep(next(intervals))
                 active_jobs = self.poll_active(
-                    machine,
+                    xfer_system,
                     [jobid]
                 )
 
@@ -681,7 +682,7 @@ class Firecrest:
                 )
 
             err_output = self.head(
-                machine,
+                xfer_system,
                 job_info['job_file_err']
             )
             if (err_output != ''):
@@ -753,8 +754,9 @@ class Firecrest:
                 extension
             )
             jobid = job_info['jobid']
+            xfer_system = job_info["system"]
             active_jobs = self.poll_active(
-                machine,
+                xfer_system,
                 [jobid]
             )
             intervals = (2**i for i in itertools.count(start=0))
@@ -764,7 +766,7 @@ class Firecrest:
             ):
                 time.sleep(next(intervals))
                 active_jobs = self.poll_active(
-                    machine,
+                    xfer_system,
                     [jobid]
                 )
 
@@ -778,7 +780,7 @@ class Firecrest:
                 )
 
             err_output = self.head(
-                machine,
+                xfer_system,
                 job_info['job_file_err']
             )
             if (err_output != ''):
@@ -1464,7 +1466,7 @@ class Firecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Move files between internal CSCS file systems.
         Rename/Move source_path to target_path.
         Possible to stage-out jobs providing the SLURM ID of a production job.
@@ -1494,9 +1496,12 @@ class Firecrest:
             account,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
+        transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )[0]
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     def submit_copy_job(
         self,
@@ -1507,7 +1512,7 @@ class Firecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Copy files between internal CSCS file systems.
         Copy source_path to target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1537,9 +1542,12 @@ class Firecrest:
             account,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
+        transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )[0]
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     def submit_rsync_job(
         self,
@@ -1550,7 +1558,7 @@ class Firecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Transfer files between internal CSCS file systems.
         Transfer source_path to target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1580,9 +1588,12 @@ class Firecrest:
             account,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
+        transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )[0]
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     def submit_delete_job(
         self,
@@ -1592,7 +1603,7 @@ class Firecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Remove files in internal CSCS file systems.
         Remove file in target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1621,9 +1632,12 @@ class Firecrest:
             account,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
+        transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )[0]
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     def external_upload(
         self, machine: str, source_path: str, target_path: str
@@ -1669,7 +1683,7 @@ class Firecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Compress files using gzip compression.
         You can name the output file as you like, but typically these files have a .tar.gz extension.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1702,9 +1716,12 @@ class Firecrest:
             dereference=dereference,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
+        transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )[0]
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     def submit_extract_job(
         self,
@@ -1716,7 +1733,7 @@ class Firecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Extract files.
         If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
@@ -1750,9 +1767,12 @@ class Firecrest:
             extension
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
-        return self._poll_tasks(
+        transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )[0]
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     # Reservation
     def all_reservations(self, machine: str) -> List[dict]:

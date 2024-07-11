@@ -183,6 +183,12 @@ class JobSubmit(TypedDict):
     result: str
 
 
+class InternalTransferJobSubmit(JobSubmit):
+    """A transfer job submit record, from `storage/xfer-internal/{op}`"""
+
+    system: str
+
+
 class Id(TypedDict):
     name: str
     id: str

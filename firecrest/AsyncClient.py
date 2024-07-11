@@ -77,7 +77,7 @@ class ComputeTask:
             resp = await self._client._task_safe(self._task_id, self._responses)
 
         logger.info(f'Status of {self._task_id} is {resp["status"]}')
-        return resp["data"], resp.get("system")
+        return resp["data"], resp.get("system", "")
 
 
 class AsyncFirecrest:
@@ -888,8 +888,9 @@ class AsyncFirecrest:
                 dereference
             )
             jobid = job_info['jobid']
+            xfer_system = job_info["system"]
             active_jobs = await self.poll_active(
-                machine,
+                xfer_system,
                 [jobid]
             )
             intervals = (2**i for i in itertools.count(start=0))
@@ -899,7 +900,7 @@ class AsyncFirecrest:
             ):
                 await asyncio.sleep(next(intervals))
                 active_jobs = await self.poll_active(
-                    machine,
+                    xfer_system,
                     [jobid]
                 )
 
@@ -913,7 +914,7 @@ class AsyncFirecrest:
                 )
 
             err_output = await self.head(
-                machine,
+                xfer_system,
                 job_info['job_file_err']
             )
             if (err_output != ''):
@@ -983,8 +984,9 @@ class AsyncFirecrest:
                 extension
             )
             jobid = job_info['jobid']
+            xfer_system = job_info["system"]
             active_jobs = await self.poll_active(
-                machine,
+                xfer_system,
                 [jobid]
             )
             intervals = (2**i for i in itertools.count(start=0))
@@ -994,7 +996,7 @@ class AsyncFirecrest:
             ):
                 await asyncio.sleep(next(intervals))
                 active_jobs = await self.poll_active(
-                    machine,
+                    xfer_system,
                     [jobid]
                 )
 
@@ -1008,7 +1010,7 @@ class AsyncFirecrest:
                 )
 
             err_output = await self.head(
-                machine,
+                xfer_system,
                 job_info['job_file_err']
             )
             if (err_output != ''):
@@ -1667,7 +1669,7 @@ class AsyncFirecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Move files between internal CSCS file systems.
         Rename/Move source_path to target_path.
         Possible to stage-out jobs providing the SLURM ID of a production job.
@@ -1699,7 +1701,12 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
+        transfer_info = await t.poll_task(
+            "200", iter(self.polling_sleep_times)
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     async def submit_copy_job(
         self,
@@ -1710,7 +1717,7 @@ class AsyncFirecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Copy files between internal CSCS file systems.
         Copy source_path to target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1742,7 +1749,12 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
+        transfer_info = await t.poll_task(
+            "200", iter(self.polling_sleep_times)
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     async def submit_compress_job(
         self,
@@ -1754,7 +1766,7 @@ class AsyncFirecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Compress files using gzip compression.
         You can name the output file as you like, but typically these files have a .tar.gz extension.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1789,7 +1801,12 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
+        transfer_info = await t.poll_task(
+            "200", iter(self.polling_sleep_times)
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     async def submit_extract_job(
         self,
@@ -1801,7 +1818,7 @@ class AsyncFirecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Extract files.
         If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
         Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
@@ -1833,10 +1850,16 @@ class AsyncFirecrest:
             stage_out_job_id,
             account,
             resp,
+            extension=extension,
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
+        transfer_info = await t.poll_task(
+            json_response["task_id"], "200", iter(self.polling_sleep_times)
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     async def submit_rsync_job(
         self,
@@ -1847,7 +1870,7 @@ class AsyncFirecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Transfer files between internal CSCS file systems.
         Transfer source_path to target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1879,7 +1902,12 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
+        transfer_info = await t.poll_task(
+            "200", iter(self.polling_sleep_times)
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     async def submit_delete_job(
         self,
@@ -1889,7 +1917,7 @@ class AsyncFirecrest:
         time: Optional[str] = None,
         stage_out_job_id: Optional[str] = None,
         account: Optional[str] = None,
-    ) -> t.JobSubmit:
+    ) -> t.InternalTransferJobSubmit:
         """Remove files in internal CSCS file systems.
         Remove file in target_path.
         Possible to stage-out jobs providing the SLURM Id of a production job.
@@ -1920,7 +1948,12 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
+        transfer_info = await t.poll_task(
+            "200", iter(self.polling_sleep_times)
+        )
+        result = transfer_info[0]
+        result.update({"system": transfer_info[1]})
+        return result
 
     async def external_upload(
         self, machine: str, source_path: str, target_path: str
