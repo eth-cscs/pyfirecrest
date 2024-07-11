@@ -1701,11 +1701,9 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        transfer_info = await t.poll_task(
-            "200", iter(self.polling_sleep_times)
-        )
-        result = transfer_info[0]
-        result.update({"system": transfer_info[1]})
+        job_info = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = job_info[0]
+        result.update({"system": job_info[1]})
         return result
 
     async def submit_copy_job(
@@ -1749,11 +1747,9 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        transfer_info = await t.poll_task(
-            "200", iter(self.polling_sleep_times)
-        )
-        result = transfer_info[0]
-        result.update({"system": transfer_info[1]})
+        job_info = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = job_info[0]
+        result.update({"system": job_info[1]})
         return result
 
     async def submit_compress_job(
@@ -1801,11 +1797,9 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        transfer_info = await t.poll_task(
-            "200", iter(self.polling_sleep_times)
-        )
-        result = transfer_info[0]
-        result.update({"system": transfer_info[1]})
+        job_info = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = job_info[0]
+        result.update({"system": job_info[1]})
         return result
 
     async def submit_extract_job(
@@ -1854,11 +1848,9 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        transfer_info = await t.poll_task(
-            json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
-        result = transfer_info[0]
-        result.update({"system": transfer_info[1]})
+        job_info = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = job_info[0]
+        result.update({"system": job_info[1]})
         return result
 
     async def submit_rsync_job(
@@ -1902,11 +1894,9 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        transfer_info = await t.poll_task(
-            "200", iter(self.polling_sleep_times)
-        )
-        result = transfer_info[0]
-        result.update({"system": transfer_info[1]})
+        job_info = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = job_info[0]
+        result.update({"system": job_info[1]})
         return result
 
     async def submit_delete_job(
@@ -1948,11 +1938,9 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        transfer_info = await t.poll_task(
-            "200", iter(self.polling_sleep_times)
-        )
-        result = transfer_info[0]
-        result.update({"system": transfer_info[1]})
+        job_info = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = job_info[0]
+        result.update({"system": job_info[1]})
         return result
 
     async def external_upload(
