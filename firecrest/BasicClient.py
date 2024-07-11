@@ -396,7 +396,7 @@ class Firecrest:
             resp = self._task_safe(task_id)
 
         logger.info(f'Status of {task_id} is {resp["status"]}')
-        return resp["data"]
+        return resp["data"], resp.get("system")
 
     # Status
     def all_services(self) -> List[t.Service]:
@@ -1212,7 +1212,7 @@ class Firecrest:
         # Inject taskid in the result
         result = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
         result["firecrest_taskid"] = json_response["task_id"]
         return result
 
@@ -1249,7 +1249,7 @@ class Firecrest:
         logger.info(f"Job polling task: {json_response['task_id']}")
         res = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
             return list(res.values())
@@ -1286,7 +1286,7 @@ class Firecrest:
         logger.info(f"Job active polling task: {json_response['task_id']}")
         dict_result = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
         return list(dict_result.values())
 
     def nodes(
@@ -1318,7 +1318,7 @@ class Firecrest:
         json_response = self._json_response(self._current_method_requests, 200)
         result = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
         return result
 
     def partitions(
@@ -1350,7 +1350,7 @@ class Firecrest:
         json_response = self._json_response(self._current_method_requests, 200)
         result = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
         return result
 
     def reservations(
@@ -1379,7 +1379,7 @@ class Firecrest:
         json_response = self._json_response(self._current_method_requests, 200)
         result = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
         return result
 
     def cancel(self, machine: str, job_id: str | int) -> str:
@@ -1402,7 +1402,7 @@ class Firecrest:
         logger.info(f"Job cancellation task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
 
     # Storage
     def _internal_transfer(
@@ -1483,7 +1483,7 @@ class Firecrest:
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
 
     def submit_copy_job(
         self,
@@ -1526,7 +1526,7 @@ class Firecrest:
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
 
     def submit_rsync_job(
         self,
@@ -1569,7 +1569,7 @@ class Firecrest:
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
 
     def submit_delete_job(
         self,
@@ -1610,7 +1610,7 @@ class Firecrest:
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
 
     def external_upload(
         self, machine: str, source_path: str, target_path: str
@@ -1688,7 +1688,7 @@ class Firecrest:
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
 
     def submit_extract_job(
         self,
@@ -1736,7 +1736,7 @@ class Firecrest:
         logger.info(f"Job submission task: {json_response['task_id']}")
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
-        )
+        )[0]
 
     # Reservation
     def all_reservations(self, machine: str) -> List[dict]:

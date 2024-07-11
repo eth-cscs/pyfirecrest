@@ -66,6 +66,7 @@ class Task(TypedDict):
     last_modify: str
     service: str
     status: str
+    system: str
     task_id: str
     updated_at: str
     user: str

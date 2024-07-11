@@ -77,7 +77,7 @@ class ComputeTask:
             resp = await self._client._task_safe(self._task_id, self._responses)
 
         logger.info(f'Status of {self._task_id} is {resp["status"]}')
-        return resp["data"]
+        return resp["data"], resp.get("system")
 
 
 class AsyncFirecrest:
@@ -1389,7 +1389,7 @@ class AsyncFirecrest:
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
 
-        result = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
         # Inject taskid in the result
         result["firecrest_taskid"] = json_response["task_id"]
         return result
@@ -1441,7 +1441,7 @@ class AsyncFirecrest:
         json_response = self._json_response([resp], 200)
         logger.info(f"Job polling task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
-        res = await t.poll_task("200", iter(self.polling_sleep_times))
+        res = (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
         # When there is no job in the sacct output firecrest will return an empty dictionary instead of list
         if isinstance(res, dict):
             return list(res.values())
@@ -1490,7 +1490,9 @@ class AsyncFirecrest:
         json_response = self._json_response([resp], 200)
         logger.info(f"Job active polling task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
-        dict_result = await t.poll_task("200", iter(self.polling_sleep_times))
+        dict_result = (
+            await t.poll_task("200", iter(self.polling_sleep_times))
+        )[0]
         if len(jobids):
             ret = [i for i in dict_result.values() if i["jobid"] in jobids]
         else:
@@ -1525,7 +1527,7 @@ class AsyncFirecrest:
         )
         json_response = self._json_response([resp], 200)
         t = ComputeTask(self, json_response["task_id"], [resp])
-        result = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
         return result
 
     async def partitions(
@@ -1555,7 +1557,7 @@ class AsyncFirecrest:
         )
         json_response = self._json_response([resp], 200)
         t = ComputeTask(self, json_response["task_id"], [resp])
-        result = await t.poll_task("200", iter(self.polling_sleep_times))
+        result = (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
         return result
 
     async def reservations(
@@ -1583,7 +1585,7 @@ class AsyncFirecrest:
         json_response = self._json_response([resp], 200)
         t = ComputeTask(self, json_response["task_id"], [resp])
         result = await t.poll_task("200", iter(self.polling_sleep_times))
-        return result
+        return result[0]
 
     async def cancel(self, machine: str, job_id: str | int) -> str:
         """Cancels running job.
@@ -1602,7 +1604,7 @@ class AsyncFirecrest:
         json_response = self._json_response([resp], 200)
         logger.info(f"Job cancellation task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], [resp])
-        return await t.poll_task("200", iter(self.polling_sleep_times))
+        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
 
     # Storage
     async def _internal_transfer(
@@ -1684,7 +1686,7 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return await t.poll_task("200", iter(self.polling_sleep_times))
+        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
 
     async def submit_copy_job(
         self,
@@ -1727,7 +1729,7 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return await t.poll_task("200", iter(self.polling_sleep_times))
+        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
 
     async def submit_compress_job(
         self,
@@ -1771,7 +1773,7 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return await t.poll_task("200", iter(self.polling_sleep_times))
+        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
 
     async def submit_extract_job(
         self,
@@ -1818,7 +1820,7 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return await t.poll_task("200", iter(self.polling_sleep_times))
+        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
 
     async def submit_rsync_job(
         self,
@@ -1861,7 +1863,7 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return await t.poll_task("200", iter(self.polling_sleep_times))
+        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
 
     async def submit_delete_job(
         self,
@@ -1902,7 +1904,7 @@ class AsyncFirecrest:
         )
         logger.info(f"Job submission task: {json_response['task_id']}")
         t = ComputeTask(self, json_response["task_id"], resp)
-        return await t.poll_task("200", iter(self.polling_sleep_times))
+        return (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
 
     async def external_upload(
         self, machine: str, source_path: str, target_path: str
