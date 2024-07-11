@@ -516,7 +516,7 @@ class FcPath(os.PathLike):
         try:
             with self.convert_header_exceptions(
                 {
-                    "X-A-Directory": FileExistsError  # Note see: https://github.com/eth-cscs/firecrest/issues/172
+                    "X-Invalid-Path": FileExistsError  # Note see: https://github.com/eth-cscs/firecrest/issues/172
                 }
             ):
                 self._client.mkdir(self._machine, self.path, p=parents)
