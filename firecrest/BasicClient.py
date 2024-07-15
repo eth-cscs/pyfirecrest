@@ -164,7 +164,7 @@ class Firecrest:
         """
         self._api_version = parse(api_version)
 
-    def log(self, level: int, msg: str) -> None:
+    def log(self, level: int, msg: Any) -> None:
         """Log a message with the given level on the client logger.
         """
         if not self.disable_client_logging:

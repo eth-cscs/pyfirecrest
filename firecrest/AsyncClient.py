@@ -265,7 +265,7 @@ class AsyncFirecrest:
         """Check if the httpx session is closed"""
         return self._session.is_closed
 
-    def log(self, level: int, msg: str) -> None:
+    def log(self, level: int, msg: Any) -> None:
         """Log a message with the given level on the client logger.
         """
         if not self.disable_client_logging:
