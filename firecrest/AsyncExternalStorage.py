@@ -67,7 +67,10 @@ class AsyncExternalStorage:
             task = await self._client._task_safe(self._task_id, self._responses)
             self._status = task["status"]
             self._data = task["data"]
-            logger.info(f"Task {self._task_id} has status {self._status}")
+            self._client.log(
+                logging.INFO,
+                f"Task {self._task_id} has status {self._status}"
+            )
             if not self._object_storage_data:
                 if self._status == "111":
                     self._object_storage_data = task["data"]["msg"]
@@ -156,7 +159,10 @@ class AsyncExternalUpload(AsyncExternalStorage):
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"114", "115"}
-        logger.info(f"Creating ExternalUpload object for task {task_id}")
+        self._client.log(
+            logging.INFO,
+            f"Creating ExternalUpload object for task {task_id}"
+        )
 
     async def finish_upload(self) -> None:
         """Finish the upload process.
@@ -167,7 +173,10 @@ class AsyncExternalUpload(AsyncExternalStorage):
         c = (await self.object_storage_data)["command"]  # typer: ignore
         # LOCAL FIX FOR MAC
         # c = c.replace("192.168.220.19", "localhost")
-        logger.info(f"Uploading the file to the staging area with the command: {c}")
+        self._client.log(
+            logging.INFO,
+            f"Uploading the file to the staging area with the command: {c}"
+        )
         proc = await asyncio.create_subprocess_shell(
             c, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
@@ -177,7 +186,7 @@ class AsyncExternalUpload(AsyncExternalStorage):
             exc = Exception(
                 f"Failed to finish upload with error: {stderr.decode('utf-8')}"
             )
-            logger.critical(exc)
+            self._client.log(logging.CRITICAL, exc)
             raise exc
 
 
@@ -211,7 +220,10 @@ class AsyncExternalDownload(AsyncExternalStorage):
         previous_responses = [] if previous_responses is None else previous_responses
         super().__init__(client, task_id, previous_responses)
         self._final_states = {"117", "118"}
-        logger.info(f"Creating ExternalDownload object for task {task_id}")
+        self._client.log(
+            logging.INFO,
+            f"Creating ExternalDownload object for task {task_id}"
+        )
 
     async def invalidate_object_storage_link(self) -> None:
         """Invalidate the temporary URL for downloading.
@@ -241,7 +253,10 @@ class AsyncExternalDownload(AsyncExternalStorage):
         :param target_path: the local path to save the file
         """
         url = await self.object_storage_link
-        logger.info(f"Downloading the file from {url} and saving to {target_path}")
+        self._client.log(
+            logging.INFO,
+            f"Downloading the file from {url} and saving to {target_path}"
+        )
         # LOCAL FIX FOR MAC
         # url = url.replace("192.168.220.19", "localhost")
         context: ContextManager[BufferedWriter] = (
