@@ -92,6 +92,7 @@ async def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
     # cp job
@@ -112,6 +113,7 @@ async def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
     # rsync job
@@ -132,6 +134,7 @@ async def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
     # rm job
@@ -151,6 +154,7 @@ async def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
 
