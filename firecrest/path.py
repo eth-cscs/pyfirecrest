@@ -9,7 +9,7 @@ import os
 from pathlib import PurePosixPath
 import stat
 import tempfile
-from typing import Callable, Iterator
+from typing import Callable, Iterator, List
 
 from firecrest import Firecrest, ClientCredentialsAuth
 from firecrest.BasicClient import logger as FcLogger
@@ -310,6 +310,18 @@ class FcPath(os.PathLike):
                 self._cache.lst_mode = item._cache.lst_mode
                 return item._cache.lst_mode
         raise FileNotFoundError(self)
+    
+    def resolve(self) -> Self:
+        """Resolve a path, removing '..' and '.' components."""
+        parts: List[str] = []
+        for part in self.parts:
+            if part == '..':
+                if parts:
+                    parts.pop()
+            elif part != '.':
+                parts.append(part)
+
+        return self._new_path(PurePosixPath(*parts))
 
     def _stat_mode(self) -> int:
         """Return the st_mode of the path, following symlinks."""
@@ -337,7 +349,11 @@ class FcPath(os.PathLike):
                 if stat.S_ISLNK(mode):
                     if not item._cache.link_target:
                         raise FileNotFoundError(f"Symlink has no target path: {self}")
-                    path = self._new_path(PurePosixPath(item._cache.link_target))
+                    pureposixpath = PurePosixPath(item._cache.link_target) 
+                    if not pureposixpath.is_absolute():
+                        path = path.parent.joinpath(pureposixpath).resolve()
+                    else:
+                        path = self._new_path(pureposixpath)
                     followed_links += 1
                     break
                 else:
@@ -469,6 +485,10 @@ class FcPath(os.PathLike):
                     link_target=entry["link_target"],
                 ),
             )
+
+    def relpath(self, start: str | PurePosixPath) -> str:
+        """Return a relative version of this path."""
+        return self._path.relative_to(start).as_posix()
 
     # operations that modify a file
 
