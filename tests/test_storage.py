@@ -210,6 +210,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2021-12-04T11:52:10",
                         "service": "compute",
                         "status": "100",
+                        "system": "cluster1",
                         "task_id": taskid,
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "user": "username",
@@ -235,6 +236,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2021-12-06T13:48:52",
                         "service": "compute",
                         "status": "200",
+                        "system": "cluster1",
                         "task_id": "6f514b060ca036917f4194964b6e949c",
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "user": "username",
@@ -254,6 +256,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2021-12-04T11:52:10",
                         "service": "storage",
                         "status": "100",
+                        "system": "cluster1",
                         "task_id": taskid,
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "user": "username",
@@ -272,6 +275,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2021-12-04T11:52:10",
                         "service": "storage",
                         "status": "116",
+                        "system": "cluster1",
                         "task_id": taskid,
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "user": "username",
@@ -289,6 +293,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2021-12-04T11:52:10",
                         "service": "storage",
                         "status": "117",
+                        "system": "cluster1",
                         "task_id": taskid,
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "user": "username",
@@ -310,6 +315,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2021-12-04T11:52:10",
                         "service": "storage",
                         "status": "117",
+                        "system": "cluster1",
                         "task_id": taskid,
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "user": "username",
@@ -329,6 +335,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2021-12-04T11:52:10",
                         "service": "storage",
                         "status": "100",
+                        "system": "cluster1",
                         "task_id": taskid,
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "user": "username",
@@ -347,6 +354,7 @@ def storage_tasks_handler(request: Request):
                             "msg": "Waiting for Presigned URL to upload file to staging area (OpenStack Swift)",
                             "source": "/path/to/local/source",
                             "status": "110",
+                            "system": "cluster1",
                             "system_addr": "machine_addr",
                             "system_name": "cluster1",
                             "target": "/path/to/remote/destination",
@@ -358,6 +366,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2022-11-23T09:07:50",
                         "service": "storage",
                         "status": "110",
+                        "system": "cluster1",
                         "task_id": "taskid",
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "updated_at": "2022-11-23T09:07:50",
@@ -393,6 +402,7 @@ def storage_tasks_handler(request: Request):
                             },
                             "source": "/path/to/local/source",
                             "status": "111",
+                            "system": "cluster1",
                             "system_addr": "machine_addr",
                             "system_name": "cluster1",
                             "target": "/path/to/remote/destination",
@@ -404,6 +414,7 @@ def storage_tasks_handler(request: Request):
                         "last_modify": "2022-11-23T09:18:43",
                         "service": "storage",
                         "status": "111",
+                        "system": "cluster1",
                         "task_id": taskid,
                         "task_url": f"TASK_IP/tasks/{taskid}",
                         "updated_at": "2022-11-23T09:18:43",
@@ -466,6 +477,7 @@ def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
     # cp job
@@ -486,6 +498,7 @@ def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
     # rsync job
@@ -506,6 +519,7 @@ def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
     # rm job
@@ -525,6 +539,7 @@ def test_internal_transfer(valid_client):
         "job_file_out": "/path/to/firecrest/internal_transfer_id/job-35363861.out",
         "jobid": 35363861,
         "result": "Job submitted",
+        "system": "cluster1",
     }
 
 

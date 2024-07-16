@@ -66,6 +66,7 @@ class Task(TypedDict):
     last_modify: str
     service: str
     status: str
+    system: str
     task_id: str
     updated_at: str
     user: str
@@ -180,6 +181,12 @@ class JobSubmit(TypedDict):
     job_file_out: str
     jobid: int
     result: str
+
+
+class InternalTransferJobSubmit(JobSubmit):
+    """A transfer job submit record, from `storage/xfer-internal/{op}`"""
+
+    system: str
 
 
 class Id(TypedDict):
