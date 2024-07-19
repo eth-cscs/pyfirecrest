@@ -17,7 +17,7 @@ import tempfile
 import time
 
 from contextlib import nullcontext
-from io import BufferedWriter, BytesIO
+from io import BytesIO
 from requests.compat import json  # type: ignore
 from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
 from packaging.version import Version, parse
@@ -80,7 +80,8 @@ class Firecrest:
                     client.num_retries_rate_limit is not None
                     and num_retries >= client.num_retries_rate_limit
                 ):
-                    logger.debug(
+                    client.log(
+                        logging.DEBUG,
                         f"Rate limit is reached and the request has "
                         f"been retried already {num_retries} times"
                     )
@@ -90,14 +91,16 @@ class Firecrest:
                         "Retry-After",
                         default=resp.headers.get("RateLimit-Reset", default=10),
                     )
-                    logger.info(
+                    client.log(
+                        logging.INFO,
                         f"Rate limit is reached, will sleep for "
                         f"{reset} seconds and try again"
                     )
                     reset = int(reset)
                     try:
                         f = kwargs["files"]["file"]
-                        logger.debug(
+                        client.log(
+                            logging.DEBUG,
                             f"Resetting the file pointer of the uploaded file "
                             f"to {file_original_position}"
                         )
@@ -150,7 +153,9 @@ class Firecrest:
         #: the last sleep time. By default the sleep times will sum to
         #: 1 minute and the client will make 236 requests before failing.
         self.polling_sleep_times: list = [1, 0.5] + 234 * [0.25]
-        self._api_version: Version = parse("1.13.1")
+        #: Disable all logging from the client.
+        self.disable_client_logging: bool = False
+        self._api_version: Version = parse("1.15.0")
         self._session = requests.Session()
 
     def set_api_version(self, api_version: str) -> None:
@@ -158,6 +163,12 @@ class Firecrest:
         using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
+
+    def log(self, level: int, msg: Any) -> None:
+        """Log a message with the given level on the client logger.
+        """
+        if not self.disable_client_logging:
+            logger.log(level, msg)
 
     @_retry_requests  # type: ignore
     def _get_request(
@@ -168,7 +179,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
-        logger.info(f"Making GET request to {endpoint}")
+        self.log(logging.INFO, f"Making GET request to {endpoint}")
         with time_block(f"GET request to {endpoint}", logger):
             resp = self._session.get(
                 url=url,
@@ -189,7 +200,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
-        logger.info(f"Making POST request to {endpoint}")
+        self.log(logging.INFO, f"Making POST request to {endpoint}")
         with time_block(f"POST request to {endpoint}", logger):
             resp = self._session.post(
                 url=url,
@@ -211,7 +222,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
-        logger.info(f"Making PUT request to {endpoint}")
+        self.log(logging.INFO, f"Making PUT request to {endpoint}")
         with time_block(f"PUT request to {endpoint}", logger):
             resp = self._session.put(
                 url=url,
@@ -232,7 +243,7 @@ class Firecrest:
         if additional_headers:
             headers.update(additional_headers)
 
-        logger.info(f"Making DELETE request to {endpoint}")
+        self.log(logging.INFO, f"Making DELETE request to {endpoint}")
         with time_block(f"DELETE request to {endpoint}", logger):
             resp = self._session.delete(
                 url=url,
@@ -275,32 +286,37 @@ class Firecrest:
         exc: fe.FirecrestException
         for h in fe.ERROR_HEADERS:
             if h in response.headers:
-                logger.critical(f"Header '{h}' is included in the response")
+                self.log(
+                    logging.CRITICAL,
+                    f"Header '{h}' is included in the response"
+                )
                 exc = fe.HeaderException(responses)
-                logger.critical(exc)
+                self.log(logging.CRITICAL, exc)
                 raise exc
 
         if status_code == 401:
-            logger.critical("Status of the response is 401")
+            self.log(logging.CRITICAL, "Status of the response is 401")
             exc = fe.UnauthorizedException(responses)
-            logger.critical(exc)
+            self.log(logging.CRITICAL, exc)
             raise exc
         elif status_code == 404:
-            logger.critical("Status of the response is 404")
+            self.log(logging.CRITICAL, "Status of the response is 404")
             exc = fe.NotFound(responses)
-            logger.critical(exc)
+            self.log(logging.CRITICAL, exc)
             raise exc
         elif status_code >= 400:
-            logger.critical(f"Status of the response is {status_code}")
+            self.log(logging.CRITICAL, f"Status of the response is {status_code}")
             exc = fe.FirecrestException(responses)
-            logger.critical(exc)
+            self.log(logging.CRITICAL, exc)
             raise exc
         elif status_code != expected_status_code:
-            logger.critical(
-                f"Unexpected status of last request {status_code}, it should have been {expected_status_code}"
+            self.log(
+                logging.CRITICAL,
+                f"Unexpected status of last request {status_code}, it should "
+                f"have been {expected_status_code}"
             )
             exc = fe.UnexpectedStatusException(responses, expected_status_code)
-            logger.critical(exc)
+            self.log(logging.CRITICAL, exc)
             raise exc
 
         try:
@@ -310,7 +326,7 @@ class Firecrest:
                 ret = None
             else:
                 exc = fe.NoJSONException(responses)
-                logger.critical(exc)
+                self.log(logging.CRITICAL, exc)
                 raise exc
 
         return ret
@@ -348,21 +364,21 @@ class Firecrest:
         status = int(task["status"])
         exc: fe.FirecrestException
         if status == 115:
-            logger.critical("Task has error status code 115")
+            self.log(logging.CRITICAL, "Task has error status code 115")
             exc = fe.StorageUploadException(responses)
-            logger.critical(exc)
+            self.log(logging.CRITICAL, exc)
             raise exc
 
         if status == 118:
-            logger.critical("Task has error status code 118")
+            self.log(logging.CRITICAL, "Task has error status code 118")
             exc = fe.StorageDownloadException(responses)
-            logger.critical(exc)
+            self.log(logging.CRITICAL, exc)
             raise exc
 
         if status >= 400:
-            logger.critical(f"Task has error status code {status}")
+            self.log(logging.CRITICAL, f"Task has error status code {status}")
             exc = fe.FirecrestException(responses)
-            logger.critical(exc)
+            self.log(logging.CRITICAL, exc)
             raise exc
 
         return task
@@ -379,7 +395,7 @@ class Firecrest:
         return self._json_response(responses, 201, allow_none_result=True)
 
     def _poll_tasks(self, task_id: str, final_status, sleep_time):
-        logger.info(f"Polling task {task_id} until status is {final_status}")
+        self.log(logging.INFO, f"Polling task {task_id} until status is {final_status}")
         resp = self._task_safe(task_id)
         t = 1
         while resp["status"] < final_status:
@@ -388,14 +404,15 @@ class Firecrest:
             except StopIteration:
                 raise fe.PollingIterException(task_id)
 
-            logger.info(
+            self.log(
+                logging.INFO,
                 f'Status of {task_id} is {resp["status"]}, sleeping for {t} '
                 f'sec'
             )
             time.sleep(t)
             resp = self._task_safe(task_id)
 
-        logger.info(f'Status of {task_id} is {resp["status"]}')
+        self.log(logging.INFO, f'Status of {task_id} is {resp["status"]}')
         return resp["data"], resp.get("system", "")
 
     # Status
@@ -644,7 +661,8 @@ class Firecrest:
         ):
             self._json_response([resp], 201)
         else:
-            logger.debug(
+            self.log(
+                logging.DEBUG,
                 f"Compression of {source_path} to {target_path} has finished "
                 f"with timeout signal. Will submit a job to compress the "
                 f"file."
@@ -741,7 +759,8 @@ class Firecrest:
         ):
             self._json_response([resp], 201)
         else:
-            logger.debug(
+            self.log(
+                logging.DEBUG,
                 f"Extraction of {source_path} to {target_path} has finished "
                 f"with timeout signal. Will submit a job to extract the "
                 f"file."
@@ -1168,7 +1187,8 @@ class Firecrest:
             script_remote_path is None,
             job_script is None
         ].count(False) != 1:
-            logger.error(
+            self.log(
+                logging.ERROR,
                 "Only one of the arguments  `script_str`, `script_local_path`, "
                 "`script_remote_path`, and `job_script` can be set at a time. "
                 "`job_script` is deprecated, so prefer one of the others."
@@ -1179,8 +1199,12 @@ class Firecrest:
             )
 
         if job_script is not None:
-            logger.warning("`local_file` argument is deprecated, please use one of "
-                           "`script_str`, `script_local_path` or `script_remote_path` instead")
+            self.log(
+                logging.WARNING,
+                "`local_file` argument is deprecated, please use one of "
+                "`script_str`, `script_local_path` or `script_remote_path` "
+                "instead"
+            )
 
             if local_file:
                 script_local_path = job_script
@@ -1210,7 +1234,10 @@ class Firecrest:
         )
         with context as tmpdirname:
             if not is_path:
-                logger.info(f"Created temporary directory {tmpdirname}")
+                self.log(
+                    logging.INFO,
+                    f"Created temporary directory {tmpdirname}"
+                )
                 with open(os.path.join(tmpdirname, "script.batch"), "w") as temp_file:
                     temp_file.write(script_str)  # type: ignore
 
@@ -1218,7 +1245,10 @@ class Firecrest:
 
             env = json.dumps(env_vars) if env_vars else None
             json_response = self._submit_request(machine, job_script_file, is_local, account, env)
-            logger.info(f"Job submission task: {json_response['task_id']}")
+            self.log(
+                logging.INFO,
+                f"Job submission task: {json_response['task_id']}"
+            )
 
         # Inject taskid in the result
         result = self._poll_tasks(
@@ -1251,13 +1281,17 @@ class Firecrest:
         """
         self._current_method_requests = []
         if isinstance(jobs, str):
-            logger.warning(
-                f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
+            self.log(
+                logging.WARNING,
+                f"`jobs` is meant to be a list, not a string. Will poll for "
+                f"jobs: {[str(j) for j in jobs]}"
             )
 
         jobids = [str(j) for j in jobs] if jobs else []
-        json_response = self._acct_request(machine, jobids, start_time, end_time, page_size, page_number)
-        logger.info(f"Job polling task: {json_response['task_id']}")
+        json_response = self._acct_request(
+            machine, jobids, start_time, end_time, page_size, page_number
+        )
+        self.log(logging.INFO, f"Job polling task: {json_response['task_id']}")
         res = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )[0]
@@ -1287,14 +1321,18 @@ class Firecrest:
         """
         self._current_method_requests = []
         if isinstance(jobs, str):
-            logger.warning(
+            self.log(
+                logging.WARNING,
                 f"`jobs` is meant to be a list, not a string. Will poll for jobs: {[str(j) for j in jobs]}"
             )
 
         jobs = jobs if jobs else []
         jobids = [str(j) for j in jobs]
         json_response = self._squeue_request(machine, jobids, page_size, page_number)
-        logger.info(f"Job active polling task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job active polling task: {json_response['task_id']}"
+        )
         dict_result = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )[0]
@@ -1410,7 +1448,10 @@ class Firecrest:
         )
         self._current_method_requests.append(resp)
         json_response = self._json_response(self._current_method_requests, 200)
-        logger.info(f"Job cancellation task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job cancellation task: {json_response['task_id']}"
+        )
         return self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )[0]
@@ -1495,7 +1536,10 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
-        logger.info(f"Job submission task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job submission task: {json_response['task_id']}"
+        )
         transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
@@ -1541,7 +1585,10 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
-        logger.info(f"Job submission task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job submission task: {json_response['task_id']}"
+        )
         transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
@@ -1587,7 +1634,10 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
-        logger.info(f"Job submission task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job submission task: {json_response['task_id']}"
+        )
         transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
@@ -1631,7 +1681,10 @@ class Firecrest:
             stage_out_job_id,
             account,
         )
-        logger.info(f"Job submission task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job submission task: {json_response['task_id']}"
+        )
         transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
@@ -1715,7 +1768,10 @@ class Firecrest:
             account,
             dereference=dereference,
         )
-        logger.info(f"Job submission task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job submission task: {json_response['task_id']}"
+        )
         transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )
@@ -1766,7 +1822,10 @@ class Firecrest:
             account,
             extension
         )
-        logger.info(f"Job submission task: {json_response['task_id']}")
+        self.log(
+            logging.INFO,
+            f"Job submission task: {json_response['task_id']}"
+        )
         transfer_info = self._poll_tasks(
             json_response["task_id"], "200", iter(self.polling_sleep_times)
         )

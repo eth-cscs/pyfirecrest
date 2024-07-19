@@ -52,6 +52,14 @@ class ClientCredentialsAuth:
         self.timeout: Optional[
             Union[float, Tuple[float, float], Tuple[float, None]]
         ] = None
+        #: Disable all logging from this authorization object.
+        self.disable_client_logging: bool = False
+
+    def _log(self, level: int, msg: str) -> None:
+        """Log a message with the given level on the client logger.
+        """
+        if not self.disable_client_logging:
+            logger.log(level, msg)
 
     def get_access_token(self) -> str:
         """Returns an access token to be used for accessing resources.
@@ -65,7 +73,8 @@ class ClientCredentialsAuth:
             and self._token_expiration_ts
             and time.time() <= (self._token_expiration_ts - self._min_token_validity)
         ):
-            logger.info(
+            self._log(
+                logging.INFO,
                 f"Reusing token, will renew after {datetime.fromtimestamp(self._token_expiration_ts - self._min_token_validity)}"
             )
             return self._access_token
@@ -85,7 +94,8 @@ class ClientCredentialsAuth:
             resp_json = ""
 
         if not resp.ok:
-            logger.critical(
+            self._log(
+                logging.CRITICAL,
                 f"Could not obtain token: {fe.ClientsCredentialsException([resp])}"
             )
             raise fe.ClientsCredentialsException([resp])
@@ -93,7 +103,8 @@ class ClientCredentialsAuth:
         self._access_token = resp_json["access_token"]
         self._token_expiration_ts = time.time() + resp_json["expires_in"]
         assert self._token_expiration_ts is not None
-        logger.info(
+        self._log(
+            logging.INFO,
             f"Token expires at {datetime.fromtimestamp(self._token_expiration_ts)}"
         )
         return self._access_token
