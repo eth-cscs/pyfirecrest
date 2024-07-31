@@ -28,7 +28,7 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
-from firecrest.utilities import time_block, slurm_state_completed
+from firecrest.utilities import time_block, slurm_state_completed, async_validate_api_version_compatibility
 
 
 if sys.version_info >= (3, 8):
@@ -247,6 +247,10 @@ class AsyncFirecrest:
         """Set the version of the api of firecrest. By default it will be assumed that you are
         using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
         """
+        if parse(api_version) < parse("1.13.0"):
+            raise ValueError(
+                f"API version {api_version} is no longer supported by this client"
+            )
         self._api_version = parse(api_version)
 
     async def close_session(self) -> None:
@@ -727,6 +731,7 @@ class AsyncFirecrest:
             return self._json_response([resp], 200)["out"]
 
     # Utilities
+    @async_validate_api_version_compatibility(recursive=True)
     async def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False,
         recursive: bool = False
@@ -860,6 +865,7 @@ class AsyncFirecrest:
         self._json_response([resp], 201)
         return target_path
 
+    @async_validate_api_version_compatibility()
     async def compress(
             self,
             machine: str,
@@ -958,6 +964,7 @@ class AsyncFirecrest:
 
         return target_path
 
+    @async_validate_api_version_compatibility()
     async def extract(
             self,
             machine: str,
@@ -1812,6 +1819,7 @@ class AsyncFirecrest:
         result.update({"system": job_info[1]})
         return result
 
+    @async_validate_api_version_compatibility()
     async def submit_compress_job(
         self,
         machine: str,
@@ -1865,6 +1873,7 @@ class AsyncFirecrest:
         result.update({"system": job_info[1]})
         return result
 
+    @async_validate_api_version_compatibility()
     async def submit_extract_job(
         self,
         machine: str,
