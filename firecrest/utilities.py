@@ -1,3 +1,4 @@
+import email.utils as eut
 import logging
 import time
 from contextlib import contextmanager
@@ -52,5 +53,8 @@ def parse_retry_after(retry_after_header, log_func):
         delta_seconds = retry_after_date.timestamp() - time.time()
         return max(delta_seconds, 0)
     except Exception:
-        log_func(logging.WARNING, f"Could not parse Retry-After header: {retry_after_header}")
+        log_func(
+            logging.WARNING,
+            f"Could not parse Retry-After header: {retry_after_header}"
+        )
         return 10
