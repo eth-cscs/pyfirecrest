@@ -178,7 +178,7 @@ class Firecrest:
                 "The version will be set to 1.15.0, but you can manually "
                 "set it with the method `set_api_version`."
             )
-            self._api_version: Version = parse("1.15.0")
+            self._api_version = parse("1.15.0")
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest manually. By default, the
