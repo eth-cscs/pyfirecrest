@@ -249,7 +249,7 @@ class AsyncFirecrest:
                 endpoint="/status/parameters",
             ).json()["out"]["general"]
             for g in general_params:
-                if g["name"] == "FIRECREST_VERSIONs":
+                if g["name"] == "FIRECREST_VERSION":
                     self._api_version = parse(g["value"])
                     return
 
