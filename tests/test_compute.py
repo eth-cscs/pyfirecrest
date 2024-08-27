@@ -1202,8 +1202,8 @@ def test_cli_submit_remote(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "'jobid': 35335405" in stdout
-    assert "'result': 'Job submitted'" in stdout
+    assert '"jobid": 35335405' in stdout
+    assert '"result": "Job submitted"' in stdout
 
     submit_path_retry = 0
     args = valid_credentials + [
@@ -1217,8 +1217,8 @@ def test_cli_submit_remote(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "'jobid': 35335406" in stdout
-    assert "'result': 'Job submitted'" in stdout
+    assert '"jobid": 35335406' in stdout
+    assert '"result": "Job submitted"' in stdout
 
 
 def test_submit_local(valid_client, slurm_script):
@@ -1259,8 +1259,8 @@ def test_cli_submit_local(valid_credentials, slurm_script):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "'jobid': 35342667" in stdout
-    assert "'result': 'Job submitted'" in stdout
+    assert '"jobid": 35342667' in stdout
+    assert '"result": "Job submitted"' in stdout
 
     submit_upload_retry = 0
     args = valid_credentials + [
@@ -1273,8 +1273,8 @@ def test_cli_submit_local(valid_credentials, slurm_script):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "'jobid': 35342668" in stdout
-    assert "'result': 'Job submitted'" in stdout
+    assert '"jobid": 35342668' in stdout
+    assert '"result": "Job submitted"' in stdout
 
 
 def test_submit_invalid_arguments(valid_client, non_slurm_script):
