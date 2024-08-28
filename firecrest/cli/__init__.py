@@ -123,7 +123,7 @@ def services(
     name: Optional[str] = typer.Option(
         None, "-n", "--name", help="Get information for only one service."
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Provides information for the services of FirecREST"""
     try:
@@ -156,7 +156,7 @@ def systems(
     name: Optional[str] = typer.Option(
         None, "-n", "--name", help="Get information for only one system."
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Provides information for the available systems in FirecREST"""
     try:
@@ -186,7 +186,7 @@ def systems(
 
 @app.command(rich_help_panel="Status commands")
 def parameters(
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Configurable parameters of FirecREST"""
     try:
@@ -267,7 +267,7 @@ def filesystems(
         help="The name of the system where the filesystems belongs to.",
         envvar="FIRECREST_SYSTEM",
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Information about the filesystems that are available through FirecREST"""
     try:
@@ -300,7 +300,7 @@ def tasks(
     pager: Optional[bool] = typer.Option(
         True, help="Display the output in a pager application."
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Retrieve information about the FirecREST tasks of the users"""
     try:
@@ -361,7 +361,7 @@ def ls(
         "--recursive",
         help="Recursively list directories encountered.",
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """List directory contents"""
     try:
@@ -617,7 +617,7 @@ def stat(
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
@@ -1468,7 +1468,7 @@ def poll(
         None,
         help="End time (and/or date) of job's query. Allowed formats are `HH:MM\[:SS] \[AM|PM]` or `MMDD\[YY]` or `MM/DD\[/YY]` or `MM.DD\[.YY]` or `MM/DD\[/YY]-HH:MM\[:SS]` or `YYYY-MM-DD\[THH:MM\[:SS]]`.",
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Retrieve information about submitted jobs.
     This call uses the `sacct` command
@@ -1511,7 +1511,7 @@ def poll_active(
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Retrieves information about active jobs.
     This call uses the `squeue -u <username>` command
@@ -1554,7 +1554,7 @@ def get_nodes(
     nodes: Optional[List[str]] = typer.Argument(
         None, help="List of specific compute nodes to query."
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Retrieves information about the compute nodes.
     This call uses the `scontrol show nodes` command
@@ -1602,7 +1602,7 @@ def get_partitions(
     partitions: Optional[List[str]] = typer.Argument(
         None, help="List of specific partitions to query."
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Retrieves information about the partitions.
     This call uses the `scontrol show partitions` command
@@ -1671,7 +1671,7 @@ def get_reservations(
     reservations: Optional[List[str]] = typer.Argument(
         None, help="List of specific reservations to query."
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Retrieves information about the reservations.
     This call uses the `scontrol show reservations` command
