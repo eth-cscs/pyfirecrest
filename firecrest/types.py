@@ -32,6 +32,7 @@ class Parameters(TypedDict):
     compute: list[Parameter]
     system: list[Parameter]
 
+
 class Service(TypedDict):
     """A service record, from `status/services/{name}`"""
 
