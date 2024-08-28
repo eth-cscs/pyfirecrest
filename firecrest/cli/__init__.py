@@ -4,6 +4,7 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+import json
 import logging
 import re
 import typer
@@ -121,7 +122,8 @@ def config_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 def services(
     name: Optional[str] = typer.Option(
         None, "-n", "--name", help="Get information for only one service."
-    )
+    ),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Provides information for the services of FirecREST"""
     try:
@@ -131,6 +133,10 @@ def services(
         else:
             result = client.all_services()
             title = "Status of FirecREST services"
+
+        if raw:
+            console.print(json.dumps(result, indent=4))
+            return
 
         table = create_table(
             title,
@@ -149,7 +155,8 @@ def services(
 def systems(
     name: Optional[str] = typer.Option(
         None, "-n", "--name", help="Get information for only one system."
-    )
+    ),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Provides information for the available systems in FirecREST"""
     try:
@@ -159,6 +166,10 @@ def systems(
         else:
             result = client.all_systems()
             title = "Status of FirecREST systems"
+
+        if raw:
+            console.print(json.dumps(result, indent=4))
+            return
 
         table = create_table(
             title,
@@ -174,10 +185,16 @@ def systems(
 
 
 @app.command(rich_help_panel="Status commands")
-def parameters():
+def parameters(
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
+):
     """Configurable parameters of FirecREST"""
     try:
         result = client.parameters()
+        if raw:
+            console.print(json.dumps(result, indent=4))
+            return
+
         info = [
             ("Name", "name"),
             ("Value", "value"),
@@ -216,10 +233,15 @@ def filesystems(
         help="The name of the system where the filesystems belongs to.",
         envvar="FIRECREST_SYSTEM",
     ),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Information about the filesystems that are available through FirecREST"""
     try:
         result = client.filesystems(system)
+        if raw:
+            console.print(json.dumps(result, indent=4))
+            return
+
         for system in result.keys():
             table = create_table(
                 f"Status of filesystems for `{system}`",
@@ -244,10 +266,15 @@ def tasks(
     pager: Optional[bool] = typer.Option(
         True, help="Display the output in a pager application."
     ),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Retrieve information about the FirecREST tasks of the users"""
     try:
         result = client._tasks(taskids)
+        if raw:
+            console.print(json.dumps(result, indent=4))
+            return
+
         num_results = len(result.values())
         table = create_table(
             f"Task information: {num_results} result{'s' if num_results > 1 else ''}",
@@ -274,7 +301,8 @@ def tasks(
 
 @app.command(rich_help_panel="Utilities commands")
 def ls(
-    config_from_parent: str = typer.Option(None,
+    config_from_parent: str = typer.Option(
+        None,
         callback=config_parent_load_callback,
         is_eager=True,
         hidden=True
@@ -299,13 +327,13 @@ def ls(
         "--recursive",
         help="Recursively list directories encountered.",
     ),
-    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """List directory contents"""
     try:
         result = client.list_files(system, path, show_hidden, recursive)
         if raw:
-            console.print(result)
+            console.print(json.dumps(result, indent=4))
         else:
             table = create_table(
                 f"Files in system `{system}` and path `{path}`",
@@ -555,13 +583,13 @@ def stat(
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
-    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
         result = client.stat(system, path, deref)
         if raw:
-            console.print(result)
+            console.print(json.dumps(result, indent=4))
         else:
             title = f"Status of file {path}"
             if deref:
@@ -1004,13 +1032,13 @@ def upload(
                     console.print(
                         "\nNecessary information to upload the file in the staging area:"
                     )
-                    console.print(f"[yellow]{data['parameters']}[/yellow]")
+                    console.print(f"[yellow]{json.dumps(data['parameters'], indent=4)}[/yellow]")
                     console.print(
                         "\nOr simply run the following command to finish the upload:"
                     )
                     console.print(f"[green]{data['command']}[/green]")
                 else:
-                    console.print(data)
+                    console.print(json.dumps(data, indent=4))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1063,9 +1091,21 @@ def submit(
 
     try:
         if local:
-            console.print(client.submit(system, script_local_path=job_script, account=account, env_vars=envvars))
+            result = client.submit(
+                system,
+                script_local_path=job_script,
+                account=account,
+                env_vars=envvars
+            )
         else:
-            console.print(client.submit(system, script_remote_path=job_script, account=account, env_vars=envvars))
+            result = client.submit(
+                system,
+                script_remote_path=job_script,
+                account=account,
+                env_vars=envvars
+            )
+
+        console.print(json.dumps(result, indent=4))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1109,10 +1149,11 @@ def submit_mv(
 ):
     """Move/rename file"""
     try:
+        result = client.submit_move_job(
+            system, source, destination, job_name, time, jobid, account
+        )
         console.print(
-            client.submit_move_job(
-                system, source, destination, job_name, time, jobid, account
-            )
+            json.dumps(result, indent=4)
         )
     except Exception as e:
         examine_exeption(e)
@@ -1157,10 +1198,11 @@ def submit_cp(
 ):
     """Copy file"""
     try:
+        result = client.submit_copy_job(
+            system, source, destination, job_name, time, jobid, account
+        )
         console.print(
-            client.submit_copy_job(
-                system, source, destination, job_name, time, jobid, account
-            )
+            json.dumps(result, indent=4)
         )
     except Exception as e:
         examine_exeption(e)
@@ -1205,10 +1247,11 @@ def submit_rsync(
 ):
     """Transfer/synchronize files or directories efficiently between filesystems"""
     try:
+        result = client.submit_rsync_job(
+            system, source, destination, job_name, time, jobid, account
+        )
         console.print(
-            client.submit_rsync_job(
-                system, source, destination, job_name, time, jobid, account
-            )
+            json.dumps(result, indent=4)
         )
     except Exception as e:
         examine_exeption(e)
@@ -1254,16 +1297,17 @@ def submit_compress(
     """Compress files using gzip compression.
     You can name the output file as you like, but typically these files have a .tar.gz extension."""
     try:
+        result = client.submit_compress_job(
+            machine=system,
+            source_path=source,
+            target_path=destination,
+            job_name=job_name,
+            time=time,
+            stage_out_job_id=jobid,
+            account=account
+        )
         console.print(
-            client.submit_compress_job(
-                machine=system,
-                source_path=source,
-                target_path=destination,
-                job_name=job_name,
-                time=time,
-                stage_out_job_id=jobid,
-                account=account
-            )
+            json.dumps(result, indent=4)
         )
     except Exception as e:
         examine_exeption(e)
@@ -1312,10 +1356,11 @@ def submit_extract(
     Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
     """
     try:
+        result = client.submit_extract_job(
+            system, source, destination, job_name, time, jobid, account
+        )
         console.print(
-            client.submit_extract_job(
-                system, source, destination, job_name, time, jobid, account
-            )
+            json.dumps(result, indent=4)
         )
     except Exception as e:
         examine_exeption(e)
@@ -1359,8 +1404,9 @@ def submit_rm(
 ):
     """Remove files"""
     try:
+        result = client.submit_delete_job(system, path, job_name, time, jobid, account)
         console.print(
-            client.submit_delete_job(system, path, job_name, time, jobid, account)
+            json.dumps(result, indent=4)
         )
     except Exception as e:
         examine_exeption(e)
@@ -1388,7 +1434,7 @@ def poll(
         None,
         help="End time (and/or date) of job's query. Allowed formats are `HH:MM\[:SS] \[AM|PM]` or `MMDD\[YY]` or `MM/DD\[/YY]` or `MM.DD\[.YY]` or `MM/DD\[/YY]-HH:MM\[:SS]` or `YYYY-MM-DD\[THH:MM\[:SS]]`.",
     ),
-    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Retrieve information about submitted jobs.
     This call uses the `sacct` command
@@ -1396,7 +1442,7 @@ def poll(
     try:
         result = client.poll(system, jobs, start_time, end_time)
         if raw:
-            console.print(result)
+            console.print(json.dumps(result, indent=4))
         else:
             table = create_table(
                 "Accounting data for jobs",
@@ -1431,7 +1477,7 @@ def poll_active(
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
     ),
-    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Retrieves information about active jobs.
     This call uses the `squeue -u <username>` command
@@ -1439,7 +1485,7 @@ def poll_active(
     try:
         result = client.poll_active(system, jobs)
         if raw:
-            console.print(result)
+            console.print(json.dumps(result, indent=4))
         else:
             table = create_table(
                 "Information about jobs in the queue",
@@ -1474,7 +1520,7 @@ def get_nodes(
     nodes: Optional[List[str]] = typer.Argument(
         None, help="List of specific compute nodes to query."
     ),
-    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Retrieves information about the compute nodes.
     This call uses the `scontrol show nodes` command
@@ -1482,7 +1528,7 @@ def get_nodes(
     try:
         results = client.nodes(system, nodes)
         if raw:
-            console.print(results)
+            console.print(json.dumps(results, indent=4))
         else:
             parsed_results = []
             for item in results:
@@ -1522,7 +1568,7 @@ def get_partitions(
     partitions: Optional[List[str]] = typer.Argument(
         None, help="List of specific partitions to query."
     ),
-    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Retrieves information about the partitions.
     This call uses the `scontrol show partitions` command
@@ -1530,7 +1576,7 @@ def get_partitions(
     try:
         results = client.partitions(system, partitions)
         if raw:
-            console.print(results)
+            console.print(json.dumps(results, indent=4))
         else:
             parsed_results = []
             for item in results:
@@ -1591,7 +1637,7 @@ def get_reservations(
     reservations: Optional[List[str]] = typer.Argument(
         None, help="List of specific reservations to query."
     ),
-    raw: bool = typer.Option(False, "--raw", help="Print unformatted."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output json format."),
 ):
     """Retrieves information about the reservations.
     This call uses the `scontrol show reservations` command
@@ -1599,7 +1645,7 @@ def get_reservations(
     try:
         results = client.reservations(system, reservations)
         if raw:
-            console.print(results)
+            console.print(json.dumps(results, indent=4))
         else:
             parsed_results = []
             for item in results:
