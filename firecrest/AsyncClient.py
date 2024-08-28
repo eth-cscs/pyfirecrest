@@ -28,7 +28,9 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
-from firecrest.utilities import time_block, slurm_state_completed
+from firecrest.utilities import (
+    parse_retry_after, slurm_state_completed, time_block
+)
 
 
 if sys.version_info >= (3, 8):
@@ -127,9 +129,11 @@ class AsyncFirecrest:
                 else:
                     reset = resp.headers.get(
                         "Retry-After",
-                        default=resp.headers.get("RateLimit-Reset", default=10),
+                        default=resp.headers.get(
+                            "RateLimit-Reset", default=10
+                        ),
                     )
-                    reset = int(reset)
+                    reset = parse_retry_after(reset, client.log)
                     try:
                         f = kwargs["files"]["file"]
                         client.log(
