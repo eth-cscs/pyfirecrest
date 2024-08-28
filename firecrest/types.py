@@ -30,7 +30,7 @@ class Parameters(TypedDict):
     storage: list[Parameter]
     utilities: list[Parameter]
     compute: list[Parameter]
-    system: list[Parameter]
+    general: list[Parameter]
 
 
 class Service(TypedDict):
