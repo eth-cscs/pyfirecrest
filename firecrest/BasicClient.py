@@ -157,37 +157,12 @@ class Firecrest:
         self.polling_sleep_times: list = [1, 0.5] + 234 * [0.25]
         #: Disable all logging from the client.
         self.disable_client_logging: bool = False
+        self._api_version: Version = parse("1.15.0")
         self._session = requests.Session()
-        # Try to set the api version by querying the /status/parameters
-        # endpoint
-        try:
-            general_params = self._api_version = self._get_request(
-                endpoint="/status/parameters",
-            ).json()["out"]["general"]
-            for g in general_params:
-                if g["name"] == "FIRECREST_VERSION":
-                    self._api_version = parse(g["value"])
-                    return
-
-            # We want the except block to catch this and set the
-            # version to the default one
-            raise Exception
-
-        except Exception:
-            self.log(
-                logging.WARNING,
-                "Could not get the version of the api from firecREST. "
-                "The version will be set to 1.15.0, but you can manually "
-                "set it with the method `set_api_version`."
-            )
-            self._api_version = parse("1.15.0")
 
     def set_api_version(self, api_version: str) -> None:
-        """Set the version of the api of firecrest manually. By default, the
-        client will query the api (before the first request), through the
-        /status endpoint. This information is only available for
-        version>=1.16.1, so for older deployments the default will be 1.15.0.
-        The version is parsed by the `packaging` library.
+        """Set the version of the api of firecrest. By default it will be assumed that you are
+        using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
 
