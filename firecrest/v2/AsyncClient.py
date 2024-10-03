@@ -234,7 +234,7 @@ class AsyncFirecrest:
             raise fe.FirecrestException([response])
         elif status_code != expected_status_code:
             self.log(
-                logging.CRITICAL,
+                logging.DEBUG,
                 f"Unexpected status of last request {status_code}, it "
                 f"should have been {expected_status_code}"
             )
