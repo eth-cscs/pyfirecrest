@@ -1,0 +1,115 @@
+{
+    "status_code": 200,
+    "response": {
+        "systems": [
+            {
+                "name": "cluster-api",
+                "host": "192.168.240.2",
+                "sshPort": 22,
+                "sshCertEmbeddedCmd": true,
+                "scheduler": {
+                    "type": "slurm",
+                    "version": "24.05.0",
+                    "apiUrl": "http://192.168.240.2:6820",
+                    "apiVersion": "0.0.40"
+                },
+                "health": {
+                    "lastChecked": "2024-10-04T14:39:29.092143Z",
+                    "latency": 0.006885528564453125,
+                    "healthy": true,
+                    "message": null,
+                    "nodes": {
+                        "available": 1,
+                        "total": 1
+                    }
+                },
+                "probing": {
+                    "interval": 60,
+                    "timeout": 10,
+                    "healthyLatency": 1.5,
+                    "healthyLoad": 0.8,
+                    "startupGracePeriod": 300
+                },
+                "fileSystems": [
+                    {
+                        "path": "/home",
+                        "dataType": "users",
+                        "defaultWorkDir": true
+                    },
+                    {
+                        "path": "/store",
+                        "dataType": "store",
+                        "defaultWorkDir": false
+                    },
+                    {
+                        "path": "/archive",
+                        "dataType": "archive",
+                        "defaultWorkDir": false
+                    }
+                ],
+                "datatransferJobsDirectives": [
+                    "#SBATCH --constraint=mc",
+                    "#SBATCH --nodes=1",
+                    "#SBATCH --time=0-00:15:00"
+                ],
+                "timeouts": {
+                    "sshConnection": 5,
+                    "sshLogin": 5,
+                    "sshCommandExecution": 5
+                }
+            },
+            {
+                "name": "cluster-ssh",
+                "host": "192.168.240.2",
+                "sshPort": 22,
+                "sshCertEmbeddedCmd": true,
+                "scheduler": {
+                    "type": "slurm",
+                    "version": "24.05.0",
+                    "apiUrl": null,
+                    "apiVersion": null
+                },
+                "health": {
+                    "lastChecked": "2024-10-04T14:39:29.696364Z",
+                    "latency": 0.6117508411407471,
+                    "healthy": true,
+                    "message": null,
+                    "nodes": {
+                        "available": 1,
+                        "total": 1
+                    }
+                },
+                "probing": {
+                    "interval": 60,
+                    "timeout": 10,
+                    "healthyLatency": 1.5,
+                    "healthyLoad": 0.8,
+                    "startupGracePeriod": 300
+                },
+                "fileSystems": [
+                    {
+                        "path": "/home",
+                        "dataType": "users",
+                        "defaultWorkDir": true
+                    },
+                    {
+                        "path": "/store",
+                        "dataType": "store",
+                        "defaultWorkDir": false
+                    },
+                    {
+                        "path": "/scratch",
+                        "dataType": "scratch",
+                        "defaultWorkDir": false
+                    }
+                ],
+                "datatransferJobsDirectives": [],
+                "timeouts": {
+                    "sshConnection": 5,
+                    "sshLogin": 5,
+                    "sshCommandExecution": 5
+                }
+            }
+        ]
+    }
+}
