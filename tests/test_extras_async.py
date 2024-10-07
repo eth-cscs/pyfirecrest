@@ -24,6 +24,7 @@ def valid_client(fc_server):
         "tasks": 0,
         "utilities": 0,
     }
+    client.set_api_version("1.15.0")
 
     return client
 
@@ -45,6 +46,7 @@ def invalid_client(fc_server):
         "tasks": 0,
         "utilities": 0,
     }
+    client.set_api_version("1.15.0")
 
     return client
 

@@ -158,10 +158,16 @@ class Firecrest:
         #: Disable all logging from the client.
         self.disable_client_logging: bool = False
         self._session = requests.Session()
+
+        self._api_version = parse("1.15.0")
+        self._query_api_version = True
+
+    def _get_api_version(self) -> None:
         # Try to set the api version by querying the /status/parameters
         # endpoint
+        self._query_api_version = False
         try:
-            general_params = self._api_version = self._get_request(
+            general_params = self._get_request(
                 endpoint="/status/parameters",
             ).json()["out"]["general"]
             for g in general_params:
@@ -169,11 +175,9 @@ class Firecrest:
                     self._api_version = parse(g["value"])
                     return
 
-            # We want the except block to catch this and set the
-            # version to the default one
-            raise Exception
+            raise KeyError
 
-        except Exception:
+        except KeyError:
             self.log(
                 logging.WARNING,
                 "Could not get the version of the api from firecREST. "
@@ -190,6 +194,7 @@ class Firecrest:
         The version is parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
+        self._query_api_version = False
 
     def log(self, level: int, msg: Any) -> None:
         """Log a message with the given level on the client logger.
@@ -201,6 +206,9 @@ class Firecrest:
     def _get_request(
         self, endpoint, additional_headers=None, params=None
     ) -> requests.Response:
+        if self._query_api_version:
+            self._get_api_version()
+
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -222,6 +230,9 @@ class Firecrest:
     def _post_request(
         self, endpoint, additional_headers=None, data=None, files=None
     ) -> requests.Response:
+        if self._query_api_version:
+            self._get_api_version()
+
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -244,6 +255,9 @@ class Firecrest:
     def _put_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
+        if self._query_api_version:
+            self._get_api_version()
+
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -265,6 +279,9 @@ class Firecrest:
     def _delete_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
+        if self._query_api_version:
+            self._get_api_version()
+
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:

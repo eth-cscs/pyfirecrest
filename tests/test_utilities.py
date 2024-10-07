@@ -20,9 +20,11 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    return firecrest.Firecrest(
+    client = firecrest.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
+    client.set_api_version("1.15.0")
+    return client
 
 
 @pytest.fixture
@@ -32,6 +34,7 @@ def valid_credentials(fc_server, auth_server):
         "--client-id=valid_id",
         "--client-secret=valid_secret",
         f"--token-url={auth_server.url_for('/auth/token')}",
+        "--api-version=1.15.0",
     ]
 
 
@@ -41,9 +44,11 @@ def invalid_client(fc_server):
         def get_access_token(self):
             return "INVALID_TOKEN"
 
-    return firecrest.Firecrest(
+    client = firecrest.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
+    client.set_api_version("1.15.0")
+    return client
 
 
 def ls_handler(request: Request):
