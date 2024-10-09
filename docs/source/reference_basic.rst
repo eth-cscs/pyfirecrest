@@ -30,14 +30,6 @@ The ``ExternalDownload`` class
     :show-inheritance:
 
 
-The ``ClientCredentialsAuth`` class
-***********************************
-.. autoclass:: firecrest.ClientCredentialsAuth
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 Custom types of the library
 ***************************
 .. automodule:: firecrest.types
