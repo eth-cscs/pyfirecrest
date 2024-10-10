@@ -112,3 +112,7 @@ class PollingIterException(Exception):
             f"is exhausted. Update `polling_sleep_times` of the client "
             f"to increase the number of polling attempts."
         )
+
+
+class NotImplementedOnAPIversion(Exception):
+    """Exception raised when a feature is not developed yet for the current API version"""

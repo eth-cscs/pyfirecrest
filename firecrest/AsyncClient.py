@@ -29,7 +29,10 @@ import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
 from firecrest.utilities import (
-    parse_retry_after, slurm_state_completed, time_block
+    async_validate_api_version_compatibility,
+    parse_retry_after,
+    slurm_state_completed,
+    time_block
 )
 
 
@@ -775,6 +778,7 @@ class AsyncFirecrest:
             return self._json_response([resp], 200)["out"]
 
     # Utilities
+    @async_validate_api_version_compatibility(recursive=True)
     async def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False,
         recursive: bool = False
@@ -908,6 +912,7 @@ class AsyncFirecrest:
         self._json_response([resp], 201)
         return target_path
 
+    @async_validate_api_version_compatibility()
     async def compress(
             self,
             machine: str,
@@ -1006,6 +1011,7 @@ class AsyncFirecrest:
 
         return target_path
 
+    @async_validate_api_version_compatibility()
     async def extract(
             self,
             machine: str,
@@ -1860,6 +1866,7 @@ class AsyncFirecrest:
         result.update({"system": job_info[1]})
         return result
 
+    @async_validate_api_version_compatibility()
     async def submit_compress_job(
         self,
         machine: str,
@@ -1913,6 +1920,7 @@ class AsyncFirecrest:
         result.update({"system": job_info[1]})
         return result
 
+    @async_validate_api_version_compatibility()
     async def submit_extract_job(
         self,
         machine: str,

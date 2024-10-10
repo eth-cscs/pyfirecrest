@@ -25,7 +25,12 @@ from packaging.version import Version, parse
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
-from firecrest.utilities import (parse_retry_after, slurm_state_completed, time_block)
+from firecrest.utilities import (
+    parse_retry_after,
+    slurm_state_completed,
+    time_block,
+    validate_api_version_compatibility
+)
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -193,6 +198,10 @@ class Firecrest:
         version>=1.16.1, so for older deployments the default will be 1.15.0.
         The version is parsed by the `packaging` library.
         """
+        if parse(api_version) < parse("1.13.0"):
+            raise ValueError(
+                f"API version {api_version} is no longer supported by this client"
+            )
         self._api_version = parse(api_version)
         self._query_api_version = False
 
@@ -525,6 +534,7 @@ class Firecrest:
             return self._json_response([resp], 200)["out"]
 
     # Utilities
+    @validate_api_version_compatibility(recursive=True)
     def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False,
         recursive: bool = False
@@ -656,6 +666,7 @@ class Firecrest:
         self._json_response([resp], 201)
         return target_path
 
+    @validate_api_version_compatibility()
     def compress(
             self,
             machine: str,
@@ -755,6 +766,7 @@ class Firecrest:
 
         return target_path
 
+    @validate_api_version_compatibility()
     def extract(
             self,
             machine: str,
@@ -1770,6 +1782,7 @@ class Firecrest:
             self, self._json_response([resp], 201)["task_id"], [resp]
         )
 
+    @validate_api_version_compatibility()
     def submit_compress_job(
         self,
         machine: str,
@@ -1823,6 +1836,7 @@ class Firecrest:
         result.update({"system": transfer_info[1]})
         return result
 
+    @validate_api_version_compatibility()
     def submit_extract_job(
         self,
         machine: str,
