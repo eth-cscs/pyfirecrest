@@ -881,7 +881,8 @@ class AsyncFirecrest:
         :param target_path: the absolute target path
         :param dereference: follow symbolic links
         :param fail_on_timeout: if `True` on timeout, this method will raise an
-        exception and won't fall back to submitting a long running job
+                                exception and won't fall back to submitting a long
+                                running job
         :calls: POST `/utilities/compress`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -980,7 +981,8 @@ class AsyncFirecrest:
         :param target_path: the absolute target path where the `source_path` is extracted
         :param file_extension: possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
         :param fail_on_timeout: if `True` on timeout, this method will raise an
-        exception and won't fall back to submitting a long running job
+                                exception and won't fall back to submitting a
+                                long running job
         :calls: POST `/utilities/extract`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -1633,10 +1635,12 @@ class AsyncFirecrest:
     ) -> List[t.ReservationInfo]:
         """Retrieves information about the reservations.
         This call uses the `scontrol show reservations` command.
+
         :param machine: the machine name where the scheduler belongs to
         :param reservations: specific reservations to query
         :calls: GET `/compute/reservations`
                 GET `/tasks`
+
         .. warning:: This is available only for FirecREST>=1.16.0
         """
         params = {}
