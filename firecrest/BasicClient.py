@@ -20,7 +20,7 @@ from contextlib import nullcontext
 from io import BytesIO
 from requests.compat import json  # type: ignore
 from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
-from packaging.version import Version, parse
+from packaging.version import parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
@@ -167,41 +167,13 @@ class Firecrest:
         self._api_version = parse("1.15.0")
         self._query_api_version = True
 
-    def _get_api_version(self) -> None:
-        # Try to set the api version by querying the /status/parameters
-        # endpoint
-        self._query_api_version = False
-        try:
-            general_params = self._get_request(
-                endpoint="/status/parameters",
-            ).json()["out"]["general"]
-            for g in general_params:
-                if g["name"] == "FIRECREST_VERSION":
-                    self._api_version = parse(g["value"])
-                    return
-
-            raise KeyError
-
-        except KeyError:
-            self.log(
-                logging.WARNING,
-                "Could not get the version of the api from firecREST. "
-                "The version will be set to 1.15.0, but you can manually "
-                "set it with the method `set_api_version`."
-            )
-            self._api_version = parse("1.15.0")
-
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest manually. By default, the
-        client will query the api (before the first request), through the
+        client will query the api, through the
         /status endpoint. This information is only available for
         version>=1.16.1, so for older deployments the default will be 1.15.0.
         The version is parsed by the `packaging` library.
         """
-        if parse(api_version) < parse("1.13.0"):
-            raise ValueError(
-                f"API version {api_version} is no longer supported by this client"
-            )
         self._api_version = parse(api_version)
         self._query_api_version = False
 
@@ -215,9 +187,6 @@ class Firecrest:
     def _get_request(
         self, endpoint, additional_headers=None, params=None
     ) -> requests.Response:
-        if self._query_api_version:
-            self._get_api_version()
-
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -239,9 +208,6 @@ class Firecrest:
     def _post_request(
         self, endpoint, additional_headers=None, data=None, files=None
     ) -> requests.Response:
-        if self._query_api_version:
-            self._get_api_version()
-
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -264,9 +230,6 @@ class Firecrest:
     def _put_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
-        if self._query_api_version:
-            self._get_api_version()
-
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -288,9 +251,6 @@ class Firecrest:
     def _delete_request(
         self, endpoint, additional_headers=None, data=None
     ) -> requests.Response:
-        if self._query_api_version:
-            self._get_api_version()
-
         url = f"{self._firecrest_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self._authorization.get_access_token()}"}
         if additional_headers:
@@ -511,8 +471,30 @@ class Firecrest:
         :calls: GET `/status/parameters`
         """
         resp = self._get_request(endpoint="/status/parameters")
-        return self._json_response([resp], 200)["out"]
+        json_response = self._json_response([resp], 200)["out"]
+        if self._query_api_version:
+            self._query_api_version = False
+            try:
+                general_params = json_response["general"]
+                for g in general_params:
+                    if g["name"] == "FIRECREST_VERSION":
+                        self._api_version = parse(g["value"])
+                        return
 
+                raise KeyError
+
+            except KeyError:
+                self.log(
+                    logging.WARNING,
+                    "Could not get the version of the api from firecREST. "
+                    "The version will be set to 1.15.0, but you can manually "
+                    "set it with the method `set_api_version`."
+                )
+                self._api_version = parse("1.15.0")
+
+        return json_response
+
+    @validate_api_version_compatibility()
     def filesystems(self, system_name: Optional[str] = None) -> dict[str, List[t.Filesystem]]:
         """Returns the status of the filesystems per system.
 
@@ -534,7 +516,7 @@ class Firecrest:
             return self._json_response([resp], 200)["out"]
 
     # Utilities
-    @validate_api_version_compatibility(recursive=True)
+    @validate_api_version_compatibility()
     def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False,
         recursive: bool = False
@@ -549,6 +531,13 @@ class Firecrest:
 
         .. warning:: The argument ``recursive`` is available only for FirecREST>=1.16.0
         """
+        if recursive and self._api_version < parse("1.16.0"):
+            raise fe.NotImplementedOnAPIversion(
+                "`recursive=True` flag is not available for "
+                "function `list_files` for version <1.16.0 "
+                "in the client."
+            )
+
         params: dict[str, Any] = {"targetPath": f"{target_path}"}
         if show_hidden is True:
             params["showhidden"] = show_hidden
@@ -1122,6 +1111,7 @@ class Firecrest:
             # Invalid token, cannot retrieve username
             return None
 
+    @validate_api_version_compatibility()
     def groups(self, machine) -> t.UserId:
         """Returns the output of the `id` command, user and group ids.
 
@@ -1394,6 +1384,7 @@ class Firecrest:
         )[0]
         return list(dict_result.values())
 
+    @validate_api_version_compatibility()
     def nodes(
         self,
         machine: str,
@@ -1426,6 +1417,7 @@ class Firecrest:
         )[0]
         return result
 
+    @validate_api_version_compatibility()
     def partitions(
         self,
         machine: str,
@@ -1458,6 +1450,7 @@ class Firecrest:
         )[0]
         return result
 
+    @validate_api_version_compatibility()
     def reservations(
         self,
         machine: str,
@@ -1748,6 +1741,7 @@ class Firecrest:
         result.update({"system": transfer_info[1]})
         return result
 
+    @validate_api_version_compatibility()
     def external_upload(
         self, machine: str, source_path: str, target_path: str
     ) -> ExternalUpload:
@@ -1766,6 +1760,7 @@ class Firecrest:
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
 
+    @validate_api_version_compatibility()
     def external_download(self, machine: str, source_path: str) -> ExternalDownload:
         """Non blocking call for the download of larger files.
 
