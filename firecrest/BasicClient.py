@@ -479,7 +479,7 @@ class Firecrest:
                 for g in general_params:
                     if g["name"] == "FIRECREST_VERSION":
                         self._api_version = parse(g["value"])
-                        return
+                        return json_response
 
                 raise KeyError
 
