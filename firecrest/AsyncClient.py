@@ -254,7 +254,7 @@ class AsyncFirecrest:
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest manually. By default, the
-        client will query the api (before the first request), through the
+        client will query the api, through the
         /status endpoint. This information is only available for
         version>=1.16.1, so for older deployments the default will be 1.15.0.
         The version is parsed by the `packaging` library.
