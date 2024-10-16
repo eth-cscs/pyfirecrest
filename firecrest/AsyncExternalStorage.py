@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 from io import BufferedWriter
-import itertools
 import logging
 import pathlib
 import requests
@@ -19,7 +18,7 @@ import urllib.request
 from packaging.version import Version
 
 if TYPE_CHECKING:
-    from firecrest.AsyncClient import AsyncFirecrest
+    from firecrest.AsyncClient import AsyncFirecrest as AsyncFirecrestv1
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore
@@ -39,7 +38,7 @@ class AsyncExternalStorage:
 
     def __init__(
         self,
-        client: AsyncFirecrest,
+        client: AsyncFirecrestv1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -152,7 +151,7 @@ class AsyncExternalUpload(AsyncExternalStorage):
 
     def __init__(
         self,
-        client: AsyncFirecrest,
+        client: AsyncFirecrestv1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -213,7 +212,7 @@ class AsyncExternalDownload(AsyncExternalStorage):
 
     def __init__(
         self,
-        client: AsyncFirecrest,
+        client: AsyncFirecrestv1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
