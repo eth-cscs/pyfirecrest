@@ -1,0 +1,31 @@
+{
+    "status_code": 200,
+    "response": {
+        "partitions": [
+            {
+                "partitionName": "part01",
+                "cpus": 2,
+                "totalNodes": 1,
+                "state": [
+                    "UP"
+                ]
+            },
+            {
+                "partitionName": "part02",
+                "cpus": 2,
+                "totalNodes": 1,
+                "state": [
+                    "UP"
+                ]
+            },
+            {
+                "partitionName": "xfer",
+                "cpus": 2,
+                "totalNodes": 1,
+                "state": [
+                    "UP"
+                ]
+            }
+        ]
+    }
+}
