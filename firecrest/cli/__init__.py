@@ -218,7 +218,41 @@ def parameters(
             *info
         )
 
-        console.print(storage_table, utilities_table, overflow="fold")
+        extra_tables = []
+
+        if "compute" in result:
+            info = [
+                ("Name", "name"),
+                ("Value", "value"),
+                ("Unit", "unit"),
+            ]
+            if "description" in result["compute"][0]:
+                info.append(("Description", "description"))
+
+            compute_table = create_table(
+                "Compute parameters",
+                result["compute"],
+                *info
+            )
+            extra_tables.append(compute_table)
+
+        if "general" in result:
+            info = [
+                ("Name", "name"),
+                ("Value", "value"),
+                ("Unit", "unit"),
+            ]
+            if "description" in result["general"][0]:
+                info.append(("Description", "description"))
+
+            general_table = create_table(
+                "General parameters",
+                result["general"],
+                *info
+            )
+            extra_tables.append(general_table)
+
+        console.print(storage_table, utilities_table, *extra_tables, overflow="fold")
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

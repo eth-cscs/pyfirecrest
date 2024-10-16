@@ -23,6 +23,7 @@ def valid_client(fc_server):
         "tasks": 0,
         "utilities": 0,
     }
+    client.set_api_version("1.16.0")
 
     return client
 
@@ -44,6 +45,7 @@ def invalid_client(fc_server):
         "tasks": 0,
         "utilities": 0,
     }
+    client.set_api_version("1.16.0")
 
     return client
 
@@ -438,6 +440,13 @@ async def test_get_nodes(valid_client):
 
 
 @pytest.mark.asyncio
+async def test_get_nodes_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.nodes(machine="cluster1")
+
+
+@pytest.mark.asyncio
 async def test_get_nodes_from_list(valid_client):
     response = [{
         "ActiveFeatures": ["f7t"],
@@ -452,6 +461,13 @@ async def test_get_nodes_from_list(valid_client):
     }]
     assert await valid_client.nodes(machine="cluster1",
                                     nodes=["nid001"]) == response
+
+
+@pytest.mark.asyncio
+async def test_get_nodes_from_list_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.nodes(machine="cluster1", nodes=["nid001"])
 
 
 @pytest.mark.asyncio
@@ -490,6 +506,13 @@ async def test_get_partitions(valid_client):
 
 
 @pytest.mark.asyncio
+async def test_get_partitions_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.partitions(machine="cluster1")
+
+
+@pytest.mark.asyncio
 async def test_get_partitions_from_list(valid_client):
     response = [
         {
@@ -517,6 +540,15 @@ async def test_get_partitions_from_list(valid_client):
     assert await valid_client.partitions(
         machine="cluster1", partitions=["part01", "part02", "xfer"]
     ) == response
+
+
+@pytest.mark.asyncio
+async def test_get_partitions_from_list_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.partitions(
+            machine="cluster1", partitions=["part01", "part02", "xfer"]
+        )
 
 
 @pytest.mark.asyncio
@@ -549,3 +581,12 @@ async def test_get_reservations(valid_client):
         }
     ]
     assert await valid_client.reservations(machine="cluster1") == response
+
+
+@pytest.mark.asyncio
+async def test_get_reservations_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.reservations(machine="cluster1")
+
+

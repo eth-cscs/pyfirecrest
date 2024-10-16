@@ -23,10 +23,14 @@ class Parameter(TypedDict):
 
 
 class Parameters(TypedDict):
-    """A parameters record, from `status/parameters`"""
+    """A parameters record, from `status/parameters`. For older versions
+    of the API `compute` and `system` may not be present.
+    """
 
     storage: list[Parameter]
     utilities: list[Parameter]
+    compute: list[Parameter]
+    general: list[Parameter]
 
 
 class Service(TypedDict):
