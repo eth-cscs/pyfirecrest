@@ -11,14 +11,13 @@ import json
 import logging
 import ssl
 
-from typing import Any, Optional, overload
+from typing import Any, Optional, List
 from packaging.version import Version, parse
-
-import firecrest.FirecrestException as fe
 
 from firecrest.utilities import (
     parse_retry_after, slurm_state_completed, time_block
 )
+from firecrest.FirecrestException import UnexpectedStatusException
 
 
 logger = logging.getLogger(__name__)
@@ -206,39 +205,13 @@ class AsyncFirecrest:
     ) -> dict:
         status_code = response.status_code
         # handle_response(response)
-        for h in fe.ERROR_HEADERS:
-            if h in response.headers:
-                self.log(
-                    logging.DEBUG,
-                    f"Header '{h}' is included in the response"
-                )
-                raise fe.HeaderException([response])
-
-        if status_code == 401:
-            self.log(
-                logging.DEBUG,
-                "Status of the response is 401"
-            )
-            raise fe.UnauthorizedException([response])
-        elif status_code == 404:
-            self.log(
-                logging.DEBUG,
-                "Status of the response is 404"
-            )
-            raise fe.NotFound([response])
-        elif status_code >= 400:
-            self.log(
-                logging.DEBUG,
-                f"Status of the response is {status_code}"
-            )
-            raise fe.FirecrestException([response])
-        elif status_code != expected_status_code:
+        if status_code != expected_status_code:
             self.log(
                 logging.DEBUG,
                 f"Unexpected status of last request {status_code}, it "
                 f"should have been {expected_status_code}"
             )
-            raise fe.UnexpectedStatusException(
+            raise UnexpectedStatusException(
                 [response], expected_status_code
             )
 
@@ -250,4 +223,43 @@ class AsyncFirecrest:
         :calls: GET `/status/systems`
         """
         resp = await self._get_request(endpoint="/status/systems")
-        return resp.json()
+        return resp.json()['systems']
+
+    async def nodes(
+        self,
+        system_name: str
+    ) -> List[dict]:
+        """Returns nodes of the system.
+
+        :calls: GET `/status/{system_name}/nodes`
+        """
+        resp = await self._get_request(
+            endpoint=f"/status/{system_name}/nodes"
+        )
+        return self._json_response(resp, 200)['nodes']
+
+    async def reservations(
+        self,
+        system_name: str
+    ) -> List[dict]:
+        """Returns reservations defined in the system.
+
+        :calls: GET `/status/{system_name}/reservations`
+        """
+        resp = await self._get_request(
+            endpoint=f"/status/{system_name}/reservations"
+        )
+        return self._json_response(resp, 200)['reservations']
+
+    async def partitions(
+        self,
+        system_name: str
+    ) -> List[dict]:
+        """Returns partitions defined in the scheduler of the system.
+
+        :calls: GET `/status/{system_name}/partitions`
+        """
+        resp = await self._get_request(
+            endpoint=f"/status/{system_name}/partitions"
+        )
+        return self._json_response(resp, 200)["partitions"]

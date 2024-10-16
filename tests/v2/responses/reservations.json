@@ -1,0 +1,14 @@
+{
+    "status_code": 200,
+    "response": {
+        "reservations": [
+            {
+                "reservationName": "root_1",
+                "nodes": "localhost",
+                "endTime": 1729173600,
+                "startTime": 1729159200,
+                "features": ""
+            }
+        ]
+    }
+}

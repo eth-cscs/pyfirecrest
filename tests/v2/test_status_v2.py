@@ -2,7 +2,7 @@ import json
 import pytest
 import re
 
-from context import AsyncFirecrest
+from context_v2 import AsyncFirecrest
 from werkzeug.wrappers import Response
 from werkzeug.wrappers import Request
 
@@ -41,12 +41,13 @@ def invalid_client(fc_server):
 @pytest.fixture
 def fc_server(httpserver):
     httpserver.expect_request(
-         re.compile("^/status/systems.*"), method="GET"
-     ).respond_with_handler(systems_handler)
+         re.compile("/status/.*"), method="GET"
+     ).respond_with_handler(status_handler)
+
     return httpserver
 
 
-def systems_handler(request: Request):
+def status_handler(request: Request):
     if request.headers["Authorization"] != "Bearer VALID_TOKEN":
         return Response(
             json.dumps({"message": "Bad token; invalid JSON"}),
@@ -54,7 +55,8 @@ def systems_handler(request: Request):
             content_type="application/json",
         )
 
-    data = read_json_file("responses/systems.json")
+    endpoint = request.url.split("/")[-1]
+    data = read_json_file(f"v2/responses/{endpoint}.json")
 
     ret = data["response"]
     ret_status = data["status_code"]
@@ -66,5 +68,27 @@ def systems_handler(request: Request):
 
 @pytest.mark.asyncio
 async def test_systems(valid_client):
-    data = read_json_file("responses/systems.json")
-    assert await valid_client.systems() == data["response"]
+    data = read_json_file("v2/responses/systems.json")
+    resp = await valid_client.systems()
+    assert resp == data["response"]["systems"]
+
+
+@pytest.mark.asyncio
+async def test_partitions(valid_client):
+    data = read_json_file("v2/responses/partitions.json")
+    resp = await valid_client.partitions("cluster")
+    assert resp == data["response"]["partitions"]
+
+
+@pytest.mark.asyncio
+async def test_nodes(valid_client):
+    data = read_json_file("v2/responses/nodes.json")
+    resp = await valid_client.nodes("cluster")
+    assert resp == data["response"]["nodes"]
+
+
+@pytest.mark.asyncio
+async def test_reservations(valid_client):
+    data = read_json_file("v2/responses/reservations.json")
+    resp = await valid_client.reservations("cluster")
+    assert resp == data["response"]["reservations"]
