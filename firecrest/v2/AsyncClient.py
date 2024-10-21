@@ -11,7 +11,7 @@ import json
 import logging
 import ssl
 
-from typing import Any, Optional, overload
+from typing import Any, List, Optional
 from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
