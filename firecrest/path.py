@@ -533,16 +533,11 @@ class FcPath(os.PathLike):
         """Create a new directory at this given path."""
         if mode is not None:
             raise NotImplementedError("mode is not supported yet")
-        try:
-            with self.convert_header_exceptions(
-                {
-                    "X-Invalid-Path": FileExistsError  # Note see: https://github.com/eth-cscs/firecrest/issues/172
-                }
-            ):
-                self._client.mkdir(self._machine, self.path, p=parents)
-        except FileExistsError:
-            if not exist_ok:
-                raise
+        with self.convert_header_exceptions():
+            # Note see: https://github.com/eth-cscs/firecrest/issues/172
+            # Also see: https://github.com/eth-cscs/firecrest/issues/202
+            # firecrest does not support `exist_ok`, it's somehow blended into `parents`
+            self._client.mkdir(self._machine, self.path, p=parents if not exist_ok else True)
 
     def touch(self, mode: None = None, exist_ok: bool = True) -> None:
         """Create a file at this given path.
