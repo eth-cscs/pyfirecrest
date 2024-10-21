@@ -20,12 +20,17 @@ from contextlib import nullcontext
 from io import BytesIO
 from requests.compat import json  # type: ignore
 from typing import Any, ContextManager, Optional, overload, Sequence, Tuple, List
-from packaging.version import Version, parse
+from packaging.version import parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
-from firecrest.utilities import (parse_retry_after, slurm_state_completed, time_block)
+from firecrest.utilities import (
+    parse_retry_after,
+    slurm_state_completed,
+    time_block,
+    validate_api_version_compatibility
+)
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -157,14 +162,20 @@ class Firecrest:
         self.polling_sleep_times: list = [1, 0.5] + 234 * [0.25]
         #: Disable all logging from the client.
         self.disable_client_logging: bool = False
-        self._api_version: Version = parse("1.15.0")
         self._session = requests.Session()
 
+        self._api_version = parse("1.15.0")
+        self._query_api_version = True
+
     def set_api_version(self, api_version: str) -> None:
-        """Set the version of the api of firecrest. By default it will be assumed that you are
-        using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
+        """Set the version of the api of firecrest manually. By default, the
+        client will query the api, through the
+        /status endpoint. This information is only available for
+        version>=1.16.1, so for older deployments the default will be 1.15.0.
+        The version is parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
+        self._query_api_version = False
 
     def log(self, level: int, msg: Any) -> None:
         """Log a message with the given level on the client logger.
@@ -460,8 +471,30 @@ class Firecrest:
         :calls: GET `/status/parameters`
         """
         resp = self._get_request(endpoint="/status/parameters")
-        return self._json_response([resp], 200)["out"]
+        json_response = self._json_response([resp], 200)["out"]
+        if self._query_api_version:
+            self._query_api_version = False
+            try:
+                general_params = json_response["general"]
+                for g in general_params:
+                    if g["name"] == "FIRECREST_VERSION":
+                        self._api_version = parse(g["value"])
+                        return json_response
 
+                raise KeyError
+
+            except KeyError:
+                self.log(
+                    logging.WARNING,
+                    "Could not get the version of the api from firecREST. "
+                    "The version will be set to 1.15.0, but you can manually "
+                    "set it with the method `set_api_version`."
+                )
+                self._api_version = parse("1.15.0")
+
+        return json_response
+
+    @validate_api_version_compatibility()
     def filesystems(self, system_name: Optional[str] = None) -> dict[str, List[t.Filesystem]]:
         """Returns the status of the filesystems per system.
 
@@ -483,6 +516,7 @@ class Firecrest:
             return self._json_response([resp], 200)["out"]
 
     # Utilities
+    @validate_api_version_compatibility()
     def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False,
         recursive: bool = False
@@ -497,6 +531,13 @@ class Firecrest:
 
         .. warning:: The argument ``recursive`` is available only for FirecREST>=1.16.0
         """
+        if recursive and self._api_version < parse("1.16.0"):
+            raise fe.NotImplementedOnAPIversion(
+                "`recursive=True` flag is not available for "
+                "function `list_files` for version <1.16.0 "
+                "in the client."
+            )
+
         params: dict[str, Any] = {"targetPath": f"{target_path}"}
         if show_hidden is True:
             params["showhidden"] = show_hidden
@@ -614,6 +655,7 @@ class Firecrest:
         self._json_response([resp], 201)
         return target_path
 
+    @validate_api_version_compatibility()
     def compress(
             self,
             machine: str,
@@ -713,6 +755,7 @@ class Firecrest:
 
         return target_path
 
+    @validate_api_version_compatibility()
     def extract(
             self,
             machine: str,
@@ -1068,6 +1111,7 @@ class Firecrest:
             # Invalid token, cannot retrieve username
             return None
 
+    @validate_api_version_compatibility()
     def groups(self, machine) -> t.UserId:
         """Returns the output of the `id` command, user and group ids.
 
@@ -1340,6 +1384,7 @@ class Firecrest:
         )[0]
         return list(dict_result.values())
 
+    @validate_api_version_compatibility()
     def nodes(
         self,
         machine: str,
@@ -1372,6 +1417,7 @@ class Firecrest:
         )[0]
         return result
 
+    @validate_api_version_compatibility()
     def partitions(
         self,
         machine: str,
@@ -1404,6 +1450,7 @@ class Firecrest:
         )[0]
         return result
 
+    @validate_api_version_compatibility()
     def reservations(
         self,
         machine: str,
@@ -1694,6 +1741,7 @@ class Firecrest:
         result.update({"system": transfer_info[1]})
         return result
 
+    @validate_api_version_compatibility()
     def external_upload(
         self, machine: str, source_path: str, target_path: str
     ) -> ExternalUpload:
@@ -1712,6 +1760,7 @@ class Firecrest:
         json_response = self._json_response([resp], 201)["task_id"]
         return ExternalUpload(self, json_response, [resp])
 
+    @validate_api_version_compatibility()
     def external_download(self, machine: str, source_path: str) -> ExternalDownload:
         """Non blocking call for the download of larger files.
 
@@ -1728,6 +1777,7 @@ class Firecrest:
             self, self._json_response([resp], 201)["task_id"], [resp]
         )
 
+    @validate_api_version_compatibility()
     def submit_compress_job(
         self,
         machine: str,
@@ -1781,6 +1831,7 @@ class Firecrest:
         result.update({"system": transfer_info[1]})
         return result
 
+    @validate_api_version_compatibility()
     def submit_extract_job(
         self,
         machine: str,

@@ -29,7 +29,10 @@ import firecrest.FirecrestException as fe
 import firecrest.types as t
 from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
 from firecrest.utilities import (
-    parse_retry_after, slurm_state_completed, time_block
+    async_validate_api_version_compatibility,
+    parse_retry_after,
+    slurm_state_completed,
+    time_block
 )
 
 
@@ -200,7 +203,6 @@ class AsyncFirecrest:
         self.polling_sleep_times: list = 250 * [0]
         #: Disable all logging from the client.
         self.disable_client_logging: bool = False
-        self._api_version: Version = parse("1.15.0")
         self._session = httpx.AsyncClient(verify=self._verify)
 
         #: Seconds between requests in each microservice
@@ -247,11 +249,18 @@ class AsyncFirecrest:
             "/tasks": None,
         }
 
+        self._api_version = parse("1.15.0")
+        self._query_api_version = True
+
     def set_api_version(self, api_version: str) -> None:
-        """Set the version of the api of firecrest. By default it will be assumed that you are
-        using version 1.13.1 or compatible. The version is parsed by the `packaging` library.
+        """Set the version of the api of firecrest manually. By default, the
+        client will query the api, through the
+        /status endpoint. This information is only available for
+        version>=1.16.1, so for older deployments the default will be 1.15.0.
+        The version is parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
+        self._query_api_version = False
 
     async def close_session(self) -> None:
         """Close the httpx session"""
@@ -708,8 +717,30 @@ class AsyncFirecrest:
         :calls: GET `/status/parameters`
         """
         resp = await self._get_request(endpoint="/status/parameters")
-        return self._json_response([resp], 200)["out"]
+        json_response = self._json_response([resp], 200)["out"]
+        if self._query_api_version:
+            self._query_api_version = False
+            try:
+                general_params = json_response["general"]
+                for g in general_params:
+                    if g["name"] == "FIRECREST_VERSION":
+                        self._api_version = parse(g["value"])
+                        return json_response
 
+                raise KeyError
+
+            except KeyError:
+                self.log(
+                    logging.WARNING,
+                    "Could not get the version of the api from firecREST. "
+                    "The version will be set to 1.15.0, but you can manually "
+                    "set it with the method `set_api_version`."
+                )
+                self._api_version = parse("1.15.0")
+
+        return json_response
+
+    @async_validate_api_version_compatibility()
     async def filesystems(self, system_name: Optional[str] = None) -> dict[str, List[t.Filesystem]]:
         """Returns the status of the filesystems per system.
 
@@ -731,6 +762,7 @@ class AsyncFirecrest:
             return self._json_response([resp], 200)["out"]
 
     # Utilities
+    @async_validate_api_version_compatibility()
     async def list_files(
         self, machine: str, target_path: str, show_hidden: bool = False,
         recursive: bool = False
@@ -745,6 +777,13 @@ class AsyncFirecrest:
 
         .. warning:: The argument ``recursive`` is available only for FirecREST>=1.16.0
         """
+        if recursive and self._api_version < parse("1.16.0"):
+            raise fe.NotImplementedOnAPIversion(
+                "`recursive=True` flag is not available for "
+                "function `list_files` for version <1.16.0 "
+                "in the client."
+            )
+
         params: dict[str, Any] = {"targetPath": f"{target_path}"}
         if show_hidden is True:
             params["showhidden"] = show_hidden
@@ -864,6 +903,7 @@ class AsyncFirecrest:
         self._json_response([resp], 201)
         return target_path
 
+    @async_validate_api_version_compatibility()
     async def compress(
             self,
             machine: str,
@@ -962,6 +1002,7 @@ class AsyncFirecrest:
 
         return target_path
 
+    @async_validate_api_version_compatibility()
     async def extract(
             self,
             machine: str,
@@ -1316,6 +1357,7 @@ class AsyncFirecrest:
             # Invalid token, cannot retrieve username
             return None
 
+    @async_validate_api_version_compatibility()
     async def groups(self, machine) -> t.UserId:
         """Returns the output of the `id` command, user and group ids.
 
@@ -1566,6 +1608,7 @@ class AsyncFirecrest:
 
         return ret
 
+    @async_validate_api_version_compatibility()
     async def nodes(
         self,
         machine: str,
@@ -1596,6 +1639,7 @@ class AsyncFirecrest:
         result = (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
         return result
 
+    @async_validate_api_version_compatibility()
     async def partitions(
         self,
         machine: str,
@@ -1626,6 +1670,7 @@ class AsyncFirecrest:
         result = (await t.poll_task("200", iter(self.polling_sleep_times)))[0]
         return result
 
+    @async_validate_api_version_compatibility()
     async def reservations(
         self,
         machine: str,
@@ -1816,6 +1861,7 @@ class AsyncFirecrest:
         result.update({"system": job_info[1]})
         return result
 
+    @async_validate_api_version_compatibility()
     async def submit_compress_job(
         self,
         machine: str,
@@ -1869,6 +1915,7 @@ class AsyncFirecrest:
         result.update({"system": job_info[1]})
         return result
 
+    @async_validate_api_version_compatibility()
     async def submit_extract_job(
         self,
         machine: str,
@@ -2019,6 +2066,7 @@ class AsyncFirecrest:
         result.update({"system": job_info[1]})
         return result
 
+    @async_validate_api_version_compatibility()
     async def external_upload(
         self, machine: str, source_path: str, target_path: str
     ) -> AsyncExternalUpload:
@@ -2037,6 +2085,7 @@ class AsyncFirecrest:
         json_response = self._json_response([resp], 201)["task_id"]
         return AsyncExternalUpload(self, json_response, [resp])
 
+    @async_validate_api_version_compatibility()
     async def external_download(
         self, machine: str, source_path: str
     ) -> AsyncExternalDownload:
