@@ -52,7 +52,7 @@ class AsyncExternalStorage:
         self._responses = previous_responses
 
     @property
-    def client(self) -> AsyncFirecrest:
+    def client(self) -> AsyncFirecrestv1:
         """Returns the client that will be used to get information for the task."""
         return self._client
 
