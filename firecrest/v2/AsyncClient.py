@@ -283,9 +283,9 @@ class AsyncFirecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
-        :param show_hidden: show hidden files
+        :param show_hidden: Show hidden files
         :param recursive: recursively list directories encountered
-        :param dereference: When showing file information for a symbolic link,
+        :param dereference: when showing file information for a symbolic link,
                             show information for the file the link references
                             rather than for the link itself
         :calls: GET `/filesystem/{system_name}/ops/ls`
@@ -306,39 +306,52 @@ class AsyncFirecrest:
         self,
         system_name: str,
         path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
-        skip_ending: bool = False,
+        num_bytes: Optional[int] = None,
+        num_lines: Optional[int] = None,
+        exclude_trailing: bool = False,
     ) -> List[dict]:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
-        Bytes and lines cannot be specified simultaneously.
+        `num_bytes` and `num_lines` cannot be specified simultaneously.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
-        :param bytes: The output will be the first NUM bytes of each file
-        :param lines: The output will be the first NUM lines of each file
-        :param skip_ending: The output will be the whole file, without the last
-                            NUM bytes/lines of each file. NUM should be
-                            specified in the respective argument through
-                            ``bytes`` or ``lines``.
+        :param num_bytes: the output will be the first NUM bytes of each file
+        :param num_lines: the output will be the first NUM lines of each file
+        :param exclude_trailing: the output will be the whole file, without
+                                 the last NUM bytes/lines of each file. NUM
+                                 should be specified in the respective
+                                 argument through ``bytes`` or ``lines``.
         :calls: GET `/filesystem/{system_name}/ops/head`
         """
-        params: dict[str, Any] = {"path": f"{path}"}
-        if bytes is True:
-            params["bytes"] = bytes
+        # Validate that num_bytes and num_lines are not passed together
+        if num_bytes is not None and num_lines is not None:
+            raise ValueError(
+                "You cannot specify both `num_bytes` and `num_lines`."
+            )
 
-        if lines is True:
-            params["lines"] = lines
+        # If `exclude_trailing` is passed, either `num_bytes` or `num_lines`
+        # must be passed
+        if exclude_trailing and num_bytes is None and num_lines is None:
+            raise ValueError(
+                "`exclude_trailing` requires either `num_bytes` or "
+                "`num_lines` to be specified.")
 
-        if skip_ending is True:
-            params["skipEnding"] = skip_ending
+        params = {
+            "path": path,
+            "skipEnding": exclude_trailing
+        }
+        if num_bytes is not None:
+            params["bytes"] = num_bytes
+
+        if num_lines is not None:
+            params["lines"] = num_lines
 
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/head",
             params=params
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)['output']
 
     async def tail(
         self,
