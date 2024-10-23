@@ -288,24 +288,17 @@ class AsyncFirecrest:
         :param follow_links: Follow symbolik links
         :calls: GET `/filesystem/{system_name}/ops/ls`
         """
-        params: dict[str, Any] = {"path": f"{path}"}
-        if show_hidden is True:
-            params["showHidden"] = show_hidden
-
-        if recursive is True:
-            params["recursive"] = recursive
-
-        if numeric_uid is True:
-            params["numericUid"] = numeric_uid
-
-        if follow_links is True:
-            params["followLinks"] = follow_links
-
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/ls",
-            params=params
+            params={
+                "path": path,
+                "showHidden": show_hidden,
+                "recursive": recursive,
+                "numericUid": numeric_uid,
+                "followLinks": follow_links
+            }
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)["output"]
 
     async def head(
         self,
@@ -623,7 +616,8 @@ class AsyncFirecrest:
         target_path: str
     ) -> List[dict]:
         """Copies file from `source_path` to `target_path`.
-        When successful, the method returns a string with the path of the newly created file.
+        When successful, the method returns a string with the path of the
+        newly created file.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
