@@ -334,7 +334,7 @@ class AsyncFirecrest:
             params["lines"] = lines
 
         if skip_ending is True:
-            params["skipEnding"] = skip_beginning
+            params["skipEnding"] = skip_ending
 
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/head",
@@ -481,10 +481,10 @@ class AsyncFirecrest:
         """
         params: dict[str, str] = {"path": f"{path}"}
         if owner:
-            data["owner"] = owner
+            params["owner"] = owner
 
         if group:
-            data["group"] = group
+            params["group"] = group
 
         resp = await self._put_request(
             endpoint=f"/filesystem/{system_name}/ops/chown",
@@ -497,6 +497,7 @@ class AsyncFirecrest:
         self,
         system_name: str,
         path: str,
+        dereference: bool,
     ) -> List[dict]:
         """
         Uses the stat linux application to determine the status of a file on the machine's filesystem.
