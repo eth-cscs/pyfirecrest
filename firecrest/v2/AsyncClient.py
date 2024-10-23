@@ -277,7 +277,7 @@ class AsyncFirecrest:
         show_hidden: bool = False,
         recursive: bool = False,
         numeric_uid: bool = False,
-        follow_links: bool = False
+        dereference: bool = False
     ) -> List[dict]:
         """Returns a list of files in a directory.
 
@@ -285,7 +285,9 @@ class AsyncFirecrest:
         :param path: the absolute target path
         :param show_hidden: show hidden files
         :param recursive: recursively list directories encountered
-        :param follow_links: Follow symbolik links
+        :param dereference: When showing file information for a symbolic link,
+                            show information for the file the link references
+                            rather than for the link itself
         :calls: GET `/filesystem/{system_name}/ops/ls`
         """
         resp = await self._get_request(
@@ -295,7 +297,7 @@ class AsyncFirecrest:
                 "showHidden": show_hidden,
                 "recursive": recursive,
                 "numericUid": numeric_uid,
-                "followLinks": follow_links
+                "followLinks": dereference
             }
         )
         return self._json_response(resp, 200)["output"]
