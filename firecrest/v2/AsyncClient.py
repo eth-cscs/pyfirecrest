@@ -414,14 +414,12 @@ class AsyncFirecrest:
         View full file content (up to 5MB files)
 
         :param system_name: the system name where the filesystem belongs to
-        :param path: the absolute target path
+        :param path: the absolute target path of the file
         :calls: GET `/filesystem/{system_name}/ops/view`
         """
-        params: dict[str, str] = {"path": f"{path}"}
-
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/view",
-            params=params
+            params={"path": path}
         )
         return self._json_response(resp, 200)
 
