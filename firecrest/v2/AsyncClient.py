@@ -513,32 +513,30 @@ class AsyncFirecrest:
         )
         return self._json_response(resp, 200)
 
-
     async def stat(
         self,
         system_name: str,
         path: str,
-        dereference: bool,
-    ) -> List[dict]:
+        dereference: bool = False,
+    ) -> dict:
         """
-        Uses the stat linux application to determine the status of a file on the system's filesystem.
-        The result follows: https://docs.python.org/3/library/os.html#os.stat_result.
+        Uses the stat linux application to determine the status of a file on
+        the system's filesystem. The result follows:
+        https://docs.python.org/3/library/os.html#os.stat_result.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
         :param dereference: follow symbolic links
         :calls: GET `/filesystem/{system_name}/ops/checksum`
         """
-        params: dict[str, str] = {"path": f"{path}"}
-
-        if dereference is True:
-            params["dereference"] = dereference
-
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/stat",
-            params=params
+            params={
+                "path": path,
+                "dereference": dereference
+            }
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)["output"]
 
     async def upload(
         self,
