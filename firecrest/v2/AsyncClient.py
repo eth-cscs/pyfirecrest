@@ -409,7 +409,7 @@ class AsyncFirecrest:
         self,
         system_name: str,
         path: str,
-    ) -> List[dict]:
+    ) -> str:
         """
         View full file content (up to 5MB files)
 
@@ -421,38 +421,36 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/view",
             params={"path": path}
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)["output"]
 
     async def checksum(
         self,
         system_name: str,
         path: str,
-    ) -> List[dict]:
+    ) -> dict:
         """
         Calculate the SHA256 (256-bit) checksum of a specified file.
 
         :param system_name: the system name where the filesystem belongs to
-        :param path: the absolute target path
+        :param path: the absolute target path of the file
         :calls: GET `/filesystem/{system_name}/ops/checksum`
         """
-        params: dict[str, str] = {"path": f"{path}"}
-
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/checksum",
-            params=params
+            params={"path": path}
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)["output"]
 
     async def file_type(
         self,
         system_name: str,
         path: str,
-    ) -> List[dict]:
+    ) -> str:
         """
         Uses the `file` linux application to determine the type of a file.
 
         :param system_name: the system name where the filesystem belongs to
-        :param path: the absolute target path
+        :param path: the absolute target path of the file
         :calls: GET `/filesystem/{system_name}/ops/checksum`
         """
         params: dict[str, str] = {"path": f"{path}"}
