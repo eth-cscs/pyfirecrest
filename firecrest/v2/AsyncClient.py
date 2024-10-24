@@ -459,7 +459,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/file",
             params=params
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)["output"]
 
     async def chmod(
         self,
