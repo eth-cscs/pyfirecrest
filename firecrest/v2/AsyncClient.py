@@ -9,10 +9,13 @@ from __future__ import annotations
 import httpx
 import json
 import logging
+import pathlib
 import ssl
 
-from typing import Any, Optional, List
+from contextlib import nullcontext
+from io import BytesIO
 from packaging.version import Version, parse
+from typing import Any, ContextManager, Optional, List
 
 from firecrest.utilities import (
     parse_retry_after, slurm_state_completed, time_block
@@ -231,6 +234,7 @@ class AsyncFirecrest:
     ) -> List[dict]:
         """Returns nodes of the system.
 
+        :param system_name: the system name where the nodes belong to
         :calls: GET `/status/{system_name}/nodes`
         """
         resp = await self._get_request(
@@ -244,6 +248,7 @@ class AsyncFirecrest:
     ) -> List[dict]:
         """Returns reservations defined in the system.
 
+        :param system_name: the system name where the reservations belong to
         :calls: GET `/status/{system_name}/reservations`
         """
         resp = await self._get_request(
@@ -257,9 +262,408 @@ class AsyncFirecrest:
     ) -> List[dict]:
         """Returns partitions defined in the scheduler of the system.
 
+        :param system_name: the system name where the partitions belong to
         :calls: GET `/status/{system_name}/partitions`
         """
         resp = await self._get_request(
             endpoint=f"/status/{system_name}/partitions"
         )
         return self._json_response(resp, 200)["partitions"]
+
+    async def list_files(
+        self,
+        system_name: str,
+        path: str,
+        show_hidden: bool = False,
+        recursive: bool = False,
+        numeric_uid: bool = False,
+        dereference: bool = False
+    ) -> List[dict]:
+        """Returns a list of files in a directory.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path
+        :param show_hidden: Show hidden files
+        :param recursive: recursively list directories encountered
+        :param dereference: when showing file information for a symbolic link,
+                            show information for the file the link references
+                            rather than for the link itself
+        :calls: GET `/filesystem/{system_name}/ops/ls`
+        """
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/ls",
+            params={
+                "path": path,
+                "showHidden": show_hidden,
+                "recursive": recursive,
+                "numericUid": numeric_uid,
+                "followLinks": dereference
+            }
+        )
+        return self._json_response(resp, 200)["output"]
+
+    async def head(
+        self,
+        system_name: str,
+        path: str,
+        num_bytes: Optional[int] = None,
+        num_lines: Optional[int] = None,
+        exclude_trailing: bool = False,
+    ) -> List[dict]:
+        """Display the beginning of a specified file.
+        By default 10 lines will be returned.
+        `num_bytes` and `num_lines` cannot be specified simultaneously.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path of the file
+        :param num_bytes: the output will be the first NUM bytes of each file
+        :param num_lines: the output will be the first NUM lines of each file
+        :param exclude_trailing: the output will be the whole file, without
+                                 the last NUM bytes/lines of each file. NUM
+                                 should be specified in the respective
+                                 argument through ``bytes`` or ``lines``.
+        :calls: GET `/filesystem/{system_name}/ops/head`
+        """
+        # Validate that num_bytes and num_lines are not passed together
+        if num_bytes is not None and num_lines is not None:
+            raise ValueError(
+                "You cannot specify both `num_bytes` and `num_lines`."
+            )
+
+        # If `exclude_trailing` is passed, either `num_bytes` or `num_lines`
+        # must be passed
+        if exclude_trailing and num_bytes is None and num_lines is None:
+            raise ValueError(
+                "`exclude_trailing` requires either `num_bytes` or "
+                "`num_lines` to be specified.")
+
+        params = {
+            "path": path,
+            "skipEnding": exclude_trailing
+        }
+        if num_bytes is not None:
+            params["bytes"] = num_bytes
+
+        if num_lines is not None:
+            params["lines"] = num_lines
+
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/head",
+            params=params
+        )
+        return self._json_response(resp, 200)['output']
+
+    async def tail(
+        self,
+        system_name: str,
+        path: str,
+        num_bytes: Optional[int] = None,
+        num_lines: Optional[int] = None,
+        exclude_beginning: bool = False,  # Changed to exclude_beginning
+    ) -> List[dict]:
+        """Display the ending of a specified file.
+        By default, 10 lines will be returned.
+        `num_bytes` and `num_lines` cannot be specified simultaneously.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path of the file
+        :param num_bytes: The output will be the last NUM bytes of each file
+        :param num_lines: The output will be the last NUM lines of each file
+        :param exclude_beginning: The output will be the whole file, without
+                                  the first NUM bytes/lines of each file. NUM
+                                  should be specified in the respective
+                                  argument through ``num_bytes`` or
+                                  ``num_lines``.
+        :calls: GET `/filesystem/{system_name}/ops/tail`
+        """
+        # Ensure `num_bytes` and `num_lines` are not passed together
+        if num_bytes is not None and num_lines is not None:
+            raise ValueError(
+                "You cannot specify both `num_bytes` and `num_lines`."
+            )
+
+        # If `exclude_beginning` is passed, either `num_bytes` or `num_lines` must be passed
+        if exclude_beginning and num_bytes is None and num_lines is None:
+            raise ValueError(
+                "`exclude_beginning` requires either `num_bytes` or "
+                "`num_lines` to be specified."
+            )
+
+        params = {
+            "path": path,
+            "skipBeginning": exclude_beginning
+        }
+        if num_bytes is not None:
+            params["bytes"] = num_bytes
+
+        if num_lines is not None:
+            params["lines"] = num_lines
+
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/tail",
+            params=params
+        )
+        return self._json_response(resp, 200)['output']
+
+    async def view(
+        self,
+        system_name: str,
+        path: str,
+    ) -> str:
+        """
+        View full file content (up to 5MB files)
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path of the file
+        :calls: GET `/filesystem/{system_name}/ops/view`
+        """
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/view",
+            params={"path": path}
+        )
+        return self._json_response(resp, 200)["output"]
+
+    async def checksum(
+        self,
+        system_name: str,
+        path: str,
+    ) -> dict:
+        """
+        Calculate the SHA256 (256-bit) checksum of a specified file.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path of the file
+        :calls: GET `/filesystem/{system_name}/ops/checksum`
+        """
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/checksum",
+            params={"path": path}
+        )
+        return self._json_response(resp, 200)["output"]
+
+    async def file_type(
+        self,
+        system_name: str,
+        path: str,
+    ) -> str:
+        """
+        Uses the `file` linux application to determine the type of a file.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path of the file
+        :calls: GET `/filesystem/{system_name}/ops/checksum`
+        """
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/file",
+            params={"path": path}
+        )
+        return self._json_response(resp, 200)["output"]
+
+    async def chmod(
+        self,
+        system_name: str,
+        path: str,
+        mode: str
+    ) -> dict:
+        """Changes the file mod bits of a given file according to the specified mode.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path of the file
+        :param mode: same as numeric mode of linux chmod tool
+        :calls: PUT `/filesystem/{system_name}/ops/chmod`
+        """
+        data: dict[str, str] = {
+            "path": path,
+            "mode": mode
+        }
+        resp = await self._put_request(
+            endpoint=f"/filesystem/{system_name}/ops/chmod",
+            data=json.dumps(data)
+        )
+        return self._json_response(resp, 200)["output"]
+
+    async def chown(
+        self,
+        system_name: str,
+        path: str,
+        owner: str,
+        group: str
+    ) -> dict:
+        """Changes the user and/or group ownership of a given file.
+        If only owner or group information is passed, only that information will be updated.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path of the file
+        :param owner: owner ID for target
+        :param group: group ID for target
+        :calls: PUT `/filesystem/{system_name}/ops/chown`
+        """
+        data: dict[str, str] = {
+            "path": path,
+            "owner": owner,
+            "group": group
+        }
+        resp = await self._put_request(
+            endpoint=f"/filesystem/{system_name}/ops/chown",
+            data=json.dumps(data)
+        )
+        return self._json_response(resp, 200)["output"]
+
+    async def stat(
+        self,
+        system_name: str,
+        path: str,
+        dereference: bool = False,
+    ) -> dict:
+        """
+        Uses the stat linux application to determine the status of a file on
+        the system's filesystem. The result follows:
+        https://docs.python.org/3/library/os.html#os.stat_result.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path
+        :param dereference: follow symbolic links
+        :calls: GET `/filesystem/{system_name}/ops/checksum`
+        """
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/stat",
+            params={
+                "path": path,
+                "dereference": dereference
+            }
+        )
+        return self._json_response(resp, 200)["output"]
+
+    async def upload(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str,
+        filename: Optional[str] = None,
+    ) -> List[dict]:
+        """Blocking call to upload a small file.
+        The file that will be uploaded will have the same name as the
+        source_path.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the source path of the file or binary stream
+        :param target_path: the absolute target path of the directory where
+                            the file will be uploaded
+        :param filename: naming target file to filename (default is same as
+                         the local one)
+        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        """
+        context: ContextManager[BytesIO] = (
+            open(source_path, "rb")  # type: ignore
+            if isinstance(source_path, str) or isinstance(source_path, pathlib.Path)
+            else nullcontext(source_path)
+        )
+        with context as f:
+            # Set filename
+            if filename is not None:
+                f = (filename, f)  # type: ignore
+
+            params: dict[str, str] = {
+                "fileName": f,
+                "targetPath": f"{target_path}"
+            }
+
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/upload",
+            params=params
+        )
+        return self._json_response(resp, 200)
+
+    async def download(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str,
+    ) -> List[dict]:
+        """Blocking call to download a small file.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute source path of the file or binary
+                            stream
+        :param target_path: the target path in the local filesystem or binary
+                            stream
+        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        """
+        params: dict[str, str] = {"source_path": f"{sourcePath}"}
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/upload",
+            params=params
+        )
+        self._json_response([resp], 200, allow_none_result=True)
+        context: ContextManager[BytesIO] = (
+            open(target_path, "wb")  # type: ignore
+            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
+            else nullcontext(target_path)
+        )
+        with context as f:
+            f.write(resp.content)
+
+    async def mv(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str
+    ) -> dict:
+        """Rename/move a file, directory, or symlink at the `source_path` to
+        the `target_path` on `system_name`'s filesystem.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute source path
+        :param target_path: the absolute target path
+        :calls: POST `/filesystem/{system_name}/transfer/mv`
+        """
+        data: dict[str, str] = {
+            "sourcePath": source_path,
+            "targetPath": target_path
+        }
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/mv",
+            data=json.dumps(data)
+        )
+        return self._json_response(resp, 201)
+
+    async def cp(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str
+    ) -> dict:
+        """Copies file from `source_path` to `target_path`.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute source path
+        :param target_path: the absolute target path
+        :calls: POST `/filesystem/{system_name}/transfer/cp`
+        """
+        data: dict[str, str] = {
+            "sourcePath": source_path,
+            "targetPath": target_path
+        }
+
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/cp",
+            data=json.dumps(data)
+        )
+        return self._json_response(resp, 201)
+
+    async def rm(
+        self,
+        system_name: str,
+        path: str,
+    ) -> dict:
+        """Blocking call to delete a small file.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute target path
+        :calls: DELETE `/filesystem/{system_name}/transfer/rm`
+        """
+        resp = await self._delete_request(
+            endpoint=f"/filesystem/{system_name}/transfer/rm",
+            data=json.dumps({"path": path})
+        )
+        return self._json_response(resp, 201)
