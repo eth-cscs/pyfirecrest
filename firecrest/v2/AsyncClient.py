@@ -453,11 +453,9 @@ class AsyncFirecrest:
         :param path: the absolute target path of the file
         :calls: GET `/filesystem/{system_name}/ops/checksum`
         """
-        params: dict[str, str] = {"path": f"{path}"}
-
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/file",
-            params=params
+            params={"path": path}
         )
         return self._json_response(resp, 200)["output"]
 
@@ -466,23 +464,23 @@ class AsyncFirecrest:
         system_name: str,
         path: str,
         mode: str
-    ) -> List[dict]:
+    ) -> dict:
         """Changes the file mod bits of a given file according to the specified mode.
 
         :param system_name: the system name where the filesystem belongs to
-        :param path: the absolute target path
+        :param path: the absolute target path of the file
         :param mode: same as numeric mode of linux chmod tool
         :calls: PUT `/filesystem/{system_name}/ops/chmod`
         """
-        params: dict[str, str] = {
-            "path": f"{path}",
-            "mode": f"{mode}"
+        data: dict[str, str] = {
+            "path": path,
+            "mode": mode
         }
         resp = await self._put_request(
             endpoint=f"/filesystem/{system_name}/ops/chmod",
-            params=params
+            data=json.dumps(data)
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)["output"]
 
     async def chown(
         self,
@@ -490,28 +488,26 @@ class AsyncFirecrest:
         path: str,
         owner: str,
         group: str
-    ) -> List[dict]:
+    ) -> dict:
         """Changes the user and/or group ownership of a given file.
         If only owner or group information is passed, only that information will be updated.
 
         :param system_name: the system name where the filesystem belongs to
-        :param path: the absolute target path
+        :param path: the absolute target path of the file
         :param owner: owner ID for target
         :param group: group ID for target
         :calls: PUT `/filesystem/{system_name}/ops/chown`
         """
-        params: dict[str, str] = {"path": f"{path}"}
-        if owner:
-            params["owner"] = owner
-
-        if group:
-            params["group"] = group
-
+        data: dict[str, str] = {
+            "path": path,
+            "owner": owner,
+            "group": group
+        }
         resp = await self._put_request(
             endpoint=f"/filesystem/{system_name}/ops/chown",
-            params=params
+            data=json.dumps(data)
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)["output"]
 
     async def stat(
         self,
@@ -612,66 +608,62 @@ class AsyncFirecrest:
         system_name: str,
         source_path: str,
         target_path: str
-    ) -> List[dict]:
+    ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
         the `target_path` on `system_name`'s filesystem.
-        When successful, the method returns a string with the new path of the file.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :calls: POST `/filesystem/{system_name}/transfer/mv`
         """
-        params: dict[str, str] = {
-            "sourcePath": f"{source_path}",
-            "targetPath": f"{target_path}"
+        data: dict[str, str] = {
+            "sourcePath": source_path,
+            "targetPath": target_path
         }
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/mv",
-            params=params
+            data=json.dumps(data)
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 201)
 
     async def cp(
         self,
         system_name: str,
         source_path: str,
         target_path: str
-    ) -> List[dict]:
+    ) -> dict:
         """Copies file from `source_path` to `target_path`.
-        When successful, the method returns a string with the path of the
-        newly created file.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
-        params: dict[str, str] = {
-            "sourcePath": f"{source_path}",
-            "targetPath": f"{target_path}"
+        data: dict[str, str] = {
+            "sourcePath": source_path,
+            "targetPath": target_path
         }
+
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/cp",
-            params=params
+            data=json.dumps(data)
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 201)
 
     async def rm(
         self,
         system_name: str,
         path: str,
-        target_path: str
-    ) -> List[dict]:
+    ) -> dict:
         """Blocking call to delete a small file.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
-        params: dict[str, str] = {"path": f"{path}"}
-        resp = await self._post_request(
+        resp = await self._delete_request(
             endpoint=f"/filesystem/{system_name}/transfer/rm",
-            params=params
+            data=json.dumps({"path": path})
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 201)
