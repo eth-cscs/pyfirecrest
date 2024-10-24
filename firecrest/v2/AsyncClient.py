@@ -315,7 +315,7 @@ class AsyncFirecrest:
         `num_bytes` and `num_lines` cannot be specified simultaneously.
 
         :param system_name: the system name where the filesystem belongs to
-        :param path: the absolute target path
+        :param path: the absolute target path of the file
         :param num_bytes: the output will be the first NUM bytes of each file
         :param num_lines: the output will be the first NUM lines of each file
         :param exclude_trailing: the output will be the whole file, without
@@ -357,39 +357,53 @@ class AsyncFirecrest:
         self,
         system_name: str,
         path: str,
-        bytes: Optional[int] = None,
-        lines: Optional[int] = None,
-        skip_beginning: bool = False,
+        num_bytes: Optional[int] = None,
+        num_lines: Optional[int] = None,
+        exclude_beginning: bool = False,  # Changed to exclude_beginning
     ) -> List[dict]:
         """Display the ending of a specified file.
-        By default 10 lines will be returned.
-        Bytes and lines cannot be specified simultaneously.
+        By default, 10 lines will be returned.
+        `num_bytes` and `num_lines` cannot be specified simultaneously.
 
         :param system_name: the system name where the filesystem belongs to
-        :param path: the absolute target path
-        :param bytes: The output will be the last NUM bytes of each file
-        :param lines: The output will be the last NUM lines of each file
-        :param skip_beginning: The output will be the whole file, without the last
-                            NUM bytes/lines of each file. NUM should be
-                            specified in the respective argument through
-                            ``bytes`` or ``lines``.
+        :param path: the absolute target path of the file
+        :param num_bytes: The output will be the last NUM bytes of each file
+        :param num_lines: The output will be the last NUM lines of each file
+        :param exclude_beginning: The output will be the whole file, without
+                                  the first NUM bytes/lines of each file. NUM
+                                  should be specified in the respective
+                                  argument through ``num_bytes`` or
+                                  ``num_lines``.
         :calls: GET `/filesystem/{system_name}/ops/tail`
         """
-        params: dict[str, Any] = {"path": f"{path}"}
-        if bytes is True:
-            params["bytes"] = bytes
+        # Ensure `num_bytes` and `num_lines` are not passed together
+        if num_bytes is not None and num_lines is not None:
+            raise ValueError(
+                "You cannot specify both `num_bytes` and `num_lines`."
+            )
 
-        if lines is True:
-            params["lines"] = lines
+        # If `exclude_beginning` is passed, either `num_bytes` or `num_lines` must be passed
+        if exclude_beginning and num_bytes is None and num_lines is None:
+            raise ValueError(
+                "`exclude_beginning` requires either `num_bytes` or "
+                "`num_lines` to be specified."
+            )
 
-        if skip_beginning is True:
-            params["skipBeginning"] = skip_beginning
+        params = {
+            "path": path,
+            "skipBeginning": exclude_beginning
+        }
+        if num_bytes is not None:
+            params["bytes"] = num_bytes
+
+        if num_lines is not None:
+            params["lines"] = num_lines
 
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/tail",
             params=params
         )
-        return self._json_response(resp, 200)
+        return self._json_response(resp, 200)['output']
 
     async def view(
         self,
