@@ -177,7 +177,7 @@ class AsyncFirecrest:
 
     # @_retry_requests  # type: ignore
     async def _delete_request(
-        self, endpoint, additional_headers=None, data=None
+        self, endpoint, additional_headers=None, params=None, data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {
@@ -195,6 +195,7 @@ class AsyncFirecrest:
                 method="DELETE",
                 url=url,
                 headers=headers,
+                params=params,
                 data=data,
                 timeout=self.timeout,
             )
@@ -655,7 +656,7 @@ class AsyncFirecrest:
         self,
         system_name: str,
         path: str,
-    ) -> dict:
+    ) -> None:
         """Blocking call to delete a small file.
 
         :param system_name: the system name where the filesystem belongs to
@@ -663,7 +664,7 @@ class AsyncFirecrest:
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
         resp = await self._delete_request(
-            endpoint=f"/filesystem/{system_name}/transfer/rm",
-            data=json.dumps({"path": path})
+            endpoint=f"/filesystem/{system_name}/ops/rm",
+            params={"path": path}
         )
-        return self._json_response(resp, 201)
+        self._json_response(resp, 204)
