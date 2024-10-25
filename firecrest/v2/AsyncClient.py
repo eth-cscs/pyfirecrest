@@ -219,7 +219,7 @@ class AsyncFirecrest:
                 [response], expected_status_code
             )
 
-        return response.json()
+        return response.json() if status_code != 204 else {}
 
     async def systems(self) -> List[dict]:
         """Returns available systems.
