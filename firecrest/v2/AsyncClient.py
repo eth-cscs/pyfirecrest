@@ -202,10 +202,11 @@ class AsyncFirecrest:
 
         return resp
 
-    def _json_response(
+    def _check_response(
         self,
         response: httpx.Response,
-        expected_status_code: int
+        expected_status_code: int,
+        return_json: bool = True
     ) -> dict:
         status_code = response.status_code
         # handle_response(response)
@@ -219,7 +220,7 @@ class AsyncFirecrest:
                 [response], expected_status_code
             )
 
-        return response.json() if status_code != 204 else {}
+        return response.json() if return_json and status_code != 204 else {}
 
     async def systems(self) -> List[dict]:
         """Returns available systems.
@@ -241,7 +242,7 @@ class AsyncFirecrest:
         resp = await self._get_request(
             endpoint=f"/status/{system_name}/nodes"
         )
-        return self._json_response(resp, 200)['nodes']
+        return self._check_response(resp, 200)['nodes']
 
     async def reservations(
         self,
@@ -255,7 +256,7 @@ class AsyncFirecrest:
         resp = await self._get_request(
             endpoint=f"/status/{system_name}/reservations"
         )
-        return self._json_response(resp, 200)['reservations']
+        return self._check_response(resp, 200)['reservations']
 
     async def partitions(
         self,
@@ -269,7 +270,7 @@ class AsyncFirecrest:
         resp = await self._get_request(
             endpoint=f"/status/{system_name}/partitions"
         )
-        return self._json_response(resp, 200)["partitions"]
+        return self._check_response(resp, 200)["partitions"]
 
     async def list_files(
         self,
@@ -301,7 +302,7 @@ class AsyncFirecrest:
                 "followLinks": dereference
             }
         )
-        return self._json_response(resp, 200)["output"]
+        return self._check_response(resp, 200)["output"]
 
     async def head(
         self,
@@ -352,7 +353,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/head",
             params=params
         )
-        return self._json_response(resp, 200)['output']
+        return self._check_response(resp, 200)['output']
 
     async def tail(
         self,
@@ -404,7 +405,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/tail",
             params=params
         )
-        return self._json_response(resp, 200)['output']
+        return self._check_response(resp, 200)['output']
 
     async def view(
         self,
@@ -422,7 +423,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/view",
             params={"path": path}
         )
-        return self._json_response(resp, 200)["output"]
+        return self._check_response(resp, 200)["output"]
 
     async def checksum(
         self,
@@ -440,7 +441,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/checksum",
             params={"path": path}
         )
-        return self._json_response(resp, 200)["output"]
+        return self._check_response(resp, 200)["output"]
 
     async def file_type(
         self,
@@ -458,7 +459,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/file",
             params={"path": path}
         )
-        return self._json_response(resp, 200)["output"]
+        return self._check_response(resp, 200)["output"]
 
     async def chmod(
         self,
@@ -481,7 +482,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/chmod",
             data=json.dumps(data)
         )
-        return self._json_response(resp, 200)["output"]
+        return self._check_response(resp, 200)["output"]
 
     async def chown(
         self,
@@ -508,7 +509,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/chown",
             data=json.dumps(data)
         )
-        return self._json_response(resp, 200)["output"]
+        return self._check_response(resp, 200)["output"]
 
     async def stat(
         self,
@@ -533,7 +534,7 @@ class AsyncFirecrest:
                 "dereference": dereference
             }
         )
-        return self._json_response(resp, 200)["output"]
+        return self._check_response(resp, 200)["output"]
 
     async def upload(
         self,
@@ -570,7 +571,7 @@ class AsyncFirecrest:
                 files={"file": f}
             )
 
-        self._json_response(resp, 201)
+        self._check_response(resp, 201)
 
     async def download(
         self,
@@ -591,7 +592,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/download",
             params={"path": source_path}
         )
-        self._json_response(resp, 200)
+        self._check_response(resp, 200, return_json=False)
         context: ContextManager[BytesIO] = (
             open(target_path, "wb")  # type: ignore
             if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
@@ -622,7 +623,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/transfer/mv",
             data=json.dumps(data)
         )
-        return self._json_response(resp, 201)
+        return self._check_response(resp, 201)
 
     async def cp(
         self,
@@ -646,7 +647,7 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/transfer/cp",
             data=json.dumps(data)
         )
-        return self._json_response(resp, 201)
+        return self._check_response(resp, 201)
 
     async def rm(
         self,
@@ -663,4 +664,4 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/ops/rm",
             params={"path": path}
         )
-        self._json_response(resp, 204)
+        self._check_response(resp, 204)
