@@ -1,0 +1,10 @@
+{
+    "status_code": 403,
+    "response": {
+        "errorType": "error",
+        "message": "chown: changing ownership of '/home/test1/xxx': Operation not permitted",
+        "data": null,
+        "user": "test1",
+        "authHeader": "Bearer"
+    }
+}
