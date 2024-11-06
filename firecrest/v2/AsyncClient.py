@@ -590,7 +590,7 @@ class AsyncFirecrest:
                             stream
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        params: dict[str, str] = {"source_path": f"{sourcePath}"}
+        params: dict[str, str] = {"sourcePath": f"{source_path}"}
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             params=params
