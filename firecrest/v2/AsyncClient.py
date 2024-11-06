@@ -538,10 +538,10 @@ class AsyncFirecrest:
     async def upload(
         self,
         system_name: str,
-        source_path: str,
+        source_path: str | pathlib.Path | BytesIO,
         target_path: str,
         filename: Optional[str] = None,
-    ) -> List[dict]:
+    ) -> None:
         """Blocking call to upload a small file.
         The file that will be uploaded will have the same name as the
         source_path.
@@ -552,7 +552,7 @@ class AsyncFirecrest:
                             the file will be uploaded
         :param filename: naming target file to filename (default is same as
                          the local one)
-        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        :calls: POST `/filesystem/{system_name}/ops/upload`
         """
         context: ContextManager[BytesIO] = (
             open(source_path, "rb")  # type: ignore
@@ -564,23 +564,20 @@ class AsyncFirecrest:
             if filename is not None:
                 f = (filename, f)  # type: ignore
 
-            params: dict[str, str] = {
-                "fileName": f,
-                "targetPath": f"{target_path}"
-            }
+            resp = await self._post_request(
+                endpoint=f"/filesystem/{system_name}/ops/upload",
+                data={"targetPath": target_path},
+                files={"file": f}
+            )
 
-        resp = await self._post_request(
-            endpoint=f"/filesystem/{system_name}/transfer/upload",
-            params=params
-        )
-        return self._json_response(resp, 200)
+        self._json_response(resp, 201)
 
     async def download(
         self,
         system_name: str,
         source_path: str,
-        target_path: str,
-    ) -> List[dict]:
+        target_path: str | pathlib.Path | BytesIO,
+    ) -> None:
         """Blocking call to download a small file.
 
         :param system_name: the system name where the filesystem belongs to
@@ -588,14 +585,13 @@ class AsyncFirecrest:
                             stream
         :param target_path: the target path in the local filesystem or binary
                             stream
-        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        :calls: POST `/filesystem/{system_name}/ops/download`
         """
-        params: dict[str, str] = {"sourcePath": f"{source_path}"}
-        resp = await self._post_request(
-            endpoint=f"/filesystem/{system_name}/transfer/upload",
-            params=params
+        resp = await self._get_request(
+            endpoint=f"/filesystem/{system_name}/ops/download",
+            params={"sourcePath": source_path}
         )
-        self._json_response([resp], 200, allow_none_result=True)
+        self._json_response(resp, 200)
         context: ContextManager[BytesIO] = (
             open(target_path, "wb")  # type: ignore
             if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
