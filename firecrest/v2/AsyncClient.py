@@ -589,7 +589,7 @@ class AsyncFirecrest:
         """
         resp = await self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/download",
-            params={"sourcePath": source_path}
+            params={"path": source_path}
         )
         self._json_response(resp, 200)
         context: ContextManager[BytesIO] = (
