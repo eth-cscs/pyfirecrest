@@ -139,7 +139,7 @@ class AsyncFirecrest:
 
     # @_retry_requests  # type: ignore
     async def _post_request(
-        self, endpoint, additional_headers=None, data=None, files=None
+        self, endpoint, additional_headers=None, params=None, data=None, files=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {
@@ -151,7 +151,12 @@ class AsyncFirecrest:
         self.log(logging.DEBUG, f"Making POST request to {endpoint}")
         with time_block(f"POST request to {endpoint}", logger):
             resp = await self._session.post(
-                url=url, headers=headers, data=data, files=files, timeout=self.timeout
+                url=url,
+                headers=headers,
+                params=params,
+                data=data,
+                files=files,
+                timeout=self.timeout
             )
 
         return resp
@@ -567,7 +572,7 @@ class AsyncFirecrest:
 
             resp = await self._post_request(
                 endpoint=f"/filesystem/{system_name}/ops/upload",
-                data={"targetPath": target_path},
+                params={"target_path": target_path},
                 files={"file": f}
             )
 
