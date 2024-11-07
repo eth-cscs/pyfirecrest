@@ -670,3 +670,35 @@ class AsyncFirecrest:
             params={"path": path}
         )
         self._check_response(resp, 204)
+
+    async def submit(
+        self,
+        system_name: str,
+        script: str,
+        working_dir: str,
+        env_vars: Optional[dict[str, str]] = None,
+    ) -> dict:
+        """Rename/move a file, directory, or symlink at the `source_path` to
+        the `target_path` on `system_name`'s filesystem.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param script: the job script
+        :param working_dir: the working directory of the job
+        :param env_vars: environment variables to be set before running the
+                         job
+        :calls: POST `/compute/{system_name}/jobs`
+        """
+        data = {
+            "job": {
+                "script": script,
+                "working_directory": working_dir
+            }
+        }
+        if env_vars:
+            data["jobs"]["env"] = env_vars
+
+        resp = await self._post_request(
+            endpoint=f"/compute/{system_name}/jobs",
+            data=json.dumps(data)
+        )
+        return self._check_response(resp, 201)
