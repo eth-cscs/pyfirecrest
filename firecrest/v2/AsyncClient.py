@@ -695,7 +695,7 @@ class AsyncFirecrest:
             }
         }
         if env_vars:
-            data["jobs"]["env"] = env_vars
+            data["job"]["env"] = env_vars
 
         resp = await self._post_request(
             endpoint=f"/compute/{system_name}/jobs",
