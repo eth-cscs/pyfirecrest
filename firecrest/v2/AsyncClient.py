@@ -702,3 +702,44 @@ class AsyncFirecrest:
             data=json.dumps(data)
         )
         return self._check_response(resp, 201)
+
+    async def job_info(
+        self,
+        system_name: str,
+        job: str,
+        # TODO: support jobs list
+    ) -> dict:
+        """Rename/move a file, directory, or symlink at the `source_path` to
+        the `target_path` on `system_name`'s filesystem.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param script: the job script
+        :param working_dir: the working directory of the job
+        :param env_vars: environment variables to be set before running the
+                         job
+        :calls: POST `/compute/{system_name}/jobs`
+        """
+        resp = await self._get_request(
+            endpoint=f"/compute/{system_name}/jobs",
+        )
+        return self._check_response(resp, 200)["jobs"]
+
+    async def job_metadata(
+        self,
+        system_name: str,
+        jobid: str,
+    ) -> dict:
+        """Rename/move a file, directory, or symlink at the `source_path` to
+        the `target_path` on `system_name`'s filesystem.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param script: the job script
+        :param working_dir: the working directory of the job
+        :param env_vars: environment variables to be set before running the
+                         job
+        :calls: POST `/compute/{system_name}/jobs`
+        """
+        resp = await self._get_request(
+            endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
+        )
+        return self._check_response(resp, 200)['jobs']

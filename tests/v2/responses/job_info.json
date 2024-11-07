@@ -1,0 +1,41 @@
+{
+    "status_code": 200,
+    "response": {
+        "jobs": [
+            {
+                "account": "test",
+                "allocationNodes": 1,
+                "cluster": "cluster",
+                "exitCode": {
+                    "status": [
+                        "ERROR"
+                    ],
+                    "returnCode": 8
+                },
+                "group": "users",
+                "jobId": 1,
+                "name": "allocation",
+                "nodes": "localhost",
+                "partition": "part01",
+                "priority": 1,
+                "killRequestUser": "",
+                "state": {
+                    "current": [
+                        "FAILED"
+                    ],
+                    "reason": "None"
+                },
+                "time": {
+                    "elapsed": 0,
+                    "start": 1730968675,
+                    "end": 1730968675,
+                    "suspended": 0,
+                    "limit": 7200,
+                    "submission": 1730968674
+                },
+                "user": "test1",
+                "workingDirectory": "/home/test1"
+            }
+        ]
+    }
+}
