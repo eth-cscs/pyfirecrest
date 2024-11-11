@@ -743,3 +743,38 @@ class AsyncFirecrest:
             endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
         )
         return self._check_response(resp, 200)['jobs']
+
+    async def cancel_job(
+        self,
+        system_name: str,
+        jobid: str,
+    ) -> dict:
+        """Cancel a job.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param jobid: the ID of the job to be cancelled
+        :calls: DELETE `/compute/{system_name}/jobs/{jobid}`
+        """
+        resp = await self._delete_request(
+            endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
+        )
+        return self._check_response(resp, 200)['jobs']
+
+    async def attach_to_job(
+        self,
+        system_name: str,
+        jobid: str,
+        command: str,
+    ) -> dict:
+        """Attach a process to a job.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param jobid: the ID of the job
+        command: the command to be executed
+        :calls: PUT `/compute/{system_name}/jobs/{jobid}/attach`
+        """
+        resp = await self._put_request(
+            endpoint=f"/compute/{system_name}/jobs/{jobid}/attach",
+            data=json.dumps({"command": command})
+        )
+        return self._check_response(resp, 204)
