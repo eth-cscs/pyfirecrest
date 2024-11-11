@@ -688,7 +688,7 @@ class AsyncFirecrest:
                          job
         :calls: POST `/compute/{system_name}/jobs`
         """
-        data = {
+        data: dict[str, dict[str, Any]] = {
             "job": {
                 "script": script,
                 "working_directory": working_dir
