@@ -1,0 +1,14 @@
+{
+    "status_code": 200,
+    "response": {
+        "jobs": [
+            {
+                "jobId": 26,
+                "script": "#!/bin/sh\npwd",
+                "standardInput": "/dev/null",
+                "standardOutput": "/home/test1/slurm-26.out",
+                "standardError": "/home/test1/slurm-26.out"
+            }
+        ]
+    }
+}

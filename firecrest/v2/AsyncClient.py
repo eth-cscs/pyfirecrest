@@ -670,3 +670,111 @@ class AsyncFirecrest:
             params={"path": path}
         )
         self._check_response(resp, 204)
+
+    async def submit(
+        self,
+        system_name: str,
+        script: str,
+        working_dir: str,
+        env_vars: Optional[dict[str, str]] = None,
+    ) -> dict:
+        """Rename/move a file, directory, or symlink at the `source_path` to
+        the `target_path` on `system_name`'s filesystem.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param script: the job script
+        :param working_dir: the working directory of the job
+        :param env_vars: environment variables to be set before running the
+                         job
+        :calls: POST `/compute/{system_name}/jobs`
+        """
+        data: dict[str, dict[str, Any]] = {
+            "job": {
+                "script": script,
+                "working_directory": working_dir
+            }
+        }
+        if env_vars:
+            data["job"]["env"] = env_vars
+
+        resp = await self._post_request(
+            endpoint=f"/compute/{system_name}/jobs",
+            data=json.dumps(data)
+        )
+        return self._check_response(resp, 201)
+
+    async def job_info(
+        self,
+        system_name: str,
+        job: str,
+        # TODO: support jobs list
+    ) -> dict:
+        """Rename/move a file, directory, or symlink at the `source_path` to
+        the `target_path` on `system_name`'s filesystem.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param script: the job script
+        :param working_dir: the working directory of the job
+        :param env_vars: environment variables to be set before running the
+                         job
+        :calls: POST `/compute/{system_name}/jobs`
+        """
+        resp = await self._get_request(
+            endpoint=f"/compute/{system_name}/jobs",
+        )
+        return self._check_response(resp, 200)["jobs"]
+
+    async def job_metadata(
+        self,
+        system_name: str,
+        jobid: str,
+    ) -> dict:
+        """Rename/move a file, directory, or symlink at the `source_path` to
+        the `target_path` on `system_name`'s filesystem.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param script: the job script
+        :param working_dir: the working directory of the job
+        :param env_vars: environment variables to be set before running the
+                         job
+        :calls: POST `/compute/{system_name}/jobs`
+        """
+        resp = await self._get_request(
+            endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
+        )
+        return self._check_response(resp, 200)['jobs']
+
+    async def cancel_job(
+        self,
+        system_name: str,
+        jobid: str,
+    ) -> dict:
+        """Cancel a job.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param jobid: the ID of the job to be cancelled
+        :calls: DELETE `/compute/{system_name}/jobs/{jobid}`
+        """
+        resp = await self._delete_request(
+            endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
+        )
+        return self._check_response(resp, 200)['jobs']
+
+    async def attach_to_job(
+        self,
+        system_name: str,
+        jobid: str,
+        command: str,
+    ) -> dict:
+        """Attach a process to a job.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param jobid: the ID of the job
+        command: the command to be executed
+        :calls: PUT `/compute/{system_name}/jobs/{jobid}/attach`
+        """
+        resp = await self._put_request(
+            endpoint=f"/compute/{system_name}/jobs/{jobid}/attach",
+            data=json.dumps({"command": command})
+        )
+        return self._check_response(resp, 204)
