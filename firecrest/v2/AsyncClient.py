@@ -714,7 +714,7 @@ class AsyncFirecrest:
         system_name: str,
         path: str,
         blocking: bool = False
-    ) -> None:
+    ) -> dict:
         """Delete a file.
 
         :param system_name: the system name where the filesystem belongs to
