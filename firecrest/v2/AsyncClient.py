@@ -6,6 +6,7 @@
 #
 from __future__ import annotations
 
+import asyncio
 import httpx
 import json
 import logging
@@ -20,7 +21,11 @@ from typing import Any, ContextManager, Optional, List
 from firecrest.utilities import (
     parse_retry_after, slurm_state_completed, time_block
 )
-from firecrest.FirecrestException import UnexpectedStatusException
+from firecrest.FirecrestException import (
+    FirecrestException,
+    TransferJobFailedException,
+    UnexpectedStatusException
+)
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,14 @@ def handle_response(response):
         print(json.dumps(response.json(), indent=4))
     except json.JSONDecodeError:
         print("-")
+
+
+def sleep_generator():
+    yield 0.2  # First yield 2 seconds because the api takes time to update
+    value = 0.5
+    while True:
+        yield value
+        value *= 2   # Double the value for each iteration
 
 
 class AsyncFirecrest:
@@ -610,14 +623,18 @@ class AsyncFirecrest:
         self,
         system_name: str,
         source_path: str,
-        target_path: str
+        target_path: str,
+        blocking: bool = False
     ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
         the `target_path` on `system_name`'s filesystem.
+        This operation runs in a job.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param blocking: whether to wait for the job to complete
+
         :calls: POST `/filesystem/{system_name}/transfer/mv`
         """
         data: dict[str, str] = {
@@ -628,19 +645,52 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/transfer/mv",
             data=json.dumps(data)
         )
-        return self._check_response(resp, 201)
+        job_info = self._check_response(resp, 201)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return job_info
+
+    async def _wait_for_transfer_job(self, job_info):
+        job_id = job_info["transferJob"]["jobId"]
+        system_name = job_info["transferJob"]["system"]
+        for i in sleep_generator():
+            try:
+                job = await self.job_info(system_name, job_id)
+            except FirecrestException as e:
+                if e.responses[-1].status_code == 404 and "Job not found" in e.responses[-1].json()['message']:
+                    await asyncio.sleep(i)
+                    continue
+
+            state = job[0]["state"]["current"]
+            if isinstance(state, list):
+                state = ",".join(state)
+
+            if slurm_state_completed(state):
+                break
+
+            await asyncio.sleep(i)
+
+        # TODO: Check if the job was successful
+
+        stdout_file = await self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
+        if "Files were successfully" not in stdout_file:
+            raise TransferJobFailedException(job_info)
 
     async def cp(
         self,
         system_name: str,
         source_path: str,
-        target_path: str
+        target_path: str,
+        blocking: bool = False
     ) -> dict:
         """Copies file from `source_path` to `target_path`.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param blocking: whether to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
         data: dict[str, str] = {
@@ -652,24 +702,37 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/transfer/cp",
             data=json.dumps(data)
         )
-        return self._check_response(resp, 201)
+        job_info = self._check_response(resp, 201)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return job_info
 
     async def rm(
         self,
         system_name: str,
         path: str,
+        blocking: bool = False
     ) -> None:
-        """Blocking call to delete a small file.
+        """Delete a file.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
         resp = await self._delete_request(
-            endpoint=f"/filesystem/{system_name}/ops/rm",
+            endpoint=f"/filesystem/{system_name}/transfer/rm",
             params={"path": path}
         )
-        self._check_response(resp, 204)
+        # self._check_response(resp, 204)
+
+        job_info = self._check_response(resp, 200)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return job_info
 
     async def submit(
         self,
@@ -678,8 +741,7 @@ class AsyncFirecrest:
         working_dir: str,
         env_vars: Optional[dict[str, str]] = None,
     ) -> dict:
-        """Rename/move a file, directory, or symlink at the `source_path` to
-        the `target_path` on `system_name`'s filesystem.
+        """Submit a job.
 
         :param system_name: the system name where the filesystem belongs to
         :param script: the job script
@@ -706,21 +768,21 @@ class AsyncFirecrest:
     async def job_info(
         self,
         system_name: str,
-        job: str,
-        # TODO: support jobs list
+        jobid: Optional[str] = None
     ) -> dict:
-        """Rename/move a file, directory, or symlink at the `source_path` to
-        the `target_path` on `system_name`'s filesystem.
+        """Get job information. When the job is not specified, it will return
+        all the jobs.
 
         :param system_name: the system name where the filesystem belongs to
-        :param script: the job script
-        :param working_dir: the working directory of the job
-        :param env_vars: environment variables to be set before running the
-                         job
-        :calls: POST `/compute/{system_name}/jobs`
+        :param job: the ID of the job
+        :calls: GET `/compute/{system_name}/jobs` or
+                GET `/compute/{system_name}/jobs/{job}`
         """
+        url = f"/compute/{system_name}/jobs"
+        url = f"{url}/{jobid}" if jobid else url
+
         resp = await self._get_request(
-            endpoint=f"/compute/{system_name}/jobs",
+            endpoint=url,
         )
         return self._check_response(resp, 200)["jobs"]
 
@@ -729,15 +791,11 @@ class AsyncFirecrest:
         system_name: str,
         jobid: str,
     ) -> dict:
-        """Rename/move a file, directory, or symlink at the `source_path` to
-        the `target_path` on `system_name`'s filesystem.
+        """Get job metadata.
 
         :param system_name: the system name where the filesystem belongs to
-        :param script: the job script
-        :param working_dir: the working directory of the job
-        :param env_vars: environment variables to be set before running the
-                         job
-        :calls: POST `/compute/{system_name}/jobs`
+        :param jobid: the ID of the job
+        :calls: GET `/compute/{system_name}/jobs/{jobid}/metadata`
         """
         resp = await self._get_request(
             endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
