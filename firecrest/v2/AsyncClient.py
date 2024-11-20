@@ -630,7 +630,8 @@ class AsyncFirecrest:
         stdout_file = await self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
         if (
             "Files were successfully" not in stdout_file and
-            "File was successfully" not in stdout_file
+            "File was successfully" not in stdout_file and
+            "Multipart file upload successfully completed" not in stdout_file
         ):
             raise TransferJobFailedException(job_info)
 
@@ -723,15 +724,52 @@ class AsyncFirecrest:
 
         transfer_info = self._check_response(resp, 201)
         # Upload the file
-        # FIXME: This is a blocking call, should be async
-        with open(local_file, "rb") as f:
-            requests.put(
+        async with aiofiles.open(local_file, "rb") as f:
+            data = await f.read()  # TODO this will fail for large files
+            await self._session.put(
                 url=transfer_info["uploadUrl"],
-                data=f
+                data=data
             )
 
         if blocking:
             await self._wait_for_transfer_job(transfer_info)
+
+        return transfer_info
+
+    async def download(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str,
+        blocking: bool = False
+    ) -> dict:
+        """Download a file from the remote system.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute source path of the file
+        :param target_path: the target path in the local filesystem (can
+                            be relative path)
+        :param blocking: whether to wait for the job to complete
+        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        """
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/download",
+            data=json.dumps({
+                "source_path": source_path,
+            })
+        )
+
+        transfer_info = self._check_response(resp, 201)
+        if blocking:
+            await self._wait_for_transfer_job(transfer_info)
+
+            # Download the file
+            async with aiofiles.open(target_path, "wb") as f:
+                # TODO this will fail for large files
+                resp = await self._session.get(
+                    url=transfer_info["downloadUrl"],
+                )
+                await f.write(resp.content)
 
         return transfer_info
 
