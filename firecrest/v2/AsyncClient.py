@@ -6,6 +6,7 @@
 #
 from __future__ import annotations
 
+import aiofiles
 import asyncio
 import httpx
 import json
@@ -13,7 +14,9 @@ import logging
 import pathlib
 import ssl
 
-from contextlib import nullcontext
+import requests
+
+from contextlib import asynccontextmanager
 from io import BytesIO
 from packaging.version import Version, parse
 from typing import Any, ContextManager, Optional, List
@@ -50,6 +53,18 @@ def sleep_generator():
     while True:
         yield value
         value *= 2   # Double the value for each iteration
+
+
+@asynccontextmanager
+async def async_file_context(file):
+    if isinstance(file, (str, pathlib.Path)):
+        # Open the file asynchronously if it's a string or path
+        async with aiofiles.open(file, "rb") as f:
+            print('opened file')
+            yield f
+    else:
+        # Use the file as-is if it's already a BytesIO or similar
+        yield file
 
 
 class AsyncFirecrest:
@@ -379,7 +394,7 @@ class AsyncFirecrest:
         path: str,
         num_bytes: Optional[int] = None,
         num_lines: Optional[int] = None,
-        exclude_beginning: bool = False,  # Changed to exclude_beginning
+        exclude_beginning: bool = False,
     ) -> List[dict]:
         """Display the ending of a specified file.
         By default, 10 lines will be returned.
@@ -402,7 +417,8 @@ class AsyncFirecrest:
                 "You cannot specify both `num_bytes` and `num_lines`."
             )
 
-        # If `exclude_beginning` is passed, either `num_bytes` or `num_lines` must be passed
+        # If `exclude_beginning` is passed, either `num_bytes` or `num_lines`
+        # must be passed
         if exclude_beginning and num_bytes is None and num_lines is None:
             raise ValueError(
                 "`exclude_beginning` requires either `num_bytes` or "
@@ -485,7 +501,8 @@ class AsyncFirecrest:
         path: str,
         mode: str
     ) -> dict:
-        """Changes the file mod bits of a given file according to the specified mode.
+        """Changes the file mod bits of a given file according to the
+        specified mode.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path of the file
@@ -510,7 +527,8 @@ class AsyncFirecrest:
         group: str
     ) -> dict:
         """Changes the user and/or group ownership of a given file.
-        If only owner or group information is passed, only that information will be updated.
+        If only owner or group information is passed, only that information
+        will be updated.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path of the file
@@ -553,71 +571,6 @@ class AsyncFirecrest:
             }
         )
         return self._check_response(resp, 200)["output"]
-
-    async def upload(
-        self,
-        system_name: str,
-        source_path: str | pathlib.Path | BytesIO,
-        target_path: str,
-        filename: Optional[str] = None,
-    ) -> None:
-        """Blocking call to upload a small file.
-        The file that will be uploaded will have the same name as the
-        source_path.
-
-        :param system_name: the system name where the filesystem belongs to
-        :param source_path: the source path of the file or binary stream
-        :param target_path: the absolute target path of the directory where
-                            the file will be uploaded
-        :param filename: naming target file to filename (default is same as
-                         the local one)
-        :calls: POST `/filesystem/{system_name}/ops/upload`
-        """
-        context: ContextManager[BytesIO] = (
-            open(source_path, "rb")  # type: ignore
-            if isinstance(source_path, str) or isinstance(source_path, pathlib.Path)
-            else nullcontext(source_path)
-        )
-        with context as f:
-            # Set filename
-            if filename is not None:
-                f = (filename, f)  # type: ignore
-
-            resp = await self._post_request(
-                endpoint=f"/filesystem/{system_name}/ops/upload",
-                params={"target_path": target_path},
-                files={"file": f}
-            )
-
-        self._check_response(resp, 201)
-
-    async def download(
-        self,
-        system_name: str,
-        source_path: str,
-        target_path: str | pathlib.Path | BytesIO,
-    ) -> None:
-        """Blocking call to download a small file.
-
-        :param system_name: the system name where the filesystem belongs to
-        :param source_path: the absolute source path of the file or binary
-                            stream
-        :param target_path: the target path in the local filesystem or binary
-                            stream
-        :calls: POST `/filesystem/{system_name}/ops/download`
-        """
-        resp = await self._get_request(
-            endpoint=f"/filesystem/{system_name}/ops/download",
-            params={"path": source_path}
-        )
-        self._check_response(resp, 200, return_json=False)
-        context: ContextManager[BytesIO] = (
-            open(target_path, "wb")  # type: ignore
-            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
-            else nullcontext(target_path)
-        )
-        with context as f:
-            f.write(resp.content)
 
     async def mv(
         self,
@@ -675,7 +628,10 @@ class AsyncFirecrest:
         # TODO: Check if the job was successful
 
         stdout_file = await self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
-        if "Files were successfully" not in stdout_file:
+        if (
+            "Files were successfully" not in stdout_file and
+            "File was successfully" not in stdout_file
+        ):
             raise TransferJobFailedException(job_info)
 
     async def cp(
@@ -733,6 +689,51 @@ class AsyncFirecrest:
             await self._wait_for_transfer_job(job_info)
 
         return job_info
+
+    async def upload(
+        self,
+        system_name: str,
+        local_file: str | pathlib.Path | BytesIO,
+        directory: str,
+        filename: str,
+        blocking: bool = False
+    ) -> dict:
+        """Upload a file to the system. The user uploads a file to the
+        staging area Object storage) of FirecREST and it will be moved
+        to the target directory in a job.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param local_file: the local file's path to be uploaded (can be
+                           relative)
+        :param source_path: the absolut target path of the directory where the
+                            file will be uploaded
+        :param filename: the name of the file in the target directory
+        :param blocking: whether to wait for the job to complete
+        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        """
+        # TODO check if the file exists locally
+
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/upload",
+            data=json.dumps({
+                "source_path": directory,
+                "fileName": filename
+            })
+        )
+
+        transfer_info = self._check_response(resp, 201)
+        # Upload the file
+        # FIXME: This is a blocking call, should be async
+        with open(local_file, "rb") as f:
+            requests.put(
+                url=transfer_info["uploadUrl"],
+                data=f
+            )
+
+        if blocking:
+            await self._wait_for_transfer_job(transfer_info)
+
+        return transfer_info
 
     async def submit(
         self,
