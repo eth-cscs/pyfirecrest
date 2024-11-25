@@ -25,6 +25,7 @@ classifiers = [
 ]
 requires-python = ">=3.7"
 dependencies = [
+    "aiofiles>=24.1.0",
     "requests>=2.14.0",
     "PyJWT>=2.4.0",
     "typer[all]~=0.7.0",
