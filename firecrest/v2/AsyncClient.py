@@ -728,7 +728,7 @@ class AsyncFirecrest:
             data = await f.read()  # TODO this will fail for large files
             await self._session.put(
                 url=transfer_info["uploadUrl"],
-                data=data
+                data=data  # type: ignore
             )
 
         if blocking:
