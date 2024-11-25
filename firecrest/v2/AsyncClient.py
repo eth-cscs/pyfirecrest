@@ -6,13 +6,17 @@
 #
 from __future__ import annotations
 
+import aiofiles
+import asyncio
 import httpx
 import json
 import logging
 import pathlib
 import ssl
 
-from contextlib import nullcontext
+import requests
+
+from contextlib import asynccontextmanager
 from io import BytesIO
 from packaging.version import Version, parse
 from typing import Any, ContextManager, Optional, List
@@ -20,7 +24,11 @@ from typing import Any, ContextManager, Optional, List
 from firecrest.utilities import (
     parse_retry_after, slurm_state_completed, time_block
 )
-from firecrest.FirecrestException import UnexpectedStatusException
+from firecrest.FirecrestException import (
+    FirecrestException,
+    TransferJobFailedException,
+    UnexpectedStatusException
+)
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +45,26 @@ def handle_response(response):
         print(json.dumps(response.json(), indent=4))
     except json.JSONDecodeError:
         print("-")
+
+
+def sleep_generator():
+    yield 0.2  # First yield 2 seconds because the api takes time to update
+    value = 0.5
+    while True:
+        yield value
+        value *= 2   # Double the value for each iteration
+
+
+@asynccontextmanager
+async def async_file_context(file):
+    if isinstance(file, (str, pathlib.Path)):
+        # Open the file asynchronously if it's a string or path
+        async with aiofiles.open(file, "rb") as f:
+            print('opened file')
+            yield f
+    else:
+        # Use the file as-is if it's already a BytesIO or similar
+        yield file
 
 
 class AsyncFirecrest:
@@ -366,7 +394,7 @@ class AsyncFirecrest:
         path: str,
         num_bytes: Optional[int] = None,
         num_lines: Optional[int] = None,
-        exclude_beginning: bool = False,  # Changed to exclude_beginning
+        exclude_beginning: bool = False,
     ) -> List[dict]:
         """Display the ending of a specified file.
         By default, 10 lines will be returned.
@@ -389,7 +417,8 @@ class AsyncFirecrest:
                 "You cannot specify both `num_bytes` and `num_lines`."
             )
 
-        # If `exclude_beginning` is passed, either `num_bytes` or `num_lines` must be passed
+        # If `exclude_beginning` is passed, either `num_bytes` or `num_lines`
+        # must be passed
         if exclude_beginning and num_bytes is None and num_lines is None:
             raise ValueError(
                 "`exclude_beginning` requires either `num_bytes` or "
@@ -472,7 +501,8 @@ class AsyncFirecrest:
         path: str,
         mode: str
     ) -> dict:
-        """Changes the file mod bits of a given file according to the specified mode.
+        """Changes the file mod bits of a given file according to the
+        specified mode.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path of the file
@@ -497,7 +527,8 @@ class AsyncFirecrest:
         group: str
     ) -> dict:
         """Changes the user and/or group ownership of a given file.
-        If only owner or group information is passed, only that information will be updated.
+        If only owner or group information is passed, only that information
+        will be updated.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path of the file
@@ -541,83 +572,22 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
-    async def upload(
-        self,
-        system_name: str,
-        source_path: str | pathlib.Path | BytesIO,
-        target_path: str,
-        filename: Optional[str] = None,
-    ) -> None:
-        """Blocking call to upload a small file.
-        The file that will be uploaded will have the same name as the
-        source_path.
-
-        :param system_name: the system name where the filesystem belongs to
-        :param source_path: the source path of the file or binary stream
-        :param target_path: the absolute target path of the directory where
-                            the file will be uploaded
-        :param filename: naming target file to filename (default is same as
-                         the local one)
-        :calls: POST `/filesystem/{system_name}/ops/upload`
-        """
-        context: ContextManager[BytesIO] = (
-            open(source_path, "rb")  # type: ignore
-            if isinstance(source_path, str) or isinstance(source_path, pathlib.Path)
-            else nullcontext(source_path)
-        )
-        with context as f:
-            # Set filename
-            if filename is not None:
-                f = (filename, f)  # type: ignore
-
-            resp = await self._post_request(
-                endpoint=f"/filesystem/{system_name}/ops/upload",
-                params={"target_path": target_path},
-                files={"file": f}
-            )
-
-        self._check_response(resp, 201)
-
-    async def download(
-        self,
-        system_name: str,
-        source_path: str,
-        target_path: str | pathlib.Path | BytesIO,
-    ) -> None:
-        """Blocking call to download a small file.
-
-        :param system_name: the system name where the filesystem belongs to
-        :param source_path: the absolute source path of the file or binary
-                            stream
-        :param target_path: the target path in the local filesystem or binary
-                            stream
-        :calls: POST `/filesystem/{system_name}/ops/download`
-        """
-        resp = await self._get_request(
-            endpoint=f"/filesystem/{system_name}/ops/download",
-            params={"path": source_path}
-        )
-        self._check_response(resp, 200, return_json=False)
-        context: ContextManager[BytesIO] = (
-            open(target_path, "wb")  # type: ignore
-            if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
-            else nullcontext(target_path)
-        )
-        with context as f:
-            f.write(resp.content)
-
     async def mv(
         self,
         system_name: str,
         source_path: str,
-        target_path: str
+        target_path: str,
+        blocking: bool = False
     ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
         the `target_path` on `system_name`'s filesystem.
+        This operation runs in a job.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param blocking: whether to wait for the job to complete
+
         :calls: POST `/filesystem/{system_name}/transfer/mv`
         """
         data: dict[str, str] = {
@@ -628,19 +598,56 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/transfer/mv",
             data=json.dumps(data)
         )
-        return self._check_response(resp, 201)
+        job_info = self._check_response(resp, 201)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return job_info
+
+    async def _wait_for_transfer_job(self, job_info):
+        job_id = job_info["transferJob"]["jobId"]
+        system_name = job_info["transferJob"]["system"]
+        for i in sleep_generator():
+            try:
+                job = await self.job_info(system_name, job_id)
+            except FirecrestException as e:
+                if e.responses[-1].status_code == 404 and "Job not found" in e.responses[-1].json()['message']:
+                    await asyncio.sleep(i)
+                    continue
+
+            state = job[0]["state"]["current"]
+            if isinstance(state, list):
+                state = ",".join(state)
+
+            if slurm_state_completed(state):
+                break
+
+            await asyncio.sleep(i)
+
+        # TODO: Check if the job was successful
+
+        stdout_file = await self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
+        if (
+            "Files were successfully" not in stdout_file and
+            "File was successfully" not in stdout_file and
+            "Multipart file upload successfully completed" not in stdout_file
+        ):
+            raise TransferJobFailedException(job_info)
 
     async def cp(
         self,
         system_name: str,
         source_path: str,
-        target_path: str
+        target_path: str,
+        blocking: bool = False
     ) -> dict:
         """Copies file from `source_path` to `target_path`.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param blocking: whether to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
         data: dict[str, str] = {
@@ -652,24 +659,119 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/transfer/cp",
             data=json.dumps(data)
         )
-        return self._check_response(resp, 201)
+        job_info = self._check_response(resp, 201)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return job_info
 
     async def rm(
         self,
         system_name: str,
         path: str,
-    ) -> None:
-        """Blocking call to delete a small file.
+        blocking: bool = False
+    ) -> dict:
+        """Delete a file.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
         resp = await self._delete_request(
-            endpoint=f"/filesystem/{system_name}/ops/rm",
+            endpoint=f"/filesystem/{system_name}/transfer/rm",
             params={"path": path}
         )
-        self._check_response(resp, 204)
+        # self._check_response(resp, 204)
+
+        job_info = self._check_response(resp, 200)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return job_info
+
+    async def upload(
+        self,
+        system_name: str,
+        local_file: str | pathlib.Path | BytesIO,
+        directory: str,
+        filename: str,
+        blocking: bool = False
+    ) -> dict:
+        """Upload a file to the system. The user uploads a file to the
+        staging area Object storage) of FirecREST and it will be moved
+        to the target directory in a job.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param local_file: the local file's path to be uploaded (can be
+                           relative)
+        :param source_path: the absolut target path of the directory where the
+                            file will be uploaded
+        :param filename: the name of the file in the target directory
+        :param blocking: whether to wait for the job to complete
+        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        """
+        # TODO check if the file exists locally
+
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/upload",
+            data=json.dumps({
+                "source_path": directory,
+                "fileName": filename
+            })
+        )
+
+        transfer_info = self._check_response(resp, 201)
+        # Upload the file
+        async with aiofiles.open(local_file, "rb") as f:
+            data = await f.read()  # TODO this will fail for large files
+            await self._session.put(
+                url=transfer_info["uploadUrl"],
+                data=data  # type: ignore
+            )
+
+        if blocking:
+            await self._wait_for_transfer_job(transfer_info)
+
+        return transfer_info
+
+    async def download(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str,
+        blocking: bool = False
+    ) -> dict:
+        """Download a file from the remote system.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute source path of the file
+        :param target_path: the target path in the local filesystem (can
+                            be relative path)
+        :param blocking: whether to wait for the job to complete
+        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        """
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/transfer/download",
+            data=json.dumps({
+                "source_path": source_path,
+            })
+        )
+
+        transfer_info = self._check_response(resp, 201)
+        if blocking:
+            await self._wait_for_transfer_job(transfer_info)
+
+            # Download the file
+            async with aiofiles.open(target_path, "wb") as f:
+                # TODO this will fail for large files
+                resp = await self._session.get(
+                    url=transfer_info["downloadUrl"],
+                )
+                await f.write(resp.content)
+
+        return transfer_info
 
     async def submit(
         self,
@@ -678,8 +780,7 @@ class AsyncFirecrest:
         working_dir: str,
         env_vars: Optional[dict[str, str]] = None,
     ) -> dict:
-        """Rename/move a file, directory, or symlink at the `source_path` to
-        the `target_path` on `system_name`'s filesystem.
+        """Submit a job.
 
         :param system_name: the system name where the filesystem belongs to
         :param script: the job script
@@ -706,21 +807,21 @@ class AsyncFirecrest:
     async def job_info(
         self,
         system_name: str,
-        job: str,
-        # TODO: support jobs list
+        jobid: Optional[str] = None
     ) -> dict:
-        """Rename/move a file, directory, or symlink at the `source_path` to
-        the `target_path` on `system_name`'s filesystem.
+        """Get job information. When the job is not specified, it will return
+        all the jobs.
 
         :param system_name: the system name where the filesystem belongs to
-        :param script: the job script
-        :param working_dir: the working directory of the job
-        :param env_vars: environment variables to be set before running the
-                         job
-        :calls: POST `/compute/{system_name}/jobs`
+        :param job: the ID of the job
+        :calls: GET `/compute/{system_name}/jobs` or
+                GET `/compute/{system_name}/jobs/{job}`
         """
+        url = f"/compute/{system_name}/jobs"
+        url = f"{url}/{jobid}" if jobid else url
+
         resp = await self._get_request(
-            endpoint=f"/compute/{system_name}/jobs",
+            endpoint=url,
         )
         return self._check_response(resp, 200)["jobs"]
 
@@ -729,15 +830,11 @@ class AsyncFirecrest:
         system_name: str,
         jobid: str,
     ) -> dict:
-        """Rename/move a file, directory, or symlink at the `source_path` to
-        the `target_path` on `system_name`'s filesystem.
+        """Get job metadata.
 
         :param system_name: the system name where the filesystem belongs to
-        :param script: the job script
-        :param working_dir: the working directory of the job
-        :param env_vars: environment variables to be set before running the
-                         job
-        :calls: POST `/compute/{system_name}/jobs`
+        :param jobid: the ID of the job
+        :calls: GET `/compute/{system_name}/jobs/{jobid}/metadata`
         """
         resp = await self._get_request(
             endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",

@@ -25,6 +25,7 @@ classifiers = [
 ]
 requires-python = ">=3.7"
 dependencies = [
+    "aiofiles~=23.2.1",
     "requests>=2.14.0",
     "PyJWT>=2.4.0",
     "typer[all]~=0.7.0",
@@ -46,6 +47,7 @@ test = [
     "pytest>=5.3",
     "flake8~=5.0",
     "mypy~=0.991",
+    "types-aiofiles~=23.2.0.0",
     "types-requests~=2.28.11",
     "pytest-httpserver~=1.0.6",
     "pytest-asyncio>=0.21.1",
