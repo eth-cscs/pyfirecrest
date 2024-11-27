@@ -60,6 +60,9 @@ docs = [
     "sphinx-autobuild>=2021.0",
     "sphinx-click==3.0.2"
 ]
+dev = [
+    "unasync"
+]
 
 [tool.mypy]
 show_error_codes = true
