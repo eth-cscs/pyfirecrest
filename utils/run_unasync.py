@@ -8,7 +8,7 @@ unasync.unasync_files(
             fromdir="firecrest/v2/_async/",
             todir="firecrest/v2/_sync/",
             additional_replacements={
-                "AsyncFirecrest": "SyncFirecrest",
+                "AsyncFirecrest": "Firecrest",
                 "AsyncClient": "Client",
                 # "asyncio.sleep": "time.sleep",
                 # multi token replacement doesn't work, it happens manually

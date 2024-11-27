@@ -2,7 +2,7 @@ import json
 import pytest
 import re
 
-from context_v2 import SyncFirecrest
+from context_v2 import Firecrest
 from werkzeug.wrappers import Response
 from werkzeug.wrappers import Request
 
@@ -20,7 +20,7 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    return SyncFirecrest(
+    return Firecrest(
         firecrest_url=fc_server.url_for("/"),
         authorization=ValidAuthorization()
     )
@@ -32,7 +32,7 @@ def invalid_client(fc_server):
         def get_access_token(self):
             return "INVALID_TOKEN"
 
-    return SyncFirecrest(
+    return Firecrest(
         firecrest_url=fc_server.url_for("/"),
         authorization=InvalidAuthorization()
     )

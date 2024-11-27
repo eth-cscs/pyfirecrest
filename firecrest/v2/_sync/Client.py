@@ -53,7 +53,7 @@ def sleep_generator():
         value *= 2   # Double the value for each iteration
 
 
-class SyncFirecrest:
+class Firecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v2.
     Necessary parameters are the firecrest URL and an authorization object.
@@ -854,7 +854,7 @@ class SyncFirecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param jobid: the ID of the job
-        command: the command to be executed
+        :param command: the command to be executed
         :calls: PUT `/compute/{system_name}/jobs/{jobid}/attach`
         """
         resp = self._put_request(

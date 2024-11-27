@@ -853,7 +853,7 @@ class AsyncFirecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param jobid: the ID of the job
-        command: the command to be executed
+        :param command: the command to be executed
         :calls: PUT `/compute/{system_name}/jobs/{jobid}/attach`
         """
         resp = await self._put_request(

@@ -6,4 +6,4 @@
 #
 
 from firecrest.v2._async.Client import AsyncFirecrest
-from firecrest.v2._sync.Client import SyncFirecrest
+from firecrest.v2._sync.Client import Firecrest
