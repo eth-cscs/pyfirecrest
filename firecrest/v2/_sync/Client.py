@@ -7,22 +7,20 @@
 from __future__ import annotations
 
 import aiofiles
-import asyncio
 import httpx
 import json
 import logging
 import pathlib
 import ssl
+import time
 
-import requests
-
-from contextlib import asynccontextmanager
+from contextlib import contextmanager
 from io import BytesIO
 from packaging.version import Version, parse
-from typing import Any, ContextManager, Optional, List
+from typing import Any, Optional, List
 
 from firecrest.utilities import (
-    parse_retry_after, slurm_state_completed, time_block
+    slurm_state_completed, time_block
 )
 from firecrest.FirecrestException import (
     FirecrestException,
@@ -55,19 +53,7 @@ def sleep_generator():
         value *= 2   # Double the value for each iteration
 
 
-@asynccontextmanager
-async def async_file_context(file):
-    if isinstance(file, (str, pathlib.Path)):
-        # Open the file asynchronously if it's a string or path
-        async with aiofiles.open(file, "rb") as f:
-            print('opened file')
-            yield f
-    else:
-        # Use the file as-is if it's already a BytesIO or similar
-        yield file
-
-
-class AsyncFirecrest:
+class Firecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v2.
     Necessary parameters are the firecrest URL and an authorization object.
@@ -112,7 +98,7 @@ class AsyncFirecrest:
         # status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("2.0.0")
-        self._session = httpx.AsyncClient(verify=self._verify)
+        self._session = httpx.Client(verify=self._verify)
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be
@@ -121,16 +107,16 @@ class AsyncFirecrest:
         """
         self._api_version = parse(api_version)
 
-    async def close_session(self) -> None:
+    def close_session(self) -> None:
         """Close the httpx session"""
-        await self._session.aclose()
+        self._session.close()
 
-    async def create_new_session(self) -> None:
+    def create_new_session(self) -> None:
         """Create a new httpx session"""
         if not self._session.is_closed:
-            await self._session.aclose()
+            self._session.close()
 
-        self._session = httpx.AsyncClient(verify=self._verify)
+        self._session = httpx.Client(verify=self._verify)
 
     @property
     def is_session_closed(self) -> bool:
@@ -144,7 +130,7 @@ class AsyncFirecrest:
             logger.log(level, msg)
 
     # @_retry_requests  # type: ignore
-    async def _get_request(
+    def _get_request(
         self,
         endpoint,
         additional_headers=None,
@@ -159,14 +145,14 @@ class AsyncFirecrest:
 
         self.log(logging.DEBUG, f"Making GET request to {endpoint}")
         with time_block(f"GET request to {endpoint}", logger):
-            resp = await self._session.get(
+            resp = self._session.get(
                 url=url, headers=headers, params=params, timeout=self.timeout
             )
 
         return resp
 
     # @_retry_requests  # type: ignore
-    async def _post_request(
+    def _post_request(
         self, endpoint, additional_headers=None, params=None, data=None, files=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
@@ -178,7 +164,7 @@ class AsyncFirecrest:
 
         self.log(logging.DEBUG, f"Making POST request to {endpoint}")
         with time_block(f"POST request to {endpoint}", logger):
-            resp = await self._session.post(
+            resp = self._session.post(
                 url=url,
                 headers=headers,
                 params=params,
@@ -190,7 +176,7 @@ class AsyncFirecrest:
         return resp
 
     # @_retry_requests  # type: ignore
-    async def _put_request(
+    def _put_request(
         self, endpoint, additional_headers=None, data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
@@ -202,14 +188,14 @@ class AsyncFirecrest:
 
         self.log(logging.DEBUG, f"Making PUT request to {endpoint}")
         with time_block(f"PUT request to {endpoint}", logger):
-            resp = await self._session.put(
+            resp = self._session.put(
                 url=url, headers=headers, data=data, timeout=self.timeout
             )
 
         return resp
 
     # @_retry_requests  # type: ignore
-    async def _delete_request(
+    def _delete_request(
         self, endpoint, additional_headers=None, params=None, data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
@@ -224,7 +210,7 @@ class AsyncFirecrest:
             # httpx doesn't support data in the `delete` method so we will
             # have to use the generic `request` method
             # https://www.python-httpx.org/compatibility/#request-body-on-http-methods
-            resp = await self._session.request(
+            resp = self._session.request(
                 method="DELETE",
                 url=url,
                 headers=headers,
@@ -255,15 +241,15 @@ class AsyncFirecrest:
 
         return response.json() if return_json and status_code != 204 else {}
 
-    async def systems(self) -> List[dict]:
+    def systems(self) -> List[dict]:
         """Returns available systems.
 
         :calls: GET `/status/systems`
         """
-        resp = await self._get_request(endpoint="/status/systems")
+        resp = self._get_request(endpoint="/status/systems")
         return resp.json()['systems']
 
-    async def nodes(
+    def nodes(
         self,
         system_name: str
     ) -> List[dict]:
@@ -272,12 +258,12 @@ class AsyncFirecrest:
         :param system_name: the system name where the nodes belong to
         :calls: GET `/status/{system_name}/nodes`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/status/{system_name}/nodes"
         )
         return self._check_response(resp, 200)['nodes']
 
-    async def reservations(
+    def reservations(
         self,
         system_name: str
     ) -> List[dict]:
@@ -286,12 +272,12 @@ class AsyncFirecrest:
         :param system_name: the system name where the reservations belong to
         :calls: GET `/status/{system_name}/reservations`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/status/{system_name}/reservations"
         )
         return self._check_response(resp, 200)['reservations']
 
-    async def partitions(
+    def partitions(
         self,
         system_name: str
     ) -> List[dict]:
@@ -300,12 +286,12 @@ class AsyncFirecrest:
         :param system_name: the system name where the partitions belong to
         :calls: GET `/status/{system_name}/partitions`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/status/{system_name}/partitions"
         )
         return self._check_response(resp, 200)["partitions"]
 
-    async def list_files(
+    def list_files(
         self,
         system_name: str,
         path: str,
@@ -325,7 +311,7 @@ class AsyncFirecrest:
                             rather than for the link itself
         :calls: GET `/filesystem/{system_name}/ops/ls`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/ls",
             params={
                 "path": path,
@@ -337,7 +323,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
-    async def head(
+    def head(
         self,
         system_name: str,
         path: str,
@@ -382,13 +368,13 @@ class AsyncFirecrest:
         if num_lines is not None:
             params["lines"] = num_lines
 
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/head",
             params=params
         )
         return self._check_response(resp, 200)['output']
 
-    async def tail(
+    def tail(
         self,
         system_name: str,
         path: str,
@@ -435,13 +421,13 @@ class AsyncFirecrest:
         if num_lines is not None:
             params["lines"] = num_lines
 
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/tail",
             params=params
         )
         return self._check_response(resp, 200)['output']
 
-    async def view(
+    def view(
         self,
         system_name: str,
         path: str,
@@ -453,13 +439,13 @@ class AsyncFirecrest:
         :param path: the absolute target path of the file
         :calls: GET `/filesystem/{system_name}/ops/view`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/view",
             params={"path": path}
         )
         return self._check_response(resp, 200)["output"]
 
-    async def checksum(
+    def checksum(
         self,
         system_name: str,
         path: str,
@@ -471,13 +457,13 @@ class AsyncFirecrest:
         :param path: the absolute target path of the file
         :calls: GET `/filesystem/{system_name}/ops/checksum`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/checksum",
             params={"path": path}
         )
         return self._check_response(resp, 200)["output"]
 
-    async def file_type(
+    def file_type(
         self,
         system_name: str,
         path: str,
@@ -489,13 +475,13 @@ class AsyncFirecrest:
         :param path: the absolute target path of the file
         :calls: GET `/filesystem/{system_name}/ops/checksum`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/file",
             params={"path": path}
         )
         return self._check_response(resp, 200)["output"]
 
-    async def chmod(
+    def chmod(
         self,
         system_name: str,
         path: str,
@@ -513,13 +499,13 @@ class AsyncFirecrest:
             "path": path,
             "mode": mode
         }
-        resp = await self._put_request(
+        resp = self._put_request(
             endpoint=f"/filesystem/{system_name}/ops/chmod",
             data=json.dumps(data)
         )
         return self._check_response(resp, 200)["output"]
 
-    async def chown(
+    def chown(
         self,
         system_name: str,
         path: str,
@@ -541,13 +527,13 @@ class AsyncFirecrest:
             "owner": owner,
             "group": group
         }
-        resp = await self._put_request(
+        resp = self._put_request(
             endpoint=f"/filesystem/{system_name}/ops/chown",
             data=json.dumps(data)
         )
         return self._check_response(resp, 200)["output"]
 
-    async def stat(
+    def stat(
         self,
         system_name: str,
         path: str,
@@ -563,7 +549,7 @@ class AsyncFirecrest:
         :param dereference: follow symbolic links
         :calls: GET `/filesystem/{system_name}/ops/checksum`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/stat",
             params={
                 "path": path,
@@ -572,7 +558,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
-    async def mv(
+    def mv(
         self,
         system_name: str,
         source_path: str,
@@ -594,26 +580,26 @@ class AsyncFirecrest:
             "sourcePath": source_path,
             "targetPath": target_path
         }
-        resp = await self._post_request(
+        resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/mv",
             data=json.dumps(data)
         )
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            await self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(job_info)
 
         return job_info
 
-    async def _wait_for_transfer_job(self, job_info):
+    def _wait_for_transfer_job(self, job_info):
         job_id = job_info["transferJob"]["jobId"]
         system_name = job_info["transferJob"]["system"]
         for i in sleep_generator():
             try:
-                job = await self.job_info(system_name, job_id)
+                job = self.job_info(system_name, job_id)
             except FirecrestException as e:
                 if e.responses[-1].status_code == 404 and "Job not found" in e.responses[-1].json()['message']:
-                    await asyncio.sleep(i)
+                    time.sleep(i)
                     continue
 
             state = job[0]["state"]["current"]
@@ -623,11 +609,11 @@ class AsyncFirecrest:
             if slurm_state_completed(state):
                 break
 
-            await asyncio.sleep(i)
+            time.sleep(i)
 
         # TODO: Check if the job was successful
 
-        stdout_file = await self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
+        stdout_file = self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
         if (
             "Files were successfully" not in stdout_file and
             "File was successfully" not in stdout_file and
@@ -635,7 +621,7 @@ class AsyncFirecrest:
         ):
             raise TransferJobFailedException(job_info)
 
-    async def cp(
+    def cp(
         self,
         system_name: str,
         source_path: str,
@@ -655,18 +641,18 @@ class AsyncFirecrest:
             "targetPath": target_path
         }
 
-        resp = await self._post_request(
+        resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/cp",
             data=json.dumps(data)
         )
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            await self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(job_info)
 
         return job_info
 
-    async def rm(
+    def rm(
         self,
         system_name: str,
         path: str,
@@ -678,7 +664,7 @@ class AsyncFirecrest:
         :param path: the absolute target path
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
-        resp = await self._delete_request(
+        resp = self._delete_request(
             endpoint=f"/filesystem/{system_name}/transfer/rm",
             params={"path": path}
         )
@@ -687,11 +673,11 @@ class AsyncFirecrest:
         job_info = self._check_response(resp, 200)
 
         if blocking:
-            await self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(job_info)
 
         return job_info
 
-    async def upload(
+    def upload(
         self,
         system_name: str,
         local_file: str | pathlib.Path | BytesIO,
@@ -714,7 +700,7 @@ class AsyncFirecrest:
         """
         # TODO check if the file exists locally
 
-        resp = await self._post_request(
+        resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             data=json.dumps({
                 "source_path": directory,
@@ -724,19 +710,20 @@ class AsyncFirecrest:
 
         transfer_info = self._check_response(resp, 201)
         # Upload the file
-        async with aiofiles.open(local_file, "rb") as f:
-            data = await f.read()  # TODO this will fail for large files
-            await self._session.put(
+        # FIXME
+        with open(local_file, "rb") as f: # type: ignore
+            data = f.read()  # TODO this will fail for large files
+            self._session.put(
                 url=transfer_info["uploadUrl"],
                 data=data  # type: ignore
             )
 
         if blocking:
-            await self._wait_for_transfer_job(transfer_info)
+            self._wait_for_transfer_job(transfer_info)
 
         return transfer_info
 
-    async def download(
+    def download(
         self,
         system_name: str,
         source_path: str,
@@ -752,7 +739,7 @@ class AsyncFirecrest:
         :param blocking: whether to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        resp = await self._post_request(
+        resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/download",
             data=json.dumps({
                 "source_path": source_path,
@@ -761,19 +748,19 @@ class AsyncFirecrest:
 
         transfer_info = self._check_response(resp, 201)
         if blocking:
-            await self._wait_for_transfer_job(transfer_info)
+            self._wait_for_transfer_job(transfer_info)
 
             # Download the file
-            async with aiofiles.open(target_path, "wb") as f:
+            with open(target_path, "wb") as f:
                 # TODO this will fail for large files
-                resp = await self._session.get(
+                resp = self._session.get(
                     url=transfer_info["downloadUrl"],
                 )
-                await f.write(resp.content)
+                f.write(resp.content)
 
         return transfer_info
 
-    async def submit(
+    def submit(
         self,
         system_name: str,
         script: str,
@@ -798,13 +785,13 @@ class AsyncFirecrest:
         if env_vars:
             data["job"]["env"] = env_vars
 
-        resp = await self._post_request(
+        resp = self._post_request(
             endpoint=f"/compute/{system_name}/jobs",
             data=json.dumps(data)
         )
         return self._check_response(resp, 201)
 
-    async def job_info(
+    def job_info(
         self,
         system_name: str,
         jobid: Optional[str] = None
@@ -820,12 +807,12 @@ class AsyncFirecrest:
         url = f"/compute/{system_name}/jobs"
         url = f"{url}/{jobid}" if jobid else url
 
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=url,
         )
         return self._check_response(resp, 200)["jobs"]
 
-    async def job_metadata(
+    def job_metadata(
         self,
         system_name: str,
         jobid: str,
@@ -836,12 +823,12 @@ class AsyncFirecrest:
         :param jobid: the ID of the job
         :calls: GET `/compute/{system_name}/jobs/{jobid}/metadata`
         """
-        resp = await self._get_request(
+        resp = self._get_request(
             endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
         )
         return self._check_response(resp, 200)['jobs']
 
-    async def cancel_job(
+    def cancel_job(
         self,
         system_name: str,
         jobid: str,
@@ -852,12 +839,12 @@ class AsyncFirecrest:
         :param jobid: the ID of the job to be cancelled
         :calls: DELETE `/compute/{system_name}/jobs/{jobid}`
         """
-        resp = await self._delete_request(
+        resp = self._delete_request(
             endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
         )
         return self._check_response(resp, 200)['jobs']
 
-    async def attach_to_job(
+    def attach_to_job(
         self,
         system_name: str,
         jobid: str,
@@ -867,10 +854,10 @@ class AsyncFirecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param jobid: the ID of the job
-        command: the command to be executed
+        :param command: the command to be executed
         :calls: PUT `/compute/{system_name}/jobs/{jobid}/attach`
         """
-        resp = await self._put_request(
+        resp = self._put_request(
             endpoint=f"/compute/{system_name}/jobs/{jobid}/attach",
             data=json.dumps({"command": command})
         )
