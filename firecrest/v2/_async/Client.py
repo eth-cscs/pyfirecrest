@@ -291,6 +291,19 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["partitions"]
 
+    async def userinfo(
+        self,
+        system_name: str
+    ) -> List[dict]:
+        """Returns user and groups information.
+
+        :calls: GET `/status/{system_name}/userinfo`
+        """
+        resp = await self._get_request(
+             endpoint=f"/status/{system_name}/userinfo"
+        )
+        return self._check_response(resp, 200)
+
     async def list_files(
         self,
         system_name: str,
