@@ -5,7 +5,7 @@ The library also provides an asynchronous API for the client:
 
 The ``AsyncFirecrest`` class
 ****************************
-.. autoclass:: firecrest.v2.AsyncClient.AsyncFirecrest
+.. autoclass:: firecrest.v2.AsyncFirecrest
     :members:
     :undoc-members:
     :show-inheritance:

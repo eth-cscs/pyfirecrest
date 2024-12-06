@@ -1,0 +1,9 @@
+{
+    "status_code": 200,
+    "response": {
+        "content": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10",
+        "contentType": "bytes",
+        "startPosition": 0,
+        "endPosition": -7
+    }
+}
