@@ -291,6 +291,19 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["partitions"]
 
+    def userinfo(
+        self,
+        system_name: str
+    ) -> dict:
+        """Returns user and groups information.
+
+        :calls: GET `/status/{system_name}/userinfo`
+        """
+        resp = self._get_request(
+             endpoint=f"/status/{system_name}/userinfo"
+        )
+        return self._check_response(resp, 200)
+
     def list_files(
         self,
         system_name: str,

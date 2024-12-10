@@ -92,3 +92,10 @@ async def test_reservations(valid_client):
     data = read_json_file("v2/responses/reservations.json")
     resp = await valid_client.reservations("cluster")
     assert resp == data["response"]["reservations"]
+
+
+@pytest.mark.asyncio
+async def test_userinfo(valid_client):
+    data = read_json_file("v2/responses/userinfo.json")
+    resp = await valid_client.userinfo("cluster")
+    assert resp == data["response"]

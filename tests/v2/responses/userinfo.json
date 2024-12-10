@@ -1,0 +1,19 @@
+{
+   "status_code": 200,
+   "response": {
+      "user": {
+         "id": "1000",
+         "name": "fireuser"
+      },
+      "group": {
+         "id": "100",
+         "name": "users"
+      },
+      "groups": [
+         {
+            "id": "100",
+            "name": "users"
+         }
+      ]
+   }
+}
