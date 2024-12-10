@@ -294,7 +294,7 @@ class AsyncFirecrest:
     async def userinfo(
         self,
         system_name: str
-    ) -> List[dict]:
+    ) -> dict:
         """Returns user and groups information.
 
         :calls: GET `/status/{system_name}/userinfo`
