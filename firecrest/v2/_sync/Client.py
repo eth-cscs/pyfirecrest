@@ -331,10 +331,10 @@ class Firecrest:
                 "showHidden": show_hidden,
                 "recursive": recursive,
                 "numericUid": numeric_uid,
-                "followLinks": dereference
+                "dereference": dereference
             }
         )
-        return self._check_response(resp, 200)["output"]
+        return self._check_response(resp, 204)
 
     def head(
         self,
@@ -853,9 +853,9 @@ class Firecrest:
         :calls: DELETE `/compute/{system_name}/jobs/{jobid}`
         """
         resp = self._delete_request(
-            endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
+            endpoint=f"/compute/{system_name}/jobs/{jobid}",
         )
-        return self._check_response(resp, 200)['jobs']
+        return self._check_response(resp, 204)
 
     def attach_to_job(
         self,
