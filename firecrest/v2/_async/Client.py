@@ -854,7 +854,7 @@ class AsyncFirecrest:
         resp = await self._delete_request(
             endpoint=f"/compute/{system_name}/jobs/{jobid}",
         )
-        return self._check_response(resp, 200)['jobs']
+        return self._check_response(resp, 204)
 
     async def attach_to_job(
         self,

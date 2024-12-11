@@ -334,7 +334,7 @@ class Firecrest:
                 "dereference": dereference
             }
         )
-        return self._check_response(resp, 204)
+        return self._check_response(resp, 200)["output"]
 
     def head(
         self,
