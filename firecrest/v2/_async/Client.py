@@ -331,7 +331,7 @@ class AsyncFirecrest:
                 "showHidden": show_hidden,
                 "recursive": recursive,
                 "numericUid": numeric_uid,
-                "followLinks": dereference
+                "dereference": dereference
             }
         )
         return self._check_response(resp, 200)["output"]
@@ -852,9 +852,9 @@ class AsyncFirecrest:
         :calls: DELETE `/compute/{system_name}/jobs/{jobid}`
         """
         resp = await self._delete_request(
-            endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
+            endpoint=f"/compute/{system_name}/jobs/{jobid}",
         )
-        return self._check_response(resp, 200)['jobs']
+        return self._check_response(resp, 204)
 
     async def attach_to_job(
         self,

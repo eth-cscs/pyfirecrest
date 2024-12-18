@@ -3,7 +3,7 @@
     "response": {
         "output": [
             {
-                "name": "/home/test1//bin",
+                "name": "/home/test1/bin",
                 "type": "d",
                 "linkTarget": null,
                 "user": "test1",
