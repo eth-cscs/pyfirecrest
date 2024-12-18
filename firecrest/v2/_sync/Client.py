@@ -610,7 +610,7 @@ class Firecrest:
         source_path: str,
         target_path: str,
         dereference: bool = False
-    ) -> List[dict]:
+    ) -> None:
         """Compress a directory or file.
 
         :param system_name: the system name where the filesystem belongs to
@@ -635,7 +635,7 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
-    ) -> List[dict]:
+    ) -> None:
         """Extract tar gzip archives.
 
         :param system_name: the system name where the filesystem belongs to
