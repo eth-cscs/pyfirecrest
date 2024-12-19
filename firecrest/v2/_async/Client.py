@@ -11,6 +11,7 @@ import asyncio
 import httpx
 import json
 import logging
+import os
 import pathlib
 import ssl
 
@@ -775,17 +776,17 @@ class AsyncFirecrest:
     async def submit(
         self,
         system_name: str,
-        script_str: str,
-        script_path: str,
         working_dir: str,
+        script_str: Optional[str] = None,
+        script_path: Optional[str] = None,
         env_vars: Optional[dict[str, str]] = None,
     ) -> dict:
         """Submit a job.
 
         :param system_name: the system name where the filesystem belongs to
+        :param working_dir: the working directory of the job
         :param script_str: the job script
         :param script_path: path to the job script
-        :param working_dir: the working directory of the job
         :param env_vars: environment variables to be set before running the
                          job
         :calls: POST `/compute/{system_name}/jobs`
