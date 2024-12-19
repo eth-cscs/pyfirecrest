@@ -331,7 +331,7 @@ class Firecrest:
                 "showHidden": show_hidden,
                 "recursive": recursive,
                 "numericUid": numeric_uid,
-                "followLinks": dereference
+                "dereference": dereference
             }
         )
         return self._check_response(resp, 200)["output"]
@@ -486,7 +486,7 @@ class Firecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path of the file
-        :calls: GET `/filesystem/{system_name}/ops/checksum`
+        :calls: GET `/filesystem/{system_name}/ops/file`
         """
         resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/file",
@@ -560,7 +560,7 @@ class Firecrest:
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
         :param dereference: follow symbolic links
-        :calls: GET `/filesystem/{system_name}/ops/checksum`
+        :calls: GET `/filesystem/{system_name}/ops/stat`
         """
         resp = self._get_request(
             endpoint=f"/filesystem/{system_name}/ops/stat",
@@ -603,6 +603,54 @@ class Firecrest:
             self._wait_for_transfer_job(job_info)
 
         return job_info
+
+    def compress(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str,
+        dereference: bool = False
+    ) -> None:
+        """Compress a directory or file.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute path to source directory
+        :param target_path: the absolute path to the newly created
+                            compressed file
+        :param dereference: dereference links when compressing
+        :calls: POST `/filesystem/{system_name}/ops/compress`
+        """
+        resp = self._post_request(
+            endpoint=f"/filesystem/{system_name}/ops/compress",
+            data=json.dumps({
+                "source_path": source_path,
+                "target_path": target_path,
+                "dereference": dereference
+            })
+        )
+        self._check_response(resp, 204)
+
+    def extract(
+        self,
+        system_name: str,
+        source_path: str,
+        target_path: str,
+    ) -> None:
+        """Extract tar gzip archives.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute path to the archive
+        :param target_path: the absolute path to target directory
+        :calls: POST `/filesystem/{system_name}/ops/extract`
+        """
+        resp = self._post_request(
+            endpoint=f"/filesystem/{system_name}/ops/extract",
+            data=json.dumps({
+                "source_path": source_path,
+                "target_path": target_path
+            })
+        )
+        self._check_response(resp, 204)
 
     def _wait_for_transfer_job(self, job_info):
         job_id = job_info["transferJob"]["jobId"]
@@ -853,9 +901,9 @@ class Firecrest:
         :calls: DELETE `/compute/{system_name}/jobs/{jobid}`
         """
         resp = self._delete_request(
-            endpoint=f"/compute/{system_name}/jobs/{jobid}/metadata",
+            endpoint=f"/compute/{system_name}/jobs/{jobid}",
         )
-        return self._check_response(resp, 200)['jobs']
+        return self._check_response(resp, 204)
 
     def attach_to_job(
         self,
