@@ -841,18 +841,15 @@ class Firecrest:
         :calls: POST `/compute/{system_name}/jobs`
         """
 
-        if [
-            script_str is None,
-            script_path is None,
-        ].count(False) != 1:
+        if sum(arg is not None for arg in [script_str, script_path]) != 1:
             self.log(
                 logging.ERROR,
-                "Only one of the arguments `script_str` or `script_path` "
-                "can be set at a time. "
+                "Exactly one of the arguments `script_str` or `script_path` "
+                "must be set."
             )
             raise ValueError(
-                "Only one of the arguments `script_str` or `script_path` "
-                "can be set at a time. "
+                "Exactly one of the arguments `script_str` or `script_path` "
+                "must be set."
             )
 
         if script_path:
