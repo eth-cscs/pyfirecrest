@@ -572,6 +572,52 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    async def symlink(
+        self,
+        system_name: str,
+        source_path: str,
+        link_path: str,
+    ) -> dict:
+        """Create a symbolic link.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute path to the file the link points to
+        :param link_path: the absolute path to the symlink
+
+        :calls: POST `/filesystem/{system_name}/ops/symlink`
+        """
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/ops/symlink",
+            data=json.dumps({
+                "sourcePath": source_path,
+                "linkPath": link_path
+            })
+        )
+        return self._check_response(resp, 201)
+
+    async def mkdir(
+        self,
+        system_name: str,
+        path: str,
+        create_parents: bool = False
+    ) -> dict:
+        """Create a directory.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute path to the new directory
+        :param create_parents: create intermediate parent directories
+
+        :calls: POST `/filesystem/{system_name}/ops/mkdir`
+        """
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/ops/mkdir",
+            data=json.dumps({
+                "sourcePath": path,
+                "parent": create_parents
+            })
+        )
+        return self._check_response(resp, 201)
+
     async def mv(
         self,
         system_name: str,
