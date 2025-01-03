@@ -577,7 +577,7 @@ class AsyncFirecrest:
         source_path: str,
         link_path: str,
     ) -> dict:
-        """Create a directory
+        """Create a symbolic link.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute path to the file the link points to
@@ -600,7 +600,7 @@ class AsyncFirecrest:
         path: str,
         create_parents: bool = False
     ) -> dict:
-        """Create a directory
+        """Create a directory.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute path to the new directory
