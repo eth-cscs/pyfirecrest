@@ -1,5 +1,5 @@
-Simple tutorial
-===============
+Tutorial for FirecREST v1
+=========================
 
 Your starting point to use pyFirecREST will be the creation of a FirecREST object.
 This is simply a mini client that, in cooperation with the authorization object, will take care of the necessary requests that need to be made and handle the responses.

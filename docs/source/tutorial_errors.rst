@@ -14,8 +14,8 @@ Here is an example of the code that will handle those failures.
 
 
     try:
-        parameters = client.parameters()
-        print(f"Firecrest parameters: {parameters}")
+        files = client.list_files("cluster", "/home/test_user")
+        print(f"List of files: {files}")
     except fc.FirecrestException as e:
         # You can just print the exception to get more information about the type of error,
         # for example an invalid or expired token.
