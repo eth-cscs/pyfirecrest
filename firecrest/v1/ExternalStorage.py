@@ -21,7 +21,7 @@ import urllib.request
 from packaging.version import Version
 
 if TYPE_CHECKING:
-    from firecrest.BasicClient import Firecrest
+    from firecrest.v1.BasicClient import Firecrest
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore

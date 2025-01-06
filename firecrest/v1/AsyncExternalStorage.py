@@ -18,7 +18,7 @@ import urllib.request
 from packaging.version import Version
 
 if TYPE_CHECKING:
-    from firecrest.AsyncClient import AsyncFirecrest as AsyncFirecrestv1
+    from firecrest.v1.AsyncClient import AsyncFirecrest as AsyncFirecrestv1
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore

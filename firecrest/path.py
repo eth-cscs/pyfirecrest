@@ -11,8 +11,8 @@ import stat
 import tempfile
 from typing import Callable, Iterator, List
 
-from firecrest import Firecrest, ClientCredentialsAuth
-from firecrest.BasicClient import logger as FcLogger
+from firecrest.v1 import Firecrest, ClientCredentialsAuth
+from firecrest.v1.BasicClient import logger as FcLogger
 from firecrest.FirecrestException import HeaderException
 
 
@@ -310,7 +310,7 @@ class FcPath(os.PathLike):
                 self._cache.lst_mode = item._cache.lst_mode
                 return item._cache.lst_mode
         raise FileNotFoundError(self)
-    
+
     def resolve(self) -> Self:
         """Resolve a path, removing '..' and '.' components."""
         parts: List[str] = []
@@ -349,7 +349,7 @@ class FcPath(os.PathLike):
                 if stat.S_ISLNK(mode):
                     if not item._cache.link_target:
                         raise FileNotFoundError(f"Symlink has no target path: {self}")
-                    pureposixpath = PurePosixPath(item._cache.link_target) 
+                    pureposixpath = PurePosixPath(item._cache.link_target)
                     if not pureposixpath.is_absolute():
                         path = path.parent.joinpath(pureposixpath).resolve()
                     else:

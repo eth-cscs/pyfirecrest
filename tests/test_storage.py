@@ -21,7 +21,7 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    return firecrest.Firecrest(
+    return firecrest.v1.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
@@ -42,7 +42,7 @@ def invalid_client(fc_server):
         def get_access_token(self):
             return "INVALID_TOKEN"
 
-    return firecrest.Firecrest(
+    return firecrest.v1.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 
@@ -646,7 +646,7 @@ def test_external_download(valid_client):
     external_download_retry = 0
     valid_client.set_api_version("1.14.0")
     obj = valid_client.external_download("cluster1", "/path/to/remote/source")
-    assert isinstance(obj, firecrest.ExternalDownload)
+    assert isinstance(obj, firecrest.v1.ExternalDownload)
     assert obj._task_id == "external_download_id"
     assert obj.client == valid_client
 
@@ -656,7 +656,7 @@ def test_external_download_legacy(valid_client):
     external_download_retry = 0
     valid_client.set_api_version("1.13.0")
     obj = valid_client.external_download("cluster1", "/path/to/remote/sourcelegacy")
-    assert isinstance(obj, firecrest.ExternalDownload)
+    assert isinstance(obj, firecrest.v1.ExternalDownload)
     assert obj._task_id == "external_download_id_legacy"
     assert obj.client == valid_client
 
@@ -711,7 +711,7 @@ def test_external_upload(valid_client):
     obj = valid_client.external_upload(
         "cluster1", "/path/to/local/source", "/path/to/remote/destination"
     )
-    assert isinstance(obj, firecrest.ExternalUpload)
+    assert isinstance(obj, firecrest.v1.ExternalUpload)
     assert obj._task_id == "external_upload_id"
     assert obj.client == valid_client
 

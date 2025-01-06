@@ -21,7 +21,7 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    return firecrest.Firecrest(
+    return firecrest.v1.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
 
@@ -42,7 +42,7 @@ def invalid_client(fc_server):
         def get_access_token(self):
             return "INVALID_TOKEN"
 
-    return firecrest.Firecrest(
+    return firecrest.v1.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
 

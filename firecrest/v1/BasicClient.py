@@ -24,7 +24,7 @@ from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
-from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
+from firecrest.v1.ExternalStorage import ExternalUpload, ExternalDownload
 from firecrest.utilities import (parse_retry_after, slurm_state_completed, time_block)
 
 if sys.version_info >= (3, 8):
