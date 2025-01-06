@@ -6,7 +6,6 @@
 #
 from __future__ import annotations
 
-import aiofiles
 import httpx
 import json
 import logging
@@ -15,7 +14,6 @@ import pathlib
 import ssl
 import time
 
-from contextlib import contextmanager
 from io import BytesIO
 from packaging.version import Version, parse
 from typing import Any, Optional, List

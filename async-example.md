@@ -47,7 +47,7 @@ async def workflow(client, i):
 
 async def main():
     auth = firecrest.ClientCredentialsAuth(client_id, client_secret, token_uri)
-    client = firecrest.AsyncFirecrest(firecrest_url, authorization=auth)
+    client = firecrest.v1.AsyncFirecrest(firecrest_url, authorization=auth)
 
     # Set up the desired polling rate for each microservice. The float number
     # represents the number of seconds between consecutive requests in each

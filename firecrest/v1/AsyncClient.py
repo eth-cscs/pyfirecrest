@@ -27,7 +27,7 @@ from packaging.version import Version, parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
-from firecrest.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
+from firecrest.v1.AsyncExternalStorage import AsyncExternalUpload, AsyncExternalDownload
 from firecrest.utilities import (
     parse_retry_after, slurm_state_completed, time_block
 )

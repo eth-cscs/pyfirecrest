@@ -28,7 +28,7 @@ keycloak = f7t.ClientCredentialsAuth(
 )
 
 # Setup the client for the specific account
-client = f7t.Firecrest(
+client = f7t.v1.Firecrest(
     firecrest_url="http://localhost:8000", authorization=keycloak
 )
 

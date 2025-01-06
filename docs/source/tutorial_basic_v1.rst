@@ -1,5 +1,5 @@
-Simple tutorial
-===============
+Tutorial for FirecREST v1
+=========================
 
 Your starting point to use pyFirecREST will be the creation of a FirecREST object.
 This is simply a mini client that, in cooperation with the authorization object, will take care of the necessary requests that need to be made and handle the responses.
@@ -19,7 +19,7 @@ For this tutorial we will assume the simplest kind of authorization class, where
             return <TOKEN>
 
     # Setup the client with the appropriate URL and the authorization class
-    client = fc.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
+    client = fc.v1.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
 
 
 Simple blocking requests

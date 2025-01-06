@@ -12,7 +12,7 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    client = firecrest.AsyncFirecrest(
+    client = firecrest.v1.AsyncFirecrest(
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
     client.time_between_calls = {
@@ -33,7 +33,7 @@ def invalid_client(fc_server):
         def get_access_token(self):
             return "INVALID_TOKEN"
 
-    client = firecrest.AsyncFirecrest(
+    client = firecrest.v1.AsyncFirecrest(
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
     client.time_between_calls = {
