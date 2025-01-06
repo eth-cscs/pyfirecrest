@@ -19,7 +19,7 @@ For this tutorial we will assume the simplest kind of authorization class, where
             return <TOKEN>
 
     # Setup the client with the appropriate URL and the authorization class
-    client = fc.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
+    client = fc.v1.Firecrest(firecrest_url=<firecrest_url>, authorization=MyAuthorizationClass())
 
 
 Simple blocking requests
