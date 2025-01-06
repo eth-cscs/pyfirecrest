@@ -21,7 +21,7 @@ import urllib.request
 from packaging.version import Version
 
 if TYPE_CHECKING:
-    from firecrest.v1.BasicClient import Firecrest
+    from firecrest.v1.BasicClient import Firecrest as FirecrestV1
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore
@@ -41,7 +41,7 @@ class ExternalStorage:
 
     def __init__(
         self,
-        client: Firecrest,
+        client: FirecrestV1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -56,7 +56,7 @@ class ExternalStorage:
         self._responses = previous_responses
 
     @property
-    def client(self) -> Firecrest:
+    def client(self) -> FirecrestV1:
         """Returns the client that will be used to get information for the task."""
         return self._client
 
@@ -156,7 +156,7 @@ class ExternalUpload(ExternalStorage):
 
     def __init__(
         self,
-        client: Firecrest,
+        client: FirecrestV1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -215,7 +215,7 @@ class ExternalDownload(ExternalStorage):
 
     def __init__(
         self,
-        client: Firecrest,
+        client: FirecrestV1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:

@@ -18,7 +18,7 @@ import urllib.request
 from packaging.version import Version
 
 if TYPE_CHECKING:
-    from firecrest.v1.AsyncClient import AsyncFirecrest as AsyncFirecrestv1
+    from firecrest.v1.AsyncClient import AsyncFirecrest as AsyncFirecrestV1
 
 from contextlib import nullcontext
 from requests.compat import json  # type: ignore
@@ -38,7 +38,7 @@ class AsyncExternalStorage:
 
     def __init__(
         self,
-        client: AsyncFirecrestv1,
+        client: AsyncFirecrestV1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -52,7 +52,7 @@ class AsyncExternalStorage:
         self._responses = previous_responses
 
     @property
-    def client(self) -> AsyncFirecrestv1:
+    def client(self) -> AsyncFirecrestV1:
         """Returns the client that will be used to get information for the task."""
         return self._client
 
@@ -151,7 +151,7 @@ class AsyncExternalUpload(AsyncExternalStorage):
 
     def __init__(
         self,
-        client: AsyncFirecrestv1,
+        client: AsyncFirecrestV1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
@@ -212,7 +212,7 @@ class AsyncExternalDownload(AsyncExternalStorage):
 
     def __init__(
         self,
-        client: AsyncFirecrestv1,
+        client: AsyncFirecrestV1,
         task_id: str,
         previous_responses: Optional[List[requests.Response]] = None,
     ) -> None:
