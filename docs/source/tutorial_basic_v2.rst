@@ -197,7 +197,7 @@ For a successful submission the output would look like this.
         "jobid": 42,
     }
 
-In FirecREST v2, the user selects the working directory where the job will be submitted.
+In FirecREST v2, the user selects the working directory where the job will be submitted from.
 
 .. Transfer of large files
 .. -----------------------
