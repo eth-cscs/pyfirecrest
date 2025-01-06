@@ -11,7 +11,8 @@ import stat
 import tempfile
 from typing import Callable, Iterator, List
 
-from firecrest.v1 import Firecrest, ClientCredentialsAuth
+from firecrest import ClientCredentialsAuth
+from firecrest.v1 import Firecrest
 from firecrest.v1.BasicClient import logger as FcLogger
 from firecrest.FirecrestException import HeaderException
 
