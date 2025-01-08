@@ -871,7 +871,7 @@ class AsyncFirecrest:
         system_name: str,
         working_dir: str,
         script_str: Optional[str] = None,
-        script_path: Optional[str] = None,
+        script_local_path: Optional[str] = None,
         env_vars: Optional[dict[str, str]] = None,
     ) -> dict:
         """Submit a job.
@@ -879,27 +879,26 @@ class AsyncFirecrest:
         :param system_name: the system name where the filesystem belongs to
         :param working_dir: the working directory of the job
         :param script_str: the job script
-        :param script_path: path to the job script
+        :param script_local_path: path to the job script
         :param env_vars: environment variables to be set before running the
                          job
         :calls: POST `/compute/{system_name}/jobs`
         """
 
-        if sum(arg is not None for arg in [script_str, script_path]) != 1:
-            self.log(
-                logging.ERROR,
-                "Exactly one of the arguments `script_str` or `script_path` "
-                "must be set."
-            )
+        if sum(
+            arg is not None for arg in [script_str, script_local_path]
+        ) != 1:
             raise ValueError(
-                "Exactly one of the arguments `script_str` or `script_path` "
-                "must be set."
+                "Exactly one of the arguments `script_str` or "
+                "`script_local_path` must be set."
             )
 
-        if script_path:
-            if not os.path.isfile(script_path):
-                raise FileNotFoundError(f"Script file not found: {script_path}")
-            with open(script_path) as file:
+        if script_local_path:
+            if not os.path.isfile(script_local_path):
+                raise FileNotFoundError(
+                    f"Script file not found: {script_local_path}"
+                )
+            with open(script_local_path) as file:
                 script_str = file.read()
 
         data: dict[str, dict[str, Any]] = {
