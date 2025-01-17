@@ -65,7 +65,7 @@ custom_theme = {
     "repr.number": "none",
 }
 console = Console(theme=Theme(custom_theme))
-client: fc.Firecrest = None  # type: ignore
+client: fc.v1.Firecrest = None  # type: ignore
 logger = logging.getLogger(__name__)
 
 
@@ -1734,7 +1734,7 @@ def main(
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
     auth_obj.timeout = auth_timeout
-    client = fc.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
+    client = fc.v1.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
     client.timeout = timeout
     if api_version:
         client.set_api_version(api_version)

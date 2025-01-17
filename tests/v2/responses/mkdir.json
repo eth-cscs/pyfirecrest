@@ -1,0 +1,15 @@
+{
+    "status_code": 201,
+    "response": {
+        "output": {
+            "name": "/home/fireuser/new_dir",
+            "type": "d",
+            "linkTarget": "None",
+            "user": "fireuser",
+            "group": "users",
+            "permissions": "rwxr-xr-x",
+            "lastModified": "2024-12-19T10:29:59",
+            "size": "4096"
+        }
+    }
+}

@@ -11,10 +11,10 @@ import asyncio
 import httpx
 import json
 import logging
+import os
 import pathlib
 import ssl
 
-from contextlib import asynccontextmanager
 from io import BytesIO
 from packaging.version import Version, parse
 from typing import Any, Optional, List
@@ -571,6 +571,52 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    async def symlink(
+        self,
+        system_name: str,
+        source_path: str,
+        link_path: str,
+    ) -> dict:
+        """Create a symbolic link.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param source_path: the absolute path to the file the link points to
+        :param link_path: the absolute path to the symlink
+
+        :calls: POST `/filesystem/{system_name}/ops/symlink`
+        """
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/ops/symlink",
+            data=json.dumps({
+                "sourcePath": source_path,
+                "linkPath": link_path
+            })
+        )
+        return self._check_response(resp, 201)
+
+    async def mkdir(
+        self,
+        system_name: str,
+        path: str,
+        create_parents: bool = False
+    ) -> dict:
+        """Create a directory.
+
+        :param system_name: the system name where the filesystem belongs to
+        :param path: the absolute path to the new directory
+        :param create_parents: create intermediate parent directories
+
+        :calls: POST `/filesystem/{system_name}/ops/mkdir`
+        """
+        resp = await self._post_request(
+            endpoint=f"/filesystem/{system_name}/ops/mkdir",
+            data=json.dumps({
+                "sourcePath": path,
+                "parent": create_parents
+            })
+        )
+        return self._check_response(resp, 201)
+
     async def mv(
         self,
         system_name: str,
@@ -823,22 +869,41 @@ class AsyncFirecrest:
     async def submit(
         self,
         system_name: str,
-        script: str,
         working_dir: str,
+        script_str: Optional[str] = None,
+        script_local_path: Optional[str] = None,
         env_vars: Optional[dict[str, str]] = None,
     ) -> dict:
         """Submit a job.
 
         :param system_name: the system name where the filesystem belongs to
-        :param script: the job script
         :param working_dir: the working directory of the job
+        :param script_str: the job script
+        :param script_local_path: path to the job script
         :param env_vars: environment variables to be set before running the
                          job
         :calls: POST `/compute/{system_name}/jobs`
         """
+
+        if sum(
+            arg is not None for arg in [script_str, script_local_path]
+        ) != 1:
+            raise ValueError(
+                "Exactly one of the arguments `script_str` or "
+                "`script_local_path` must be set."
+            )
+
+        if script_local_path:
+            if not os.path.isfile(script_local_path):
+                raise FileNotFoundError(
+                    f"Script file not found: {script_local_path}"
+                )
+            with open(script_local_path) as file:
+                script_str = file.read()
+
         data: dict[str, dict[str, Any]] = {
             "job": {
-                "script": script,
+                "script": script_str,
                 "working_directory": working_dir
             }
         }

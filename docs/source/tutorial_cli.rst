@@ -3,6 +3,10 @@ How to use the CLI
 
 After version 1.3.0, pyFirecREST comes together with a CLI but for now it can only be used with the ``ClientCredentialsAuth`` authentication class.
 
+.. attention::
+
+    The CLI currently only supports FirecREST v1. Support for v2 is planned for the next release.
+
 You will need to set the environment variables ``FIRECREST_CLIENT_ID``, ``FIRECREST_CLIENT_SECRET`` and ``AUTH_TOKEN_URL`` to set up the Client Credentials client, as well as ``FIRECREST_URL`` with the URL for the FirecREST instance you are using.
 
 After that you can explore the capabilities of the CLI with the `--help` option:

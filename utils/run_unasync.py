@@ -10,6 +10,7 @@ unasync.unasync_files(
             additional_replacements={
                 "AsyncFirecrest": "Firecrest",
                 "AsyncClient": "Client",
+                "aclose": "close",
                 # "asyncio.sleep": "time.sleep",
                 # multi token replacement doesn't work, it happens manually
                 # TODO find a way to replace this automatically

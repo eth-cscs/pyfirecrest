@@ -6,7 +6,7 @@ Together with the authorisation class it takes care of the token and makes the a
 
 The ``Firecrest`` class
 ***********************
-.. autoclass:: firecrest.Firecrest
+.. autoclass:: firecrest.v1.Firecrest
     :members:
     :undoc-members:
     :show-inheritance:
@@ -14,7 +14,7 @@ The ``Firecrest`` class
 
 The ``ExternalUpload`` class
 ****************************
-.. autoclass:: firecrest.ExternalUpload
+.. autoclass:: firecrest.v1.ExternalUpload
     :inherited-members:
     :members:
     :undoc-members:
@@ -23,7 +23,7 @@ The ``ExternalUpload`` class
 
 The ``ExternalDownload`` class
 ******************************
-.. autoclass:: firecrest.ExternalDownload
+.. autoclass:: firecrest.v1.ExternalDownload
     :inherited-members:
     :members:
     :undoc-members:
