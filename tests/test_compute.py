@@ -24,6 +24,7 @@ def valid_client(fc_server):
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
     client.polling_sleep_times = [0, 0, 0]
+    client.set_api_version("1.16.0")
     return client
 
 
@@ -34,6 +35,7 @@ def valid_credentials(fc_server, auth_server):
         "--client-id=valid_id",
         "--client-secret=valid_secret",
         f"--token-url={auth_server.url_for('/auth/token')}",
+        "--api-version=1.16.0",
     ]
 
 
@@ -43,9 +45,11 @@ def invalid_client(fc_server):
         def get_access_token(self):
             return "INVALID_TOKEN"
 
-    return firecrest.v1.Firecrest(
+    client = firecrest.v1.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
+    client.set_api_version("1.16.0")
+    return client
 
 
 @pytest.fixture
@@ -1586,6 +1590,12 @@ def test_get_nodes(valid_client):
     assert valid_client.nodes(machine="cluster1") == response
 
 
+def test_get_nodes_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.nodes(machine="cluster1")
+
+
 def test_get_nodes_from_list(valid_client):
     response = [
         {
@@ -1596,6 +1606,12 @@ def test_get_nodes_from_list(valid_client):
         }
     ]
     assert valid_client.nodes(machine="cluster1", nodes=["nid001"]) == response
+
+
+def test_get_nodes_from_list_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.nodes(machine="cluster1", nodes=["nid001"])
 
 
 def test_get_nodes_unknown(valid_client):
@@ -1642,6 +1658,12 @@ def test_get_partitions(valid_client):
     assert valid_client.partitions(machine="cluster1") == response
 
 
+def test_get_partitions_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.partitions(machine="cluster1")
+
+
 def test_get_partitions_from_list(valid_client):
     response = [
         {
@@ -1671,6 +1693,14 @@ def test_get_partitions_from_list(valid_client):
     ) == response
 
 
+def test_get_partitions_from_list_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.partitions(
+            machine="cluster1", partitions=["part01", "part02", "xfer"]
+        )
+
+
 def test_get_partitions_unknown(valid_client):
     with pytest.raises(firecrest.FirecrestException):
         valid_client.partitions(
@@ -1692,6 +1722,7 @@ def test_cli_get_partitions(valid_credentials):
     assert "part02" in stdout
     assert "UP" in stdout
 
+
 def test_get_reservations(valid_client):
     response = [
         {
@@ -1712,6 +1743,12 @@ def test_get_reservations(valid_client):
         }
     ]
     assert valid_client.reservations(machine="cluster1") == response
+
+
+def test_get_reservations_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.reservations(machine="cluster1")
 
 
 def test_cli_get_reservations(valid_credentials):

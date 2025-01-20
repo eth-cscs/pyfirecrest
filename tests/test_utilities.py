@@ -20,9 +20,11 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    return firecrest.v1.Firecrest(
+    client = firecrest.v1.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=ValidAuthorization()
     )
+    client.set_api_version("1.16.0")
+    return client
 
 
 @pytest.fixture
@@ -32,6 +34,7 @@ def valid_credentials(fc_server, auth_server):
         "--client-id=valid_id",
         "--client-secret=valid_secret",
         f"--token-url={auth_server.url_for('/auth/token')}",
+        "--api-version=1.16.0",
     ]
 
 
@@ -41,9 +44,11 @@ def invalid_client(fc_server):
         def get_access_token(self):
             return "INVALID_TOKEN"
 
-    return firecrest.v1.Firecrest(
+    client = firecrest.v1.Firecrest(
         firecrest_url=fc_server.url_for("/"), authorization=InvalidAuthorization()
     )
+    client.set_api_version("1.16.0")
+    return client
 
 
 def ls_handler(request: Request):
@@ -1212,6 +1217,16 @@ def test_compress(valid_client):
     )
 
 
+def test_compress_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.compress(
+            "cluster1",
+            "/path/to/valid/source",
+            "/path/to/valid/destination.tar.gz"
+        )
+
+
 def test_cli_compress(valid_credentials):
     args = valid_credentials + [
         "compress",
@@ -1233,6 +1248,16 @@ def test_extract(valid_client):
             "/path/to/valid/destination"
         ) == "/path/to/valid/destination"
     )
+
+
+def test_extract_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.extract(
+            "cluster1",
+            "/path/to/valid/source.tar.gz",
+            "/path/to/valid/destination"
+        )
 
 
 def test_cli_extract(valid_credentials):
@@ -1673,6 +1698,12 @@ def test_groups(valid_client):
         "groups": [{"id": "1000", "name": "group1"}, {"id": "1001", "name": "group2"}],
         "user": {"id": "10000", "name": "test_user"},
     }
+
+
+def test_groups_not_impl(valid_client):
+    valid_client.set_api_version("1.14.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        valid_client.groups(machine="cluster1")
 
 
 def test_groups_invalid_machine(valid_client):

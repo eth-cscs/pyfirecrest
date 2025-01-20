@@ -24,9 +24,10 @@ from firecrest.Authorization import ClientCredentialsAuth
 from firecrest.FirecrestException import (
     ClientsCredentialsException,
     FirecrestException,
-    UnauthorizedException,
     HeaderException,
-    UnexpectedStatusException,
+    NotImplementedOnAPIversion,
     StorageDownloadException,
     StorageUploadException,
+    UnauthorizedException,
+    UnexpectedStatusException,
 )
