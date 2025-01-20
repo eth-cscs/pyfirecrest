@@ -81,8 +81,9 @@ def filesystem_handler(request: Request):
     url, params = request.url.split("?")
     endpoint = url.split("/")[-1]
 
+    suffix = ""
+
     if endpoint == "head":
-        suffix = ""
         if "bytes=8" in params:
             suffix = "_bytes"
 
@@ -96,7 +97,6 @@ def filesystem_handler(request: Request):
             suffix = "_lines_exclude_trailing"
 
     if endpoint == "tail":
-        suffix = ""
         if "bytes=8" in params:
             suffix = "_bytes"
 
@@ -110,7 +110,6 @@ def filesystem_handler(request: Request):
             suffix = "_lines_exclude_beginning"
 
     if endpoint == "ls":
-        suffix = ""
         if "dereference=true" in params:
             suffix = "_dereference"
 
@@ -125,6 +124,10 @@ def filesystem_handler(request: Request):
 
         if "path=/invalid/path" in params:
             suffix = "_invalid_path"
+
+    if endpoint == "stat":
+        if "dereference=true" in params:
+            suffix = "_dereference"
 
     data = read_json_file(f"v2/responses/{endpoint}{suffix}.json")
 
@@ -300,3 +303,39 @@ def test_ls_invalid_path(valid_client):
     assert str(message) == (
         "ls: cannot access '/invalid/path': No such file or directory"
     )
+
+
+def test_view(valid_client):
+    data = read_json_file("v2/responses/view.json")
+    resp = valid_client.view("cluster", "/home/user/file")
+
+    assert resp == data["response"]["output"]
+
+
+def test_stat(valid_client):
+    data = read_json_file("v2/responses/stat.json")
+    resp = valid_client.stat("cluster", "/home/user/file")
+
+    assert resp == data["response"]["output"]
+
+
+def test_stat_dereference(valid_client):
+    data = read_json_file("v2/responses/stat_dereference.json")
+    resp = valid_client.stat("cluster", "/home/user/file",
+                             dereference=True)
+
+    assert resp == data["response"]["output"]
+
+
+def test_file_type(valid_client):
+    data = read_json_file("v2/responses/file.json")
+    resp = valid_client.file_type("cluster", "/home/user/file")
+
+    assert resp == data["response"]["output"]
+
+
+def test_checksum(valid_client):
+    data = read_json_file("v2/responses/checksum.json")
+    resp = valid_client.checksum("cluster", "/home/user/file")
+
+    assert resp == data["response"]["output"]
