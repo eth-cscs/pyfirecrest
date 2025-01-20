@@ -285,7 +285,7 @@ class Firecrest:
         :calls: GET `/status/systems`
         """
         resp = self._get_request(endpoint="/status/systems")
-        return resp.json()['systems']
+        return self._check_response(resp, 200)['systems']
 
     def nodes(
         self,
@@ -856,7 +856,7 @@ class Firecrest:
         transfer_info = self._check_response(resp, 201)
         # Upload the file
         # FIXME
-        with open(local_file, "rb") as f: # type: ignore
+        with open(local_file, "rb") as f:  # type: ignore
             data = f.read()  # TODO this will fail for large files
             self._session.put(
                 url=transfer_info["uploadUrl"],

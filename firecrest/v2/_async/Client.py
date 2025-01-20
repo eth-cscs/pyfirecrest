@@ -286,7 +286,7 @@ class AsyncFirecrest:
         :calls: GET `/status/systems`
         """
         resp = await self._get_request(endpoint="/status/systems")
-        return resp.json()['systems']
+        return self._check_response(resp, 200)['systems']
 
     async def nodes(
         self,
