@@ -5,5 +5,5 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #
 
-from firecrest.v2._async.Client import AsyncFirecrest
-from firecrest.v2._sync.Client import Firecrest
+from firecrest.v2._async.Client import AsyncFirecrest  # noqa
+from firecrest.v2._sync.Client import Firecrest        # noqa
