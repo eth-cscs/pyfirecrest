@@ -27,7 +27,10 @@ def slurm_state_completed(state):
         'TIMEOUT',
     }
     if state:
-        return all(s in completion_states for s in state.split(','))
+        # Make sure all the steps include one of the completion states
+        return all(
+            any(cs in s for cs in completion_states) for s in state.split(',')
+        )
 
     return False
 
