@@ -24,13 +24,14 @@ from packaging.version import parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
-from firecrest.ExternalStorage import ExternalUpload, ExternalDownload
+from firecrest.v1.ExternalStorage import ExternalUpload, ExternalDownload
 from firecrest.utilities import (
     parse_retry_after,
     slurm_state_completed,
     time_block,
     validate_api_version_compatibility
 )
+
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -674,7 +675,8 @@ class Firecrest:
         :param target_path: the absolute target path
         :param dereference: follow symbolic links
         :param fail_on_timeout: if `True` on timeout, this method will raise an
-        exception and won't fall back to submitting a long running job
+                                exception and won't fall back to submitting a
+                                long running job
         :calls: POST `/utilities/compress`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -776,7 +778,8 @@ class Firecrest:
         :param target_path: the absolute target path where the `source_path` is extracted
         :param extension: file extension, possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`
         :param fail_on_timeout: if `True` on timeout, this method will raise an
-        exception and won't fall back to submitting a long running job
+                                exception and won't fall back to submitting a
+                                long running job
         :calls: POST `/utilities/extract`
 
         .. warning:: This is available only for FirecREST>=1.16.0
@@ -1458,10 +1461,12 @@ class Firecrest:
     ) -> List[t.ReservationInfo]:
         """Retrieves information about the compute reservations.
         This call uses the `scontrol show reservations` command.
+
         :param machine: the machine name where the scheduler belongs to
         :param nodes: specific reservations to query
         :calls: GET `/compute/reservations`
                 GET `/tasks`
+
         .. warning:: This is available only for FirecREST>=1.16.0
         """
         params = {}

@@ -1,0 +1,15 @@
+{
+    "status_code": 201,
+    "response": {
+        "output": {
+            "name": "/home/fireuser/upload_folder/dom-60s.sh",
+            "type": "-",
+            "linkTarget": null,
+            "user": "fireuser",
+            "group": "users",
+            "permissions": "rw-r--r--",
+            "lastModified": "2024-12-19T11:00:44",
+            "size": "0"
+        }
+    }
+}

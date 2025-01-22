@@ -1,5 +1,5 @@
-How to use the asynchronous API [experimental]
-==============================================
+How to use the asynchronous API
+===============================
 
 In this tutorial, we will explore the asynchronous API of the pyFirecREST library.
 Asynchronous programming is a powerful technique that allows you to write more efficient and responsive code by handling concurrent tasks without blocking the main execution flow.
@@ -15,7 +15,7 @@ First you will need to create an ``AsyncFirecrest`` object, instead of the simpl
 
 .. code-block:: Python
 
-    client = fc.AsyncFirecrest(
+    client = fc.v1.AsyncFirecrest(
         firecrest_url=<firecrest_url>,
         authorization=MyAuthorizationClass()
     )

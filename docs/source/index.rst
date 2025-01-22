@@ -14,11 +14,20 @@ You can also clone it from `Github <https://github.com/eth-cscs/pyfirecrest>`__ 
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Getting started:
 
    authorization
    tutorial_index
-   reference_index
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference:
+
+   reference_auth
+   reference_v1_index
+   reference_v2_index
+
 
 Contact
 =======

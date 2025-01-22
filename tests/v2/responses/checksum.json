@@ -1,0 +1,9 @@
+{
+    "status_code": 200,
+    "response": {
+        "output": {
+            "algorithm": "SHA256",
+            "checksum": "67149111d45cf106eb92ab5be7ec08179bddea7426ddde7cfe0ae68a7cffce74"
+        }
+    }
+}

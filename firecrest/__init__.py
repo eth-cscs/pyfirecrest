@@ -7,7 +7,7 @@
 import sys
 
 
-__version__ = "2.7.0"
+__version__ = "3.0.0"
 __app_name__ = "firecrest"
 MIN_PYTHON_VERSION = (3, 7, 0)
 
@@ -19,14 +19,7 @@ if sys.version_info[:3] < MIN_PYTHON_VERSION:
     )
     sys.exit(1)
 
-from firecrest.BasicClient import Firecrest
-from firecrest.AsyncClient import AsyncFirecrest
-from firecrest.ExternalStorage import ExternalDownload, ExternalUpload, ExternalStorage
-from firecrest.AsyncExternalStorage import (
-    AsyncExternalDownload,
-    AsyncExternalUpload,
-    AsyncExternalStorage,
-)
+from . import v1, v2
 from firecrest.Authorization import ClientCredentialsAuth
 from firecrest.FirecrestException import (
     ClientsCredentialsException,

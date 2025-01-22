@@ -114,5 +114,18 @@ class PollingIterException(Exception):
         )
 
 
+class TransferJobFailedException(Exception):
+    """Exception raised when the polling iterator is exhausted"""
+
+    def __init__(self, transfer_job_info):
+        self._transfer_job_info = transfer_job_info
+
+    def __str__(self):
+        return (
+            f"Transfer job failed. Check the log files for more "
+            f"information: {self._transfer_job_info['transferJob']}"
+        )
+
+
 class NotImplementedOnAPIversion(Exception):
     """Exception raised when a feature is not developed yet for the current API version"""
