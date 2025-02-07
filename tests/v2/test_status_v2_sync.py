@@ -44,8 +44,32 @@ def fc_server(httpserver):
         re.compile("/status/.*"), method="GET"
     ).respond_with_handler(status_handler)
 
+    for endpoint in ["ls", "view", "tail", "head",
+                     "checksum", "file", "stat"]:
+        httpserver.expect_request(
+            re.compile(rf"/filesystem/.*/{endpoint}"), method="GET"
+        ).respond_with_handler(filesystem_handler)
+
     httpserver.expect_request(
-        re.compile("/filesystem/.*"), method="GET"
+        re.compile(r"/filesystem/.*/mkdir"), method="POST"
+    ).respond_with_handler(filesystem_handler)
+
+    for endpoint in ["chown", "chmod"]:
+        httpserver.expect_request(
+            re.compile(rf"/filesystem/.*/{endpoint}"), method="PUT"
+        ).respond_with_handler(filesystem_handler)
+
+    httpserver.expect_request(
+        re.compile(r"/filesystem/.*/rm"), method="DELETE"
+    ).respond_with_handler(filesystem_handler)
+
+    for endpoint in ["jobs", "metadata"]:
+        httpserver.expect_request(
+            re.compile(rf"/compute/.*/{endpoint}"), method="GET"
+        ).respond_with_handler(filesystem_handler)
+
+    httpserver.expect_request(
+        re.compile(r"/compute/.*/jobs"), method="POST"
     ).respond_with_handler(filesystem_handler)
 
     return httpserver
@@ -78,56 +102,85 @@ def filesystem_handler(request: Request):
             content_type="application/json",
         )
 
-    url, params = request.url.split("?")
+    url, *params = request.url.split("?")
+
+    print(f"\n\n\n {url} {params} \n\n\n")
+
     endpoint = url.split("/")[-1]
 
     suffix = ""
 
     if endpoint == "head":
-        if "bytes=8" in params:
+        if "path=/path/to/file&skipEnding=false&bytes=8" in params:
             suffix = "_bytes"
 
-        if "skipEnding=true" in params:
+        if "path=/path/to/file&skipEnding=true&bytes=8" in params:
             suffix = "_bytes_exclude_trailing"
 
-        if "lines=4" in params and "skipEnding=false" in params:
+        if "path=/path/to/file&skipEnding=false&lines=4" in params:
             suffix = "_lines"
 
-        if "lines=4" in params and "skipEnding=true" in params:
+        if "path=/path/to/file&skipEnding=true&lines=4" in params:
             suffix = "_lines_exclude_trailing"
 
     if endpoint == "tail":
-        if "bytes=8" in params:
+        if "path=/path/to/file&skipBeginning=false&bytes=8" in params:
             suffix = "_bytes"
 
-        if "skipBeginning=true" in params:
+        if "path=/path/to/file&skipBeginning=true&bytes=8" in params:
             suffix = "_bytes_exclude_beginning"
 
-        if "lines=4" in params and "skipBeginning=false" in params:
+        if "path=/path/to/file&skipBeginning=false&lines=4" in params:
             suffix = "_lines"
 
-        if "lines=4" in params and "skipBeginning=true" in params:
+        if "path=/path/to/file&skipBeginning=true&lines=4" in params:
             suffix = "_lines_exclude_beginning"
 
     if endpoint == "ls":
-        if "dereference=true" in params:
+        if ("path=/home/user&showHidden=false&recursive=false"
+            "&numericUid=false&dereference=true") in params:
             suffix = "_dereference"
 
-        if "showHidden=true" in params:
+        if ("path=/home/user&showHidden=true&recursive=false"
+            "&numericUid=false&dereference=false") in params:
             suffix = "_hidden"
 
-        if "recursive=true" in params:
+        if ("path=/home/user&showHidden=false&recursive=true"
+            "&numericUid=false&dereference=false") in params:
             suffix = "_recursive"
 
-        if "numericUid=true" in params:
+        if ("path=/home/user&showHidden=false&recursive=false"
+            "&numericUid=true&dereference=false") in params:
             suffix = "_uid"
 
-        if "path=/invalid/path" in params:
+        if ("path=/invalid/path&showHidden=false&recursive=false"
+            "&numericUid=false&dereference=false") in params:
             suffix = "_invalid_path"
 
     if endpoint == "stat":
-        if "dereference=true" in params:
+        if "path=/home/user/file&dereference=true" in params:
             suffix = "_dereference"
+
+    if endpoint == "chown":
+        data = json.loads(request.get_data())
+        if data ==  {
+            'path': '/home/test1/xxx',
+            'owner': 'test1',
+            'group': 'users'
+        }:
+            suffix = "_not_permitted"
+
+    if endpoint == "jobs":
+        endpoint = "job"
+        suffix = "_info"
+
+    if endpoint == "1":
+        endpoint = "job"
+        suffix = "_info"
+
+    if endpoint == "metadata":
+        endpoint = "job"
+        suffix = "_metadata"
 
     data = read_json_file(f"v2/responses/{endpoint}{suffix}.json")
 
@@ -339,3 +392,84 @@ def test_checksum(valid_client):
     resp = valid_client.checksum("cluster", "/home/user/file")
 
     assert resp == data["response"]["output"]
+
+
+def test_mkdir(valid_client):
+    data = read_json_file("v2/responses/mkdir.json")
+    resp = valid_client.mkdir("cluster", "/home/user/file")
+
+    assert resp == data["response"]["output"]
+
+
+def test_chown(valid_client):
+    data = read_json_file("v2/responses/chown.json")
+    resp = valid_client.chown("cluster", "/home/user/file",
+                              "test1", "users")
+
+    assert resp == data["response"]["output"]
+
+
+def test_chown_not_permitted(valid_client):
+    data = read_json_file("v2/responses/chown_not_permitted.json")
+    with pytest.raises(UnexpectedStatusException) as excinfo:
+        valid_client.chown("cluster", "/home/test1/xxx",
+                           "test1", "users")
+
+    assert str(excinfo.value) == (
+        f"last request: 403 {data['response']}: expected status 200"
+    )
+
+
+def test_chmod(valid_client):
+    data = read_json_file("v2/responses/chmod.json")
+    resp = valid_client.chmod("cluster", "/home/user/xxx",
+                              "777")
+
+    assert resp == data["response"]["output"]
+
+
+def xxx_test_rm(valid_client):
+    data = read_json_file("v2/responses/rm.json")
+    resp = valid_client.rm("cluster", "/home/user/file")
+
+    # assert resp == data["response"]["output"]
+
+
+def test_job_info(valid_client):
+    data = read_json_file("v2/responses/job_info.json")
+    resp = valid_client.job_info("cluster")
+
+    assert resp == data["response"]["jobs"]
+
+
+def test_job_info_jobid(valid_client):
+    data = read_json_file("v2/responses/job_info.json")
+    resp = valid_client.job_info("cluster", "1")
+
+    assert resp == data["response"]["jobs"]
+
+
+def test_job_metadata(valid_client):
+    data = read_json_file("v2/responses/job_metadata.json")
+    resp = valid_client.job_metadata("cluster", "1")
+
+    assert resp == data["response"]["jobs"]
+
+
+def test_job_submit(valid_client):
+    data = read_json_file("v2/responses/job_submit.json")
+    resp = valid_client.submit("cluster", "/path/to/dir",
+                               script_str="...")
+
+    assert resp == data["response"]["jobs"]
+
+
+def test_job_submit_no_script(valid_client):
+    with pytest.raises(ValueError) as excinfo:
+        valid_client.submit("cluster", "/path/to/dir")
+
+    assert str(excinfo.value) == (
+        "Exactly one of the arguments `script_str` or "
+        "`script_local_path` must be set."
+    )
+

@@ -770,6 +770,7 @@ class AsyncFirecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
+        :param blocking: whether to wait for the job to complete
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
         resp = await self._delete_request(
