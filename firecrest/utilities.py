@@ -1,8 +1,11 @@
 import email.utils as eut
 import logging
 import time
+
 from contextlib import contextmanager
 from packaging.version import parse
+from xml.etree import ElementTree
+
 import firecrest.FirecrestException as fe
 
 
@@ -147,3 +150,18 @@ missing_api_features = {
         'min_version': parse("1.16.0"),
     },
 }
+
+
+def part_checksum_xml(all_tags):
+    root = ElementTree.Element(
+        'CompleteMultipartUpload', {'xmlns': "http://s3.amazonaws.com/doc/2006-03-01/"}
+    )
+    for p in all_tags:
+        part_element = ElementTree.SubElement(root, 'Part')
+        part_etag = ElementTree.SubElement(part_element, 'ETag')
+        part_etag.text = p['ETag']
+        part_number = ElementTree.SubElement(part_element, 'PartNumber')
+        part_number.text = str(p['PartNumber'])
+    return ElementTree.tostring(
+        root, encoding='utf-8', xml_declaration=True, method='xml'
+    ).decode('utf-8')
