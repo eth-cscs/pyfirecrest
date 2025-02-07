@@ -15,12 +15,14 @@ import os
 import pathlib
 import ssl
 
-from io import BytesIO
 from packaging.version import Version, parse
 from typing import Any, Optional, List
 
 from firecrest.utilities import (
-    parse_retry_after, slurm_state_completed, time_block
+    parse_retry_after,
+    part_checksum_xml,
+    slurm_state_completed,
+    time_block,
 )
 from firecrest.FirecrestException import (
     FirecrestException,
@@ -748,7 +750,7 @@ class AsyncFirecrest:
                     await asyncio.sleep(i)
                     continue
 
-            state = job[0]["state"]["current"]
+            state = job[0]["status"]["state"]
             if isinstance(state, list):
                 state = ",".join(state)
 
@@ -823,10 +825,42 @@ class AsyncFirecrest:
 
         return job_info
 
+    async def _upload_part(self, url, file_path, index, chunk_size, all_tags):
+        async with aiofiles.open(file_path, "rb") as f:
+            await f.seek(index * chunk_size)
+            data = await f.read(chunk_size)
+            resp = await self._session.put(
+                url=url,
+                data=data
+            )
+
+        if resp.status_code == 200:
+            all_tags.append(
+                {
+                    'ETag': resp.headers['etag'],
+                    'PartNumber': index + 1
+                }
+            )
+        else:
+            raise Exception(f"Failed to upload part {index}: {resp.status_code}")
+
+        return
+
+    async def _complete_upload(self, url, checksum):
+        resp = await self._session.post(
+            url=url,
+            data=checksum
+        )
+        if resp.status_code != 200:
+            print(
+                f"Failed to finish upload: {resp.status_code}: {resp}"
+            )
+            print(resp.text)
+
     async def upload(
         self,
         system_name: str,
-        local_file: str | pathlib.Path | BytesIO,
+        local_file: str | pathlib.Path,
         directory: str,
         filename: str,
         blocking: bool = False
@@ -850,18 +884,34 @@ class AsyncFirecrest:
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             data=json.dumps({
                 "source_path": directory,
-                "fileName": filename
+                "fileName": filename,
+                'fileSize': os.path.getsize(local_file)
             })
         )
 
         transfer_info = self._check_response(resp, 201)
         # Upload the file
-        async with aiofiles.open(local_file, "rb") as f:
-            data = await f.read()  # TODO this will fail for large files
-            await self._session.put(
-                url=transfer_info["uploadUrl"],
-                data=data  # type: ignore
-            )
+        all_tags = []
+        urls = transfer_info["partsUploadUrls"]
+        await asyncio.gather(
+            *[
+                self._upload_part(
+                    upload_url,
+                    local_file,
+                    index,
+                    transfer_info["maxPartSize"],
+                    all_tags
+                ) for index, upload_url in enumerate(urls)
+            ]
+        )
+
+        # Sort by 'PartNumber'
+        all_tags.sort(key=lambda x: x['PartNumber'])
+        checksum = part_checksum_xml(all_tags)
+        await self._complete_upload(
+            transfer_info["completeUploadUrl"],
+            checksum
+        )
 
         if blocking:
             await self._wait_for_transfer_job(transfer_info)

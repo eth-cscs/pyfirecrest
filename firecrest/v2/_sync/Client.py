@@ -14,12 +14,14 @@ import pathlib
 import ssl
 import time
 
-from io import BytesIO
 from packaging.version import Version, parse
 from typing import Any, Optional, List
 
 from firecrest.utilities import (
-    parse_retry_after, slurm_state_completed, time_block
+    parse_retry_after,
+    part_checksum_xml,
+    slurm_state_completed,
+    time_block,
 )
 from firecrest.FirecrestException import (
     FirecrestException,
@@ -747,7 +749,7 @@ class Firecrest:
                     time.sleep(i)
                     continue
 
-            state = job[0]["state"]["current"]
+            state = job[0]["status"]["state"]
             if isinstance(state, list):
                 state = ",".join(state)
 
@@ -822,10 +824,42 @@ class Firecrest:
 
         return job_info
 
+    def _upload_part(self, url, file_path, index, chunk_size, all_tags):
+        with open(file_path, "rb") as f:
+            f.seek(index * chunk_size)
+            data = f.read(chunk_size)
+            resp = self._session.put(
+                url=url,
+                data=data
+            )
+
+        if resp.status_code == 200:
+            all_tags.append(
+                {
+                    'ETag': resp.headers['etag'],
+                    'PartNumber': index + 1
+                }
+            )
+        else:
+            raise Exception(f"Failed to upload part {index}: {resp.status_code}")
+
+        return
+
+    def _complete_upload(self, url, checksum):
+        resp = self._session.post(
+            url=url,
+            data=checksum
+        )
+        if resp.status_code != 200:
+            print(
+                f"Failed to finish upload: {resp.status_code}: {resp}"
+            )
+            print(resp.text)
+
     def upload(
         self,
         system_name: str,
-        local_file: str | pathlib.Path | BytesIO,
+        local_file: str | pathlib.Path,
         directory: str,
         filename: str,
         blocking: bool = False
@@ -849,19 +883,31 @@ class Firecrest:
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             data=json.dumps({
                 "source_path": directory,
-                "fileName": filename
+                "fileName": filename,
+                'fileSize': os.path.getsize(local_file)
             })
         )
 
         transfer_info = self._check_response(resp, 201)
         # Upload the file
-        # FIXME
-        with open(local_file, "rb") as f:  # type: ignore
-            data = f.read()  # TODO this will fail for large files
-            self._session.put(
-                url=transfer_info["uploadUrl"],
-                data=data  # type: ignore
-            )
+        all_tags = []
+        urls = transfer_info["partsUploadUrls"]
+        for index, upload_url in enumerate(urls):
+            self._upload_part(
+                    upload_url,
+                    local_file,
+                    index,
+                    transfer_info["maxPartSize"],
+                    all_tags
+                )
+
+        # Sort by 'PartNumber'
+        all_tags.sort(key=lambda x: x['PartNumber'])
+        checksum = part_checksum_xml(all_tags)
+        self._complete_upload(
+            transfer_info["completeUploadUrl"],
+            checksum
+        )
 
         if blocking:
             self._wait_for_transfer_job(transfer_info)
