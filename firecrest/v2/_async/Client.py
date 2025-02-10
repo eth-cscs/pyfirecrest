@@ -13,7 +13,9 @@ import json
 import logging
 import os
 import pathlib
+import re
 import ssl
+import subprocess
 
 from packaging.version import Version, parse
 from typing import Any, Optional, List
@@ -48,11 +50,44 @@ def handle_response(response):
 
 
 def sleep_generator():
-    yield 0.2  # First yield 2 seconds because the api takes time to update
+    yield 0.2
     value = 0.5
     while True:
         yield value
         value *= 2   # Double the value for each iteration
+
+
+class AsyncExternalUpload:
+    def __init__(self, client, transfer_info, local_file):
+        self._client = client
+        self._local_file = local_file
+        self._transfer_info = transfer_info
+        self._all_tags = []
+
+    @property
+    def transfer_data(self):
+        return self._transfer_info
+
+    async def upload_file_to_stage(self):
+        urls = self._transfer_info["partsUploadUrls"]
+        await asyncio.gather(
+            *[
+                self._upload_part(
+                    upload_url
+                    index,
+                ) for index, upload_url in enumerate(urls)
+            ]
+        )
+
+        # S3 complains when tags are not sorted
+        self._all_tags.sort(key=lambda x: x['PartNumber'])
+        checksum = part_checksum_xml(self._all_tags)
+        await self._complete_upload(
+            checksum
+        )
+
+    async def wait_for_transfer_job(self):
+        self._client._wait_for_transfer_job(self._transfer_info)
 
 
 class AsyncFirecrest:
@@ -72,6 +107,7 @@ class AsyncFirecrest:
     """
 
     TOO_MANY_REQUESTS_CODE = 429
+    MAX_DIRECT_UPLOAD_SIZE = 1048576
 
     def _retry_requests(func):
         async def wrapper(*args, **kwargs):
@@ -826,25 +862,35 @@ class AsyncFirecrest:
         return job_info
 
     async def _upload_part(self, url, file_path, index, chunk_size, all_tags):
-        async with aiofiles.open(file_path, "rb") as f:
-            await f.seek(index * chunk_size)
-            data = await f.read(chunk_size)
-            resp = await self._session.put(
-                url=url,
-                data=data
-            )
+        start = index * chunk_size
+        end = start + chunk_size - 1
 
-        if resp.status_code == 200:
-            all_tags.append(
-                {
-                    'ETag': resp.headers['etag'],
-                    'PartNumber': index + 1
-                }
+        async def run_curl():
+            process = await asyncio.create_subprocess_exec(
+                "curl", "-i", "-X", "PUT",
+                "--header", f"Content-Range: bytes {start}-{end}/*",
+                "--range", f"{start}-{end}",
+                "--upload-file", file_path,
+                url,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
+            stdout, stderr = await process.communicate()
+            return process.returncode, stdout.decode(), stderr.decode()
+
+        returncode, stdout, stderr = await run_curl()
+        if returncode == 0:
+            etag_match = re.search(r'ETag: \"(.*?)\"', stdout, re.IGNORECASE)
+            if not etag_match:
+                raise Exception(f"Failed to retrieve ETag for part {index}")
+
+            etag = etag_match.group(1)
+
+            all_tags.append({
+                'ETag': etag,
+                'PartNumber': index + 1
+            })
         else:
-            raise Exception(f"Failed to upload part {index}: {resp.status_code}")
-
-        return
+            raise Exception(f"Failed to upload part {index}: {stderr}")
 
     async def _complete_upload(self, url, checksum):
         resp = await self._session.post(
@@ -852,10 +898,9 @@ class AsyncFirecrest:
             data=checksum
         )
         if resp.status_code != 200:
-            print(
+            raise Exception(
                 f"Failed to finish upload: {resp.status_code}: {resp}"
             )
-            print(resp.text)
 
     async def upload(
         self,
@@ -863,60 +908,73 @@ class AsyncFirecrest:
         local_file: str | pathlib.Path,
         directory: str,
         filename: str,
+        account: str = None,
         blocking: bool = False
-    ) -> dict:
-        """Upload a file to the system. The user uploads a file to the
-        staging area Object storage) of FirecREST and it will be moved
-        to the target directory in a job.
+    ) -> AsyncExternalUpload | None:
+        """Upload a file to the system. For small files the file will be
+        uploaded directly to FirecREST and will be immediately available.
+        The function will return `None` in this case.
+        For large files the file the file will be uploaded in parts to the
+        staging area of FirecREST and then moved to the target directory in a
+        job. The function will return the transfer job information in this
+        case.
 
         :param system_name: the system name where the filesystem belongs to
         :param local_file: the local file's path to be uploaded (can be
                            relative)
-        :param source_path: the absolut target path of the directory where the
-                            file will be uploaded
+        :param directory: the absolut target path of the directory where the
+                          file will be uploaded
         :param filename: the name of the file in the target directory
-        :param blocking: whether to wait for the job to complete
+        :param account: the account to be used for the transfer job (only
+                        relevant when the file is larger than
+                        `MAX_DIRECT_UPLOAD_SIZE`)
+        :param blocking: whether to wait for the job to complete (only
+                         relevant when the file is larger than
+                         `MAX_DIRECT_UPLOAD_SIZE`)
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        # TODO check if the file exists locally
+        if not os.path.isfile(local_file):
+            raise FileNotFoundError(f"File not found: {local_file}")
+
+        local_file_size = os.path.getsize(local_file)
+        if local_file_size < self.MAX_DIRECT_UPLOAD_SIZE:
+            async with aiofiles.open(local_file, "rb") as f:
+                data = await f.read()
+                resp = await self._post_request(
+                    endpoint=f"/filesystem/{system_name}/ops/upload",
+                    params={
+                        "path": directory,
+                    },
+                    files={"file": (filename, data)}
+                )
+                self._check_response(resp, 204)
+                return None
 
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             data=json.dumps({
                 "source_path": directory,
                 "fileName": filename,
-                'fileSize': os.path.getsize(local_file)
+                'fileSize': os.path.getsize(local_file),
+                'account': account,
             })
         )
 
         transfer_info = self._check_response(resp, 201)
-        # Upload the file
-        all_tags = []
-        urls = transfer_info["partsUploadUrls"]
-        await asyncio.gather(
-            *[
-                self._upload_part(
-                    upload_url,
-                    local_file,
-                    index,
-                    transfer_info["maxPartSize"],
-                    all_tags
-                ) for index, upload_url in enumerate(urls)
-            ]
-        )
-
-        # Sort by 'PartNumber'
-        all_tags.sort(key=lambda x: x['PartNumber'])
-        checksum = part_checksum_xml(all_tags)
-        await self._complete_upload(
-            transfer_info["completeUploadUrl"],
-            checksum
+        ext_upload = AsyncExternalUpload(
+            client=self,
+            transfer_info=transfer_info,
+            local_file=local_file,
         )
 
         if blocking:
+            # Upload the file in parts
+            await ext_upload.upload_file_to_stage()
+
+            # Wait for the file to be available in the target directory
             await self._wait_for_transfer_job(transfer_info)
 
-        return transfer_info
+        return ext_upload
 
     async def download(
         self,
