@@ -25,8 +25,9 @@ from firecrest.utilities import (
 )
 from firecrest.FirecrestException import (
     FirecrestException,
+    MultipartUploadException,
     TransferJobFailedException,
-    UnexpectedStatusException
+    UnexpectedStatusException,
 )
 
 
@@ -47,11 +48,105 @@ def handle_response(response):
 
 
 def sleep_generator():
-    yield 0.2  # First yield 2 seconds because the api takes time to update
+    yield 0.2
     value = 0.5
     while True:
         yield value
-        value *= 2   # Double the value for each iteration
+        # Double the value for each iteration, up to 2 minutes
+        if value < 60:
+            value *= 2
+
+
+class SyncExternalUpload:
+    def __init__(self, client, transfer_info, local_file):
+        self._client = client
+        self._local_file = local_file
+        self._transfer_info = transfer_info
+        self._all_tags = []
+        self._chunk_size = 1073741824  # 1GB
+
+    @property
+    def transfer_data(self):
+        return self._transfer_info
+
+    def upload_file_to_stage(self):
+        urls = self._transfer_info["partsUploadUrls"]
+        # We should run this in parallel
+        for index, upload_url in enumerate(urls):
+            self._upload_part(upload_url, index)
+
+        # S3 complains when tags are not sorted
+        self._all_tags.sort(key=lambda x: x['PartNumber'])
+        checksum = part_checksum_xml(self._all_tags)
+        self._complete_upload(
+            checksum
+        )
+
+    def wait_for_transfer_job(self):
+        self._client.wait_for_transfer_job(self._transfer_info)
+
+    def _upload_part(self, url, index):
+        chunk_size = self._transfer_info["maxPartSize"]
+
+        def chunk_reader(f, c):
+            i = 0
+            while True:
+                next_chunk = c if i + c <= chunk_size else chunk_size - i
+                i += next_chunk
+                self._client.log(
+                    logging.DEBUG,
+                    f"Reading {next_chunk} from {self._local_file}"
+                )
+                data = f.read(next_chunk)
+                if not data:
+                    break
+
+                yield data
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploading part {index + 1} to {url}"
+        )
+        start = index * chunk_size
+        with open(self._local_file, "rb") as f:
+            f.seek(start)
+            resp = self._client._session.put(
+                url=url,
+                content=chunk_reader(f, self._chunk_size),
+                timeout=None
+            )
+
+        if resp.status_code >= 400:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Failed to finish upload: {resp.status_code}: {resp.text}"
+            )
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploaded part {index + 1} to {url}"
+        )
+        e_tag = resp.headers['ETag']
+        self._all_tags.append({
+            'ETag': e_tag,
+            'PartNumber': index + 1
+        })
+
+    def _complete_upload(self, checksum):
+        url = self._transfer_info["completeUploadUrl"]
+        self._client.log(
+            logging.DEBUG,
+            f"Finishing upload of file {self._local_file} to {url}"
+        )
+        resp = self._client._session.post(
+            url=url,
+            data=checksum
+        )
+        if resp.status_code >= 400:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Failed to finish upload: {resp.status_code}: {resp.text}"
+            )
 
 
 class Firecrest:
@@ -71,6 +166,7 @@ class Firecrest:
     """
 
     TOO_MANY_REQUESTS_CODE = 429
+    MAX_DIRECT_UPLOAD_SIZE = 1048576
 
     def _retry_requests(func):
         def wrapper(*args, **kwargs):
@@ -741,11 +837,23 @@ class Firecrest:
     def _wait_for_transfer_job(self, job_info):
         job_id = job_info["transferJob"]["jobId"]
         system_name = job_info["transferJob"]["system"]
+        self.log(
+            logging.DEBUG,
+            f"Waiting for transfer job {job_id}."
+        )
         for i in sleep_generator():
             try:
                 job = self.job_info(system_name, job_id)
             except FirecrestException as e:
-                if e.responses[-1].status_code == 404 and "Job not found" in e.responses[-1].json()['message']:
+                if (
+                    e.responses[-1].status_code == 404 and
+                    "Job not found" in e.responses[-1].json()['message']
+                ):
+                    self.log(
+                        logging.DEBUG,
+                        f"Job {job_id} information is not yet available, will "
+                        f"sleep for {i} seconds."
+                    )
                     time.sleep(i)
                     continue
 
@@ -754,13 +862,36 @@ class Firecrest:
                 state = ",".join(state)
 
             if slurm_state_completed(state):
+                self.log(
+                    logging.DEBUG,
+                    f"Job {job_id} state is completed with state: {state}."
+                )
                 break
 
+            self.log(
+                logging.DEBUG,
+                f"Job {job_id} state is {state}. Will sleep for {i} seconds."
+            )
             time.sleep(i)
 
-        # TODO: Check if the job was successful
+        try:
+            # If job is cancelled before it starts running, the log file will
+            # not be available
+            stdout_file = self.view(
+                system_name,
+                job_info["transferJob"]["logs"]["outputLog"]
+            )
+        except FirecrestException as e:
+            if (
+                e.responses[-1].status_code == 404 and
+                "No such file or directory" in e.responses[-1].json()['message']
+            ):
+                raise TransferJobFailedException(
+                    job_info, file_not_found=True
+                )
+            else:
+                raise e
 
-        stdout_file = self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
         if (
             "Files were successfully" not in stdout_file and
             "File was successfully" not in stdout_file and
@@ -824,95 +955,95 @@ class Firecrest:
 
         return job_info
 
-    def _upload_part(self, url, file_path, index, chunk_size, all_tags):
-        with open(file_path, "rb") as f:
-            f.seek(index * chunk_size)
-            data = f.read(chunk_size)
-            resp = self._session.put(
-                url=url,
-                data=data
-            )
-
-        if resp.status_code == 200:
-            all_tags.append(
-                {
-                    'ETag': resp.headers['etag'],
-                    'PartNumber': index + 1
-                }
-            )
-        else:
-            raise Exception(f"Failed to upload part {index}: {resp.status_code}")
-
-        return
-
-    def _complete_upload(self, url, checksum):
-        resp = self._session.post(
-            url=url,
-            data=checksum
-        )
-        if resp.status_code != 200:
-            print(
-                f"Failed to finish upload: {resp.status_code}: {resp}"
-            )
-            print(resp.text)
-
     def upload(
         self,
         system_name: str,
         local_file: str | pathlib.Path,
         directory: str,
         filename: str,
+        account: str = None,
         blocking: bool = False
-    ) -> dict:
-        """Upload a file to the system. The user uploads a file to the
-        staging area Object storage) of FirecREST and it will be moved
-        to the target directory in a job.
+    ) -> SyncExternalUpload | None:
+        """Upload a file to the system. For small files the file will be
+        uploaded directly to FirecREST and will be immediately available.
+        The function will return `None` in this case.
+        For large files the file the file will be uploaded in parts to the
+        staging area of FirecREST and then moved to the target directory in a
+        job. The function will return the transfer job information in this
+        case.
 
         :param system_name: the system name where the filesystem belongs to
         :param local_file: the local file's path to be uploaded (can be
                            relative)
-        :param source_path: the absolut target path of the directory where the
-                            file will be uploaded
+        :param directory: the absolut target path of the directory where the
+                          file will be uploaded
         :param filename: the name of the file in the target directory
-        :param blocking: whether to wait for the job to complete
+        :param account: the account to be used for the transfer job (only
+                        relevant when the file is larger than
+                        `MAX_DIRECT_UPLOAD_SIZE`)
+        :param blocking: whether to wait for the job to complete (only
+                         relevant when the file is larger than
+                         `MAX_DIRECT_UPLOAD_SIZE`)
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        # TODO check if the file exists locally
+        if not os.path.isfile(local_file):
+            raise FileNotFoundError(f"File not found: {local_file}")
 
+        local_file_size = os.path.getsize(local_file)
+        if local_file_size < self.MAX_DIRECT_UPLOAD_SIZE:
+            self.log(
+                logging.DEBUG,
+                f"File ({local_file}) will be directly uploaded to the "
+                f"target directory, since it's {local_file_size} bytes."
+            )
+            with open(local_file, "rb") as f:
+                data = f.read()
+                resp = self._post_request(
+                    endpoint=f"/filesystem/{system_name}/ops/upload",
+                    params={
+                        "path": directory,
+                    },
+                    files={"file": (filename, data)}
+                )
+                self._check_response(resp, 204)
+                return None
+
+        self.log(
+            logging.DEBUG,
+            f"File ({local_file}) needs to be uploaded in parts to the "
+            f"stage area of FirecREST and then moved to the "
+            f"target directory, since it's {local_file_size} bytes."
+        )
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             data=json.dumps({
                 "source_path": directory,
                 "fileName": filename,
-                'fileSize': os.path.getsize(local_file)
+                'fileSize': os.path.getsize(local_file),
+                'account': account,
             })
         )
 
         transfer_info = self._check_response(resp, 201)
-        # Upload the file
-        all_tags = []
-        urls = transfer_info["partsUploadUrls"]
-        for index, upload_url in enumerate(urls):
-            self._upload_part(
-                    upload_url,
-                    local_file,
-                    index,
-                    transfer_info["maxPartSize"],
-                    all_tags
-                )
-
-        # Sort by 'PartNumber'
-        all_tags.sort(key=lambda x: x['PartNumber'])
-        checksum = part_checksum_xml(all_tags)
-        self._complete_upload(
-            transfer_info["completeUploadUrl"],
-            checksum
+        ext_upload = SyncExternalUpload(
+            client=self,
+            transfer_info=transfer_info,
+            local_file=local_file,
         )
 
         if blocking:
+            self.log(
+                logging.DEBUG,
+                f"Blocking until ({local_file}) is transfered to the "
+                f"filesystem."
+            )
+            # Upload the file in parts
+            ext_upload.upload_file_to_stage()
+
+            # Wait for the file to be available in the target directory
             self._wait_for_transfer_job(transfer_info)
 
-        return transfer_info
+        return ext_upload
 
     def download(
         self,
