@@ -892,7 +892,6 @@ class AsyncFirecrest:
                 e.responses[-1].status_code == 404 and
                 "No such file or directory" in e.responses[-1].json()['message']
             ):
-                print
                 raise TransferJobFailedException(
                     job_info, file_not_found=True
                 )
