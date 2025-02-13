@@ -961,7 +961,7 @@ class Firecrest:
         local_file: str | pathlib.Path,
         directory: str,
         filename: str,
-        account: str = None,
+        account: str | None = None,
         blocking: bool = False
     ) -> SyncExternalUpload | None:
         """Upload a file to the system. For small files the file will be

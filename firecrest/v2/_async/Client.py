@@ -89,7 +89,7 @@ class AsyncExternalUpload:
         )
 
     async def wait_for_transfer_job(self):
-        self._client.wait_for_transfer_job(self._transfer_info)
+        await self._client._wait_for_transfer_job(self._transfer_info)
 
     async def _upload_part(self, url, index):
         chunk_size = self._transfer_info["maxPartSize"]
@@ -153,6 +153,39 @@ class AsyncExternalUpload:
                 self._transfer_info,
                 f"Failed to finish upload: {resp.status_code}: {resp.text}"
             )
+
+
+class AsyncExternalDownload:
+    def __init__(self, client, transfer_info, file_path):
+        self._client = client
+        self._transfer_info = transfer_info
+        self._file_path = file_path
+        self._chunk_size = 1073741824  # 1GB
+
+    @property
+    def transfer_data(self):
+        return self._transfer_info
+
+    async def download_file_from_stage(self, file_path=None):
+        file_name = file_path or self._file_path
+        async with aiofiles.open(file_name, "wb") as f:
+            self._client.log(
+                logging.DEBUG,
+                f"Downloading file from {self._transfer_info['downloadUrl']} "
+                f"to {file_name}"
+            )
+            resp = await self._client._session.get(
+                url=self._transfer_info["downloadUrl"],
+            )
+            await f.write(resp.content)
+            self._client.log(
+                logging.DEBUG,
+                f"Downloaded file from {self._transfer_info['downloadUrl']} "
+                f"to {file_name}"
+            )
+
+    async def wait_for_transfer_job(self):
+        await self._client._wait_for_transfer_job(self._transfer_info)
 
 
 class AsyncFirecrest:
@@ -870,7 +903,7 @@ class AsyncFirecrest:
             if slurm_state_completed(state):
                 self.log(
                     logging.DEBUG,
-                    f"Job {job_id} state is completed with state: {state}."
+                    f"Job {job_id} is completed with state: {state}."
                 )
                 break
 
@@ -967,7 +1000,7 @@ class AsyncFirecrest:
         local_file: str | pathlib.Path,
         directory: str,
         filename: str,
-        account: str = None,
+        account: str | None = None,
         blocking: bool = False
     ) -> AsyncExternalUpload | None:
         """Upload a file to the system. For small files the file will be
@@ -1047,7 +1080,7 @@ class AsyncFirecrest:
             await ext_upload.upload_file_to_stage()
 
             # Wait for the file to be available in the target directory
-            await self._wait_for_transfer_job(transfer_info)
+            await ext_upload.wait_for_transfer_job()
 
         return ext_upload
 
@@ -1056,37 +1089,83 @@ class AsyncFirecrest:
         system_name: str,
         source_path: str,
         target_path: str,
+        account: str | None = None,
         blocking: bool = False
-    ) -> dict:
+    ) -> AsyncExternalDownload | None:
         """Download a file from the remote system.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path of the file
         :param target_path: the target path in the local filesystem (can
                             be relative path)
+        :param account: the account to be used for the transfer job (only
+                        relevant when the file is larger than
+                        `MAX_DIRECT_UPLOAD_SIZE`)
         :param blocking: whether to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
+        # Check if the file is small enough to be downloaded directly
+        try:
+            file_info = await self.stat(system_name, source_path)
+            file_size = file_info["size"]
+        except FirecrestException as e:
+            if (
+                e.responses[-1].status_code == 404 and
+                "No such file or directory" in e.responses[-1].json()['message']
+            ):
+                raise FileNotFoundError(
+                    f"File not found: {source_path} on system {system_name}"
+                )
+            else:
+                raise e
+
+        if file_size < self.MAX_DIRECT_UPLOAD_SIZE:
+            self.log(
+                logging.DEBUG,
+                f"File ({source_path}) will be directly downloaded to the "
+                f"target directory, since it's {file_size} bytes."
+            )
+            self.log(
+                logging.DEBUG,
+                "Arguments `account` and `blocking` will be ignored."
+            )
+            resp = await self._get_request(
+                endpoint=f"/filesystem/{system_name}/ops/download",
+                params={
+                    "path": source_path,
+                }
+            )
+            self._check_response(resp, 200, return_json=False)
+
+            async with aiofiles.open(target_path, "wb") as f:
+                await f.write(resp.content)
+
+            return None
+
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/download",
             data=json.dumps({
                 "source_path": source_path,
+                "account": account
             })
         )
 
         transfer_info = self._check_response(resp, 201)
+        download_obj = AsyncExternalDownload(
+            client=self,
+            transfer_info=transfer_info,
+            file_path=target_path
+        )
         if blocking:
-            await self._wait_for_transfer_job(transfer_info)
+            self.log(
+                logging.DEBUG,
+                f"Blocking until ({source_path}) is transfered to the "
+                f"filesystem."
+            )
+            await download_obj.wait_for_transfer_job()
+            await download_obj.download_file_from_stage()
 
-            # Download the file
-            async with aiofiles.open(target_path, "wb") as f:
-                # TODO this will fail for large files
-                resp = await self._session.get(
-                    url=transfer_info["downloadUrl"],
-                )
-                await f.write(resp.content)
-
-        return transfer_info
+        return download_obj
 
     async def submit(
         self,
