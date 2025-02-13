@@ -57,7 +57,7 @@ def sleep_generator():
             value *= 2
 
 
-class SyncExternalUpload:
+class ExternalUpload:
     def __init__(self, client, transfer_info, local_file):
         self._client = client
         self._local_file = local_file
@@ -149,7 +149,7 @@ class SyncExternalUpload:
             )
 
 
-class SyncExternalDownload:
+class ExternalDownload:
     def __init__(self, client, transfer_info, file_path):
         self._client = client
         self._transfer_info = transfer_info
@@ -1005,7 +1005,7 @@ class Firecrest:
         filename: str,
         account: Optional[str] = None,
         blocking: bool = True
-    ) -> Optional[SyncExternalUpload]:
+    ) -> Optional[ExternalUpload]:
         """Upload a file to the system. For small files the file will be
         uploaded directly to FirecREST and will be immediately available.
         The function will return `None` in this case.
@@ -1067,7 +1067,7 @@ class Firecrest:
         )
 
         transfer_info = self._check_response(resp, 201)
-        ext_upload = SyncExternalUpload(
+        ext_upload = ExternalUpload(
             client=self,
             transfer_info=transfer_info,
             local_file=local_file,
@@ -1094,7 +1094,7 @@ class Firecrest:
         target_path: str,
         account: Optional[str] = None,
         blocking: bool = True
-    ) -> Optional[SyncExternalDownload]:
+    ) -> Optional[ExternalDownload]:
         """Download a file from the remote system.
 
         :param system_name: the system name where the filesystem belongs to
@@ -1154,7 +1154,7 @@ class Firecrest:
         )
 
         transfer_info = self._check_response(resp, 201)
-        download_obj = SyncExternalDownload(
+        download_obj = ExternalDownload(
             client=self,
             transfer_info=transfer_info,
             file_path=target_path

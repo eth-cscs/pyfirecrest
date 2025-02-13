@@ -199,7 +199,25 @@ For a successful submission the output would look like this.
 
 In FirecREST v2, the user selects the working directory where the job will be submitted from.
 
-.. Transfer of large files
-.. -----------------------
+Transfer of files
+-----------------
 
-.. TODO
+The two clients of FirecREST v2 have been designed to hide as much as possible the complexity of transferring large files.
+
+Internal transfers
+^^^^^^^^^^^^^^^^^^
+
+The copying, moving and removing of files goes through a job submission.
+The respective methods are `copy`, `move` and `remove` and will return a dictionary with information about the job.
+The client gives can either wait for the job to finish or not and let the user handle it himself.
+In case the transfer is not successful, an exception will be raised and more details can be found in the log files of the job.
+
+External transfers
+^^^^^^^^^^^^^^^^^^
+
+Small files can be transfered directly to/from FirecREST, and will be immediately available to the user.
+Larger data transfers are handled by a job that will be submitted to the scheduler.
+The files need to be moved first to a staging area, before they are moved to the final directory.
+There is again the option to let the client handle the job submission or to do it manually.
+In case of small files the client will return ``None`` or raise an error if the transfer was not successful.
+For large files the client will return an object with information about the job and methods to finish the job in steps.

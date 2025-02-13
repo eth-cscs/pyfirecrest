@@ -9,3 +9,17 @@ The ``Firecrest`` class
     :members:
     :undoc-members:
     :show-inheritance:
+
+The ``ExternalUpload`` class
+****************************
+.. autoclass:: firecrest.v2.ExternalUpload
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+The ``ExternalDownload`` class
+******************************
+.. autoclass:: firecrest.v2.ExternalDownload
+    :members:
+    :undoc-members:
+    :show-inheritance:
