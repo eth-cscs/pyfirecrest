@@ -13,9 +13,7 @@ import json
 import logging
 import os
 import pathlib
-import re
 import ssl
-import subprocess
 
 from packaging.version import Version, parse
 from typing import Any, Optional, List
@@ -28,8 +26,9 @@ from firecrest.utilities import (
 )
 from firecrest.FirecrestException import (
     FirecrestException,
+    MultipartUploadException,
     TransferJobFailedException,
-    UnexpectedStatusException
+    UnexpectedStatusException,
 )
 
 
@@ -54,7 +53,9 @@ def sleep_generator():
     value = 0.5
     while True:
         yield value
-        value *= 2   # Double the value for each iteration
+        # Double the value for each iteration, up to 2 minutes
+        if value < 60:
+            value *= 2
 
 
 class AsyncExternalUpload:
@@ -63,6 +64,7 @@ class AsyncExternalUpload:
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
+        self._chunk_size = 1073741824  # 1GB
 
     @property
     def transfer_data(self):
@@ -73,7 +75,7 @@ class AsyncExternalUpload:
         await asyncio.gather(
             *[
                 self._upload_part(
-                    upload_url
+                    upload_url,
                     index,
                 ) for index, upload_url in enumerate(urls)
             ]
@@ -87,7 +89,70 @@ class AsyncExternalUpload:
         )
 
     async def wait_for_transfer_job(self):
-        self._client._wait_for_transfer_job(self._transfer_info)
+        self._client.wait_for_transfer_job(self._transfer_info)
+
+    async def _upload_part(self, url, index):
+        chunk_size = self._transfer_info["maxPartSize"]
+
+        async def chunk_reader(f, c):
+            i = 0
+            while True:
+                next_chunk = c if i + c <= chunk_size else chunk_size - i
+                i += next_chunk
+                self._client.log(
+                    logging.DEBUG,
+                    f"Reading {next_chunk} from {self._local_file}"
+                )
+                data = await f.read(next_chunk)
+                if not data:
+                    break
+
+                yield data
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploading part {index + 1} to {url}"
+        )
+        start = index * chunk_size
+        async with aiofiles.open(self._local_file, "rb") as f:
+            await f.seek(start)
+            resp = await self._client._session.put(
+                url=url,
+                content=chunk_reader(f, self._chunk_size),
+                timeout=None
+            )
+
+        if resp.status_code >= 400:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Failed to finish upload: {resp.status_code}: {resp.text}"
+            )
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploaded part {index + 1} to {url}"
+        )
+        e_tag = resp.headers['ETag']
+        self._all_tags.append({
+            'ETag': e_tag,
+            'PartNumber': index + 1
+        })
+
+    async def _complete_upload(self, checksum):
+        url = self._transfer_info["completeUploadUrl"]
+        self._client.log(
+            logging.DEBUG,
+            f"Finishing upload of file {self._local_file} to {url}"
+        )
+        resp = await self._client._session.post(
+            url=url,
+            data=checksum
+        )
+        if resp.status_code >= 400:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Failed to finish upload: {resp.status_code}: {resp.text}"
+            )
 
 
 class AsyncFirecrest:
@@ -778,11 +843,23 @@ class AsyncFirecrest:
     async def _wait_for_transfer_job(self, job_info):
         job_id = job_info["transferJob"]["jobId"]
         system_name = job_info["transferJob"]["system"]
+        self.log(
+            logging.DEBUG,
+            f"Waiting for transfer job {job_id}."
+        )
         for i in sleep_generator():
             try:
                 job = await self.job_info(system_name, job_id)
             except FirecrestException as e:
-                if e.responses[-1].status_code == 404 and "Job not found" in e.responses[-1].json()['message']:
+                if (
+                    e.responses[-1].status_code == 404 and
+                    "Job not found" in e.responses[-1].json()['message']
+                ):
+                    self.log(
+                        logging.DEBUG,
+                        f"Job {job_id} information is not yet available, will "
+                        f"sleep for {i} seconds."
+                    )
                     await asyncio.sleep(i)
                     continue
 
@@ -791,13 +868,37 @@ class AsyncFirecrest:
                 state = ",".join(state)
 
             if slurm_state_completed(state):
+                self.log(
+                    logging.DEBUG,
+                    f"Job {job_id} state is completed with state: {state}."
+                )
                 break
 
+            self.log(
+                logging.DEBUG,
+                f"Job {job_id} state is {state}. Will sleep for {i} seconds."
+            )
             await asyncio.sleep(i)
 
-        # TODO: Check if the job was successful
+        try:
+            # If job is cancelled before it starts running, the log file will
+            # not be available
+            stdout_file = await self.view(
+                system_name,
+                job_info["transferJob"]["logs"]["outputLog"]
+            )
+        except FirecrestException as e:
+            if (
+                e.responses[-1].status_code == 404 and
+                "No such file or directory" in e.responses[-1].json()['message']
+            ):
+                print
+                raise TransferJobFailedException(
+                    job_info, file_not_found=True
+                )
+            else:
+                raise e
 
-        stdout_file = await self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
         if (
             "Files were successfully" not in stdout_file and
             "File was successfully" not in stdout_file and
@@ -861,47 +962,6 @@ class AsyncFirecrest:
 
         return job_info
 
-    async def _upload_part(self, url, file_path, index, chunk_size, all_tags):
-        start = index * chunk_size
-        end = start + chunk_size - 1
-
-        async def run_curl():
-            process = await asyncio.create_subprocess_exec(
-                "curl", "-i", "-X", "PUT",
-                "--header", f"Content-Range: bytes {start}-{end}/*",
-                "--range", f"{start}-{end}",
-                "--upload-file", file_path,
-                url,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
-            return process.returncode, stdout.decode(), stderr.decode()
-
-        returncode, stdout, stderr = await run_curl()
-        if returncode == 0:
-            etag_match = re.search(r'ETag: \"(.*?)\"', stdout, re.IGNORECASE)
-            if not etag_match:
-                raise Exception(f"Failed to retrieve ETag for part {index}")
-
-            etag = etag_match.group(1)
-
-            all_tags.append({
-                'ETag': etag,
-                'PartNumber': index + 1
-            })
-        else:
-            raise Exception(f"Failed to upload part {index}: {stderr}")
-
-    async def _complete_upload(self, url, checksum):
-        resp = await self._session.post(
-            url=url,
-            data=checksum
-        )
-        if resp.status_code != 200:
-            raise Exception(
-                f"Failed to finish upload: {resp.status_code}: {resp}"
-            )
-
     async def upload(
         self,
         system_name: str,
@@ -938,6 +998,11 @@ class AsyncFirecrest:
 
         local_file_size = os.path.getsize(local_file)
         if local_file_size < self.MAX_DIRECT_UPLOAD_SIZE:
+            self.log(
+                logging.DEBUG,
+                f"File ({local_file}) will be directly uploaded to the "
+                f"target directory, since it's {local_file_size} bytes."
+            )
             async with aiofiles.open(local_file, "rb") as f:
                 data = await f.read()
                 resp = await self._post_request(
@@ -950,6 +1015,12 @@ class AsyncFirecrest:
                 self._check_response(resp, 204)
                 return None
 
+        self.log(
+            logging.DEBUG,
+            f"File ({local_file}) needs to be uploaded in parts to the "
+            f"stage area of FirecREST and then moved to the "
+            f"target directory, since it's {local_file_size} bytes."
+        )
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             data=json.dumps({
@@ -968,6 +1039,11 @@ class AsyncFirecrest:
         )
 
         if blocking:
+            self.log(
+                logging.DEBUG,
+                f"Blocking until ({local_file}) is transfered to the "
+                f"filesystem."
+            )
             # Upload the file in parts
             await ext_upload.upload_file_to_stage()
 
