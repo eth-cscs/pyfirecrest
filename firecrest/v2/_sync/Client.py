@@ -790,6 +790,7 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
+        account: Optional[str] = None,
         blocking: bool = False
     ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
@@ -799,13 +800,15 @@ class Firecrest:
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param account: the account to be used for the transfer job
         :param blocking: whether to wait for the job to complete
 
         :calls: POST `/filesystem/{system_name}/transfer/mv`
         """
         data: dict[str, str] = {
             "sourcePath": source_path,
-            "targetPath": target_path
+            "targetPath": target_path,
+            "account": account
         }
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/mv",
@@ -936,6 +939,7 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
+        account: Optional[str] = None,
         blocking: bool = False
     ) -> dict:
         """Copies file from `source_path` to `target_path`.
@@ -944,11 +948,13 @@ class Firecrest:
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :param blocking: whether to wait for the job to complete
+        :param account: the account to be used for the transfer job
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
         data: dict[str, str] = {
             "sourcePath": source_path,
-            "targetPath": target_path
+            "targetPath": target_path,
+            "account": account
         }
 
         resp = self._post_request(
@@ -966,19 +972,23 @@ class Firecrest:
         self,
         system_name: str,
         path: str,
+        account: Optional[str] = None,
         blocking: bool = False
     ) -> dict:
         """Delete a file.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
+        :param account: the account to be used for the transfer job
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
         resp = self._delete_request(
             endpoint=f"/filesystem/{system_name}/transfer/rm",
-            params={"path": path}
+            params={
+                "path": path,
+                "account": account
+            }
         )
-        # self._check_response(resp, 204)
 
         job_info = self._check_response(resp, 200)
 
@@ -993,9 +1003,9 @@ class Firecrest:
         local_file: str | pathlib.Path,
         directory: str,
         filename: str,
-        account: str | None = None,
-        blocking: bool = False
-    ) -> SyncExternalUpload | None:
+        account: Optional[str] = None,
+        blocking: bool = True
+    ) -> Optional[SyncExternalUpload]:
         """Upload a file to the system. For small files the file will be
         uploaded directly to FirecREST and will be immediately available.
         The function will return `None` in this case.
@@ -1082,9 +1092,9 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
-        account: str | None = None,
-        blocking: bool = False
-    ) -> SyncExternalDownload | None:
+        account: Optional[str] = None,
+        blocking: bool = True
+    ) -> Optional[SyncExternalDownload]:
         """Download a file from the remote system.
 
         :param system_name: the system name where the filesystem belongs to

@@ -160,7 +160,6 @@ class AsyncExternalDownload:
         self._client = client
         self._transfer_info = transfer_info
         self._file_path = file_path
-        self._chunk_size = 1073741824  # 1GB
 
     @property
     def transfer_data(self):
