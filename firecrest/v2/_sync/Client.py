@@ -808,8 +808,10 @@ class Firecrest:
         data: dict[str, str] = {
             "sourcePath": source_path,
             "targetPath": target_path,
-            "account": account
         }
+        if account is not None:
+            data["account"] = account
+
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/mv",
             data=json.dumps(data)
@@ -954,8 +956,9 @@ class Firecrest:
         data: dict[str, str] = {
             "sourcePath": source_path,
             "targetPath": target_path,
-            "account": account
         }
+        if account is not None:
+            data["account"] = account
 
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/cp",
@@ -982,12 +985,15 @@ class Firecrest:
         :param account: the account to be used for the transfer job
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
+        params = {
+            "path": path,
+        }
+        if account is not None:
+            params["account"] = account
+
         resp = self._delete_request(
             endpoint=f"/filesystem/{system_name}/transfer/rm",
-            params={
-                "path": path,
-                "account": account
-            }
+            params=params
         )
 
         job_info = self._check_response(resp, 200)
@@ -1039,13 +1045,13 @@ class Firecrest:
                 f"target directory, since it's {local_file_size} bytes."
             )
             with open(local_file, "rb") as f:
-                data = f.read()
+                file_content = f.read()
                 resp = self._post_request(
                     endpoint=f"/filesystem/{system_name}/ops/upload",
                     params={
                         "path": directory,
                     },
-                    files={"file": (filename, data)}
+                    files={"file": (filename, file_content)}
                 )
                 self._check_response(resp, 204)
                 return None
@@ -1056,14 +1062,17 @@ class Firecrest:
             f"stage area of FirecREST and then moved to the "
             f"target directory, since it's {local_file_size} bytes."
         )
+        data = {
+            "source_path": directory,
+            "fileName": filename,
+            'fileSize': local_file_size,
+        }
+        if account is not None:
+            data["account"] = account
+
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
-            data=json.dumps({
-                "source_path": directory,
-                "fileName": filename,
-                'fileSize': os.path.getsize(local_file),
-                'account': account,
-            })
+            data=json.dumps(data)
         )
 
         transfer_info = self._check_response(resp, 201)
@@ -1145,12 +1154,15 @@ class Firecrest:
 
             return None
 
+        data = {
+            "source_path": source_path,
+        }
+        if account is not None:
+            data["account"] = account
+
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/download",
-            data=json.dumps({
-                "source_path": source_path,
-                "account": account
-            })
+            data=json.dumps(data)
         )
 
         transfer_info = self._check_response(resp, 201)
