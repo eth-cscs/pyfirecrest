@@ -163,7 +163,7 @@ def filesystem_handler(request: Request):
 
     if endpoint == "chown":
         data = json.loads(request.get_data())
-        if data ==  {
+        if data == {
             'path': '/home/test1/xxx',
             'owner': 'test1',
             'group': 'users'
@@ -172,7 +172,7 @@ def filesystem_handler(request: Request):
 
     if endpoint == "jobs":
         endpoint = "job"
-        suffix = "_info"
+        suffix = "_submit"
 
     if endpoint == "1":
         endpoint = "job"
@@ -461,7 +461,7 @@ def test_job_submit(valid_client):
     resp = valid_client.submit("cluster", "/path/to/dir",
                                script_str="...")
 
-    assert resp == data["response"]["jobs"]
+    assert resp == data["response"]
 
 
 def test_job_submit_no_script(valid_client):
@@ -472,4 +472,3 @@ def test_job_submit_no_script(valid_client):
         "Exactly one of the arguments `script_str` or "
         "`script_local_path` must be set."
     )
-
