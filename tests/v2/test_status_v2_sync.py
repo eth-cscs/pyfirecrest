@@ -70,7 +70,7 @@ def fc_server(httpserver):
 
     httpserver.expect_request(
         re.compile(r"/compute/.*/jobs"), method="POST"
-    ).respond_with_handler(filesystem_handler)
+    ).respond_with_handler(submit_handler)
 
     return httpserver
 
@@ -172,7 +172,7 @@ def filesystem_handler(request: Request):
 
     if endpoint == "jobs":
         endpoint = "job"
-        suffix = "_submit"
+        suffix = "_info"
 
     if endpoint == "1":
         endpoint = "job"
@@ -181,6 +181,34 @@ def filesystem_handler(request: Request):
     if endpoint == "metadata":
         endpoint = "job"
         suffix = "_metadata"
+
+    data = read_json_file(f"v2/responses/{endpoint}{suffix}.json")
+
+    ret = data["response"]
+    ret_status = data["status_code"]
+
+    return Response(json.dumps(ret),
+                    status=ret_status,
+                    content_type="application/json")
+
+
+def submit_handler(request: Request):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
+
+    url, *params = request.url.split("?")
+
+    endpoint = url.split("/")[-1]
+
+    suffix = ""
+
+    if endpoint == "jobs":
+        endpoint = "job"
+        suffix = "_submit"
 
     data = read_json_file(f"v2/responses/{endpoint}{suffix}.json")
 
