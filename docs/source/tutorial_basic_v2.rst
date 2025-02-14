@@ -207,9 +207,9 @@ The two clients of FirecREST v2 have been designed to hide as much as possible t
 Internal transfers
 ^^^^^^^^^^^^^^^^^^
 
-The copying, moving and removing of files goes through a job submission.
-The respective methods are `copy`, `move` and `remove` and will return a dictionary with information about the job.
-The client gives can either wait for the job to finish or not and let the user handle it himself.
+Copying, moving and removing files is done through scheduler jobs.
+The corresponding methods are `copy`, `move` and `remove` and will return a dictionary with information about the job.
+The client can either wait for the job to finish or not, in which case it lets the user handle it.
 In case the transfer is not successful, an exception will be raised and more details can be found in the log files of the job.
 
 External transfers
