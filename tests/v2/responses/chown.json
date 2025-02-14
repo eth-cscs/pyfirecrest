@@ -2,13 +2,14 @@
     "status_code": 200,
     "response": {
         "output": {
-        "name": "/home/test1/xxx",
-        "type": "-",
-        "linkTarget": null,
-        "user": "test1",
-        "group": "users",
-        "permissions": "rwxrwxrwx",
-        "lastModified": "2024-10-24T15:00:01",
-        "size": "0"
+            "name": "/home/test1/xxx",
+            "type": "-",
+            "linkTarget": null,
+            "user": "test1",
+            "group": "users",
+            "permissions": "rwxrwxrwx",
+            "lastModified": "2024-10-24T15:00:01",
+            "size": "0"
+        }
     }
 }

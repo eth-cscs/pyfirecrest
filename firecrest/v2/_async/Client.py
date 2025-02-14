@@ -358,6 +358,7 @@ class AsyncFirecrest:
         :param path: the absolute target path
         :param show_hidden: Show hidden files
         :param recursive: recursively list directories encountered
+        :numeric_uid: list numeric user and group IDs
         :param dereference: when showing file information for a symbolic link,
                             show information for the file the link references
                             rather than for the link itself
@@ -808,6 +809,7 @@ class AsyncFirecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
+        :param blocking: whether to wait for the job to complete
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
         resp = await self._delete_request(

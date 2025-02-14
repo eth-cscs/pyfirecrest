@@ -653,7 +653,7 @@ class Firecrest:
                 "parent": create_parents
             })
         )
-        return self._check_response(resp, 201)
+        return self._check_response(resp, 201)["output"]
 
     def mv(
         self,
@@ -747,7 +747,7 @@ class Firecrest:
                     time.sleep(i)
                     continue
 
-            state = job[0]["state"]["current"]
+            state = job[0]["status"]["state"]
             if isinstance(state, list):
                 state = ",".join(state)
 
@@ -807,6 +807,7 @@ class Firecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
+        :param blocking: whether to wait for the job to complete
         :calls: DELETE `/filesystem/{system_name}/transfer/rm`
         """
         resp = self._delete_request(
