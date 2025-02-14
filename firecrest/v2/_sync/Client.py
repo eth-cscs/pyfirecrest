@@ -791,7 +791,7 @@ class Firecrest:
         source_path: str,
         target_path: str,
         account: Optional[str] = None,
-        blocking: bool = False
+        blocking: bool = True
     ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
         the `target_path` on `system_name`'s filesystem.
@@ -942,7 +942,7 @@ class Firecrest:
         source_path: str,
         target_path: str,
         account: Optional[str] = None,
-        blocking: bool = False
+        blocking: bool = True
     ) -> dict:
         """Copies file from `source_path` to `target_path`.
 
@@ -976,18 +976,63 @@ class Firecrest:
         system_name: str,
         path: str,
         account: Optional[str] = None,
-        blocking: bool = False
-    ) -> dict:
+        blocking: bool = True
+    ) -> Optional[dict]:
         """Delete a file.
+        First the client will try to delete the file directly, and if it
+        fails with a timeout, it will launch a job to delete the file.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
-        :param account: the account to be used for the transfer job
-        :calls: DELETE `/filesystem/{system_name}/transfer/rm`
+        :param account: the account to be used for the transfer job  (only
+                        relevant when the file is not deleted directly)
+        :param blocking: whether to wait for the job to complete (only
+                         relevant when the file is not deleted directly)
+        :calls: DELETE `/filesystem/{system_name}/ops/rm`
+
+                DELETE `/filesystem/{system_name}/transfer/rm`
+
+                GET `/jobs/{system_name}/{job_id}`
         """
         params = {
             "path": path,
         }
+        try:
+            resp = self._delete_request(
+                endpoint=f"/filesystem/{system_name}/ops/rm",
+                params=params
+            )
+            self._check_response(resp, 204)
+            return None
+        except FirecrestException as e:
+            if e.responses[-1].status_code == 408:
+                self.log(
+                    logging.DEBUG,
+                    f"The command for the deletion of file {path} "
+                    f"got a timeout, a job will be launched to "
+                    f"delete the file."
+                )
+            elif e.responses[-1].status_code == 500:
+                try:
+                    json_resp = e.responses[-1].json()
+                    if (
+                        "message" in json_resp and
+                        "exit status:124" in json_resp["message"]
+                    ):
+                        self.log(
+                            logging.DEBUG,
+                            f"The command for the deletion of file {path} "
+                            f"got a timeout, a job will be launched to "
+                            f"delete the file."
+                        )
+                    else:
+                        raise e
+
+                except json.JSONDecodeError:
+                    raise e
+            else:
+                raise e
+
         if account is not None:
             params["account"] = account
 
@@ -997,7 +1042,6 @@ class Firecrest:
         )
 
         job_info = self._check_response(resp, 200)
-
         if blocking:
             self._wait_for_transfer_job(job_info)
 
