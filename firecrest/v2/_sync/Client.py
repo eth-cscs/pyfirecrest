@@ -1056,10 +1056,10 @@ class Firecrest:
         account: Optional[str] = None,
         blocking: bool = True
     ) -> Optional[ExternalUpload]:
-        """Upload a file to the system. For small files the file will be
+        """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
         The function will return `None` in this case.
-        For large files the file the file will be uploaded in parts to the
+        Large files will be uploaded in parts to the
         staging area of FirecREST and then moved to the target directory in a
         job. The function will return the transfer job information in this
         case.
@@ -1158,7 +1158,7 @@ class Firecrest:
                         relevant when the file is larger than
                         `MAX_DIRECT_UPLOAD_SIZE`)
         :param blocking: whether to wait for the job to complete
-        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        :calls: POST `/filesystem/{system_name}/transfer/download`
         """
         # Check if the file is small enough to be downloaded directly
         try:
