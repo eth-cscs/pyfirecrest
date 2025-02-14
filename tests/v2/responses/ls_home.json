@@ -1,0 +1,17 @@
+{
+    "status_code": 200,
+    "response": {
+        "output": [
+            {
+                "name": "bin",
+                "type": "d",
+                "linkTarget": null,
+                "user": "test1",
+                "group": "users",
+                "permissions": "rwxr-xr-x",
+                "lastModified": "2022-03-15T11:33:15",
+                "size": "4096"
+            }
+        ]
+    }
+}

@@ -23,6 +23,7 @@ def valid_client(fc_server):
         "tasks": 0,
         "utilities": 0,
     }
+    client.set_api_version("1.16.0")
 
     return client
 
@@ -44,6 +45,7 @@ def invalid_client(fc_server):
         "tasks": 0,
         "utilities": 0,
     }
+    client.set_api_version("1.16.0")
 
     return client
 
@@ -379,6 +381,17 @@ async def test_compress(valid_client):
 
 
 @pytest.mark.asyncio
+async def test_compress_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.compress(
+            "cluster1",
+            "/path/to/valid/source",
+            "/path/to/valid/destination.tar.gz"
+        )
+
+
+@pytest.mark.asyncio
 async def test_extract(valid_client):
     # Mostly sure this doesn't raise an error
     assert (
@@ -388,6 +401,17 @@ async def test_extract(valid_client):
             "/path/to/valid/destination"
         ) == "/path/to/valid/destination"
     )
+
+
+@pytest.mark.asyncio
+async def test_extract_not_impl(valid_client):
+    valid_client.set_api_version("1.15.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.extract(
+            "cluster1",
+            "/path/to/valid/source.tar.gz",
+            "/path/to/valid/destination"
+        )
 
 
 @pytest.mark.asyncio
@@ -692,6 +716,13 @@ async def test_groups(valid_client):
         "groups": [{"id": "1000", "name": "group1"}, {"id": "1001", "name": "group2"}],
         "user": {"id": "10000", "name": "test_user"},
     }
+
+
+@pytest.mark.asyncio
+async def test_groups_not_impl(valid_client):
+    valid_client.set_api_version("1.14.0")
+    with pytest.raises(firecrest.NotImplementedOnAPIversion):
+        await valid_client.groups(machine="cluster1")
 
 
 @pytest.mark.asyncio

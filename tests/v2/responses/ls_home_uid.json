@@ -1,0 +1,27 @@
+{
+    "status_code": 200,
+    "response": {
+        "output": [
+            {
+                "name": "bin",
+                "type": "d",
+                "linkTarget": null,
+                "user": "1000",
+                "group": "100",
+                "permissions": "rwxr-xr-x",
+                "lastModified": "2024-10-23T09:06:00",
+                "size": "4096"
+            },
+            {
+                "name": "link_to_file",
+                "type": "l",
+                "linkTarget": "bin/file",
+                "user": "0",
+                "group": "0",
+                "permissions": "rwxrwxrwx",
+                "lastModified": "2024-10-23T09:10:04",
+                "size": "8"
+            }
+        ]
+    }
+}

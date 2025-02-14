@@ -19,7 +19,7 @@ from packaging.version import Version, parse
 from typing import Any, Optional, List
 
 from firecrest.utilities import (
-    slurm_state_completed, time_block
+    parse_retry_after, slurm_state_completed, time_block
 )
 from firecrest.FirecrestException import (
     FirecrestException,
@@ -69,6 +69,45 @@ class Firecrest:
     """
 
     TOO_MANY_REQUESTS_CODE = 429
+
+    def _retry_requests(func):
+        def wrapper(*args, **kwargs):
+            client = args[0]
+            num_retries = 0
+            resp = func(*args, **kwargs)
+            while True:
+                if resp.status_code != client.TOO_MANY_REQUESTS_CODE:
+                    break
+                elif (
+                    client.num_retries_rate_limit is not None
+                    and num_retries >= client.num_retries_rate_limit
+                ):
+                    client.log(
+                        logging.DEBUG,
+                        f"Rate limit is reached and the request has "
+                        f"been retried already {num_retries} times"
+                    )
+                    break
+                else:
+                    reset = resp.headers.get(
+                        "Retry-After",
+                        default=resp.headers.get(
+                            "RateLimit-Reset", default=10
+                        ),
+                    )
+                    reset = parse_retry_after(reset, client.log)
+                    client.log(
+                        logging.INFO,
+                        f"Rate limit is reached, will sleep for "
+                        f"{reset} seconds and try again"
+                    )
+                    time.sleep(reset)
+                    resp = func(*args, **kwargs)
+                    num_retries += 1
+
+            return resp
+
+        return wrapper
 
     def __init__(
         self,
@@ -128,7 +167,7 @@ class Firecrest:
         if not self.disable_client_logging:
             logger.log(level, msg)
 
-    # @_retry_requests  # type: ignore
+    @_retry_requests  # type: ignore
     def _get_request(
         self,
         endpoint,
@@ -150,7 +189,7 @@ class Firecrest:
 
         return resp
 
-    # @_retry_requests  # type: ignore
+    @_retry_requests  # type: ignore
     def _post_request(
         self, endpoint, additional_headers=None, params=None, data=None, files=None
     ) -> httpx.Response:
@@ -174,7 +213,7 @@ class Firecrest:
 
         return resp
 
-    # @_retry_requests  # type: ignore
+    @_retry_requests  # type: ignore
     def _put_request(
         self, endpoint, additional_headers=None, data=None
     ) -> httpx.Response:
@@ -193,7 +232,7 @@ class Firecrest:
 
         return resp
 
-    # @_retry_requests  # type: ignore
+    @_retry_requests  # type: ignore
     def _delete_request(
         self, endpoint, additional_headers=None, params=None, data=None
     ) -> httpx.Response:
@@ -246,7 +285,7 @@ class Firecrest:
         :calls: GET `/status/systems`
         """
         resp = self._get_request(endpoint="/status/systems")
-        return resp.json()['systems']
+        return self._check_response(resp, 200)['systems']
 
     def nodes(
         self,
@@ -318,7 +357,6 @@ class Firecrest:
         :param path: the absolute target path
         :param show_hidden: Show hidden files
         :param recursive: recursively list directories encountered
-        :numeric_uid: list numeric user and group IDs
         :param dereference: when showing file information for a symbolic link,
                             show information for the file the link references
                             rather than for the link itself
@@ -709,7 +747,6 @@ class Firecrest:
                     time.sleep(i)
                     continue
 
-            print(job)
             state = job[0]["status"]["state"]
             if isinstance(state, list):
                 state = ",".join(state)
@@ -820,7 +857,7 @@ class Firecrest:
         transfer_info = self._check_response(resp, 201)
         # Upload the file
         # FIXME
-        with open(local_file, "rb") as f: # type: ignore
+        with open(local_file, "rb") as f:  # type: ignore
             data = f.read()  # TODO this will fail for large files
             self._session.put(
                 url=transfer_info["uploadUrl"],

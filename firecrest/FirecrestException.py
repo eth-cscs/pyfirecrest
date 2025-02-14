@@ -125,3 +125,7 @@ class TransferJobFailedException(Exception):
             f"Transfer job failed. Check the log files for more "
             f"information: {self._transfer_job_info['transferJob']}"
         )
+
+
+class NotImplementedOnAPIversion(Exception):
+    """Exception raised when a feature is not developed yet for the current API version"""
