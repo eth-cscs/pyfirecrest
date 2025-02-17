@@ -27,6 +27,7 @@ from firecrest.FirecrestException import (
     FirecrestException,
     MultipartUploadException,
     TransferJobFailedException,
+    TransferJobTimeoutException,
     UnexpectedStatusException,
 )
 
@@ -82,8 +83,11 @@ class ExternalUpload:
             checksum
         )
 
-    def wait_for_transfer_job(self):
-        self._client._wait_for_transfer_job(self._transfer_info)
+    def wait_for_transfer_job(self, timeout=None):
+        self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
 
     def _upload_part(self, url, index):
         chunk_size = self._transfer_info["maxPartSize"]
@@ -177,8 +181,11 @@ class ExternalDownload:
                 f"to {file_name}"
             )
 
-    def wait_for_transfer_job(self):
-        self._client._wait_for_transfer_job(self._transfer_info)
+    def wait_for_transfer_job(self, timeout=None):
+        self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
 
 
 class Firecrest:
@@ -791,7 +798,8 @@ class Firecrest:
         source_path: str,
         target_path: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
         the `target_path` on `system_name`'s filesystem.
@@ -802,6 +810,7 @@ class Firecrest:
         :param target_path: the absolute target path
         :param account: the account to be used for the transfer job
         :param blocking: whether to wait for the job to complete
+        :param timeout: the maximum time to wait for the job to complete
 
         :calls: POST `/filesystem/{system_name}/transfer/mv`
         """
@@ -819,7 +828,10 @@ class Firecrest:
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
@@ -871,13 +883,39 @@ class Firecrest:
         )
         self._check_response(resp, 204)
 
-    def _wait_for_transfer_job(self, job_info):
+    def _wait_for_transfer_job(self, job_info, timeout=None):
+        if timeout:
+            timeout_time = time.time() + timeout
+
         job_id = job_info["transferJob"]["jobId"]
         system_name = job_info["transferJob"]["system"]
         self.log(
             logging.DEBUG,
             f"Waiting for transfer job {job_id}."
         )
+
+        def check_timeout(sleep_time):
+            if not timeout:
+                return
+
+            if time.time() + sleep_time > timeout_time:
+                self.log(
+                    logging.DEBUG,
+                    f"Timeout is about to be reached, while waiting for "
+                    f"transfer job {job_id}. Will cancel the job to stop "
+                    f"the transfer."
+                )
+
+                try:
+                    self.cancel_job(system_name, job_id)
+                except FirecrestException as e:
+                    self.log(
+                        logging.DEBUG,
+                        f"Failed to cancel job {job_id}: {e}"
+                    )
+
+                raise TransferJobTimeoutException(job_info)
+
         for i in sleep_generator():
             try:
                 job = self.job_info(system_name, job_id)
@@ -891,6 +929,7 @@ class Firecrest:
                         f"Job {job_id} information is not yet available, will "
                         f"sleep for {i} seconds."
                     )
+                    check_timeout(i)
                     time.sleep(i)
                     continue
 
@@ -909,6 +948,7 @@ class Firecrest:
                 logging.DEBUG,
                 f"Job {job_id} state is {state}. Will sleep for {i} seconds."
             )
+            check_timeout(i)
             time.sleep(i)
 
         try:
@@ -942,7 +982,8 @@ class Firecrest:
         source_path: str,
         target_path: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> dict:
         """Copies file from `source_path` to `target_path`.
 
@@ -951,6 +992,7 @@ class Firecrest:
         :param target_path: the absolute target path
         :param blocking: whether to wait for the job to complete
         :param account: the account to be used for the transfer job
+        :param timeout: the maximum time to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
         data: dict[str, str] = {
@@ -967,7 +1009,10 @@ class Firecrest:
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
@@ -976,7 +1021,8 @@ class Firecrest:
         system_name: str,
         path: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> Optional[dict]:
         """Delete a file.
         First the client will try to delete the file directly, and if it
@@ -988,6 +1034,7 @@ class Firecrest:
                         relevant when the file is not deleted directly)
         :param blocking: whether to wait for the job to complete (only
                          relevant when the file is not deleted directly)
+        :param timeout: the maximum time to wait for the job to complete
         :calls: DELETE `/filesystem/{system_name}/ops/rm`
 
                 DELETE `/filesystem/{system_name}/transfer/rm`
@@ -1043,7 +1090,10 @@ class Firecrest:
 
         job_info = self._check_response(resp, 200)
         if blocking:
-            self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
