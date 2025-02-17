@@ -28,6 +28,7 @@ from firecrest.FirecrestException import (
     FirecrestException,
     MultipartUploadException,
     TransferJobFailedException,
+    TransferJobTimeoutException,
     UnexpectedStatusException,
 )
 
@@ -88,8 +89,11 @@ class AsyncExternalUpload:
             checksum
         )
 
-    async def wait_for_transfer_job(self):
-        await self._client._wait_for_transfer_job(self._transfer_info)
+    async def wait_for_transfer_job(self, timeout=None):
+        await self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
 
     async def _upload_part(self, url, index):
         chunk_size = self._transfer_info["maxPartSize"]
@@ -183,8 +187,11 @@ class AsyncExternalDownload:
                 f"to {file_name}"
             )
 
-    async def wait_for_transfer_job(self):
-        await self._client._wait_for_transfer_job(self._transfer_info)
+    async def wait_for_transfer_job(self, timeout=None):
+        await self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
 
 
 class AsyncFirecrest:
@@ -797,7 +804,8 @@ class AsyncFirecrest:
         source_path: str,
         target_path: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
         the `target_path` on `system_name`'s filesystem.
@@ -808,6 +816,7 @@ class AsyncFirecrest:
         :param target_path: the absolute target path
         :param account: the account to be used for the transfer job
         :param blocking: whether to wait for the job to complete
+        :param timeout: the maximum time to wait for the job to complete
 
         :calls: POST `/filesystem/{system_name}/transfer/mv`
         """
@@ -825,7 +834,10 @@ class AsyncFirecrest:
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            await self._wait_for_transfer_job(job_info)
+            await self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
@@ -877,13 +889,39 @@ class AsyncFirecrest:
         )
         self._check_response(resp, 204)
 
-    async def _wait_for_transfer_job(self, job_info):
+    async def _wait_for_transfer_job(self, job_info, timeout=None):
+        if timeout:
+            timeout_time = asyncio.get_event_loop().time() + timeout
+
         job_id = job_info["transferJob"]["jobId"]
         system_name = job_info["transferJob"]["system"]
         self.log(
             logging.DEBUG,
             f"Waiting for transfer job {job_id}."
         )
+
+        async def check_timeout(sleep_time):
+            if not timeout:
+                return
+
+            if asyncio.get_event_loop().time() + sleep_time > timeout_time:
+                self.log(
+                    logging.DEBUG,
+                    f"Timeout is about to be reached, while waiting for "
+                    f"transfer job {job_id}. Will cancel the job to stop "
+                    f"the transfer."
+                )
+
+                try:
+                    await self.cancel_job(system_name, job_id)
+                except FirecrestException as e:
+                    self.log(
+                        logging.DEBUG,
+                        f"Failed to cancel job {job_id}: {e}"
+                    )
+
+                raise TransferJobTimeoutException(job_info)
+
         for i in sleep_generator():
             try:
                 job = await self.job_info(system_name, job_id)
@@ -897,6 +935,7 @@ class AsyncFirecrest:
                         f"Job {job_id} information is not yet available, will "
                         f"sleep for {i} seconds."
                     )
+                    await check_timeout(i)
                     await asyncio.sleep(i)
                     continue
 
@@ -915,6 +954,7 @@ class AsyncFirecrest:
                 logging.DEBUG,
                 f"Job {job_id} state is {state}. Will sleep for {i} seconds."
             )
+            await check_timeout(i)
             await asyncio.sleep(i)
 
         try:
@@ -948,7 +988,8 @@ class AsyncFirecrest:
         source_path: str,
         target_path: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> dict:
         """Copies file from `source_path` to `target_path`.
 
@@ -957,6 +998,7 @@ class AsyncFirecrest:
         :param target_path: the absolute target path
         :param blocking: whether to wait for the job to complete
         :param account: the account to be used for the transfer job
+        :param timeout: the maximum time to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
         data: dict[str, str] = {
@@ -973,7 +1015,10 @@ class AsyncFirecrest:
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            await self._wait_for_transfer_job(job_info)
+            await self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
@@ -982,7 +1027,8 @@ class AsyncFirecrest:
         system_name: str,
         path: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> Optional[dict]:
         """Delete a file.
         First the client will try to delete the file directly, and if it
@@ -994,6 +1040,7 @@ class AsyncFirecrest:
                             relevant when the file is not deleted directly)
         :param blocking: whether to wait for the job to complete (only
                             relevant when the file is not deleted directly)
+        :param timeout: the maximum time to wait for the job to complete
         :calls: DELETE `/filesystem/{system_name}/ops/rm`
 
                 DELETE `/filesystem/{system_name}/transfer/rm`
@@ -1049,7 +1096,10 @@ class AsyncFirecrest:
 
         job_info = self._check_response(resp, 200)
         if blocking:
-            await self._wait_for_transfer_job(job_info)
+            await self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 

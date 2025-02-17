@@ -135,6 +135,16 @@ class TransferJobFailedException(Exception):
         )
 
 
+class TransferJobTimeoutException(TransferJobFailedException):
+    """Exception when the transfer job exceeds the user-defined timeout"""
+
+    def __str__(self):
+        return (
+            f"Transfer job is about to exceed the user-defined timeout. "
+            f"Transfer job was cancelled: {self._transfer_job_info['transferJob']}."
+        )
+
+
 class MultipartUploadException(Exception):
     """Exception raised when a multipart upload fails"""
 
