@@ -129,7 +129,8 @@ class AsyncExternalUpload:
         if resp.status_code >= 400:
             raise MultipartUploadException(
                 self._transfer_info,
-                f"Failed to finish upload: {resp.status_code}: {resp.text}"
+                f"Failed to upload part {index + 1}: "
+                f"{resp.status_code}: {resp.text}"
             )
 
         self._client.log(
