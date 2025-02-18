@@ -135,17 +135,31 @@ class TransferJobFailedException(Exception):
         )
 
 
-class MultipartUploadException(Exception):
-    """Exception raised when a multipart upload fails"""
-
-    def __init__(self, transfer_job_info):
-        self._transfer_job_info = transfer_job_info
+class TransferJobTimeoutException(TransferJobFailedException):
+    """Exception when the transfer job exceeds the user-defined timeout"""
 
     def __str__(self):
         return (
+            f"Transfer job has exceeded the user-defined timeout. "
+            f"Transfer job was cancelled: "
+            f"{self._transfer_job_info['transferJob']}."
+        )
+
+
+class MultipartUploadException(Exception):
+    """Exception raised when a multipart upload fails"""
+
+    def __init__(self, transfer_job_info, msg=None):
+        self._transfer_job_info = transfer_job_info
+        self._msg = msg
+
+    def __str__(self):
+        ret = f"{self._msg}: " if self._msg else ""
+        ret += (
             f"Multipart upload failed. Transfer info: "
             f"({self._transfer_job_info})"
         )
+        return ret
 
 
 class NotImplementedOnAPIversion(Exception):
