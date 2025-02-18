@@ -148,14 +148,17 @@ class TransferJobTimeoutException(TransferJobFailedException):
 class MultipartUploadException(Exception):
     """Exception raised when a multipart upload fails"""
 
-    def __init__(self, transfer_job_info):
+    def __init__(self, transfer_job_info, mssg=None):
         self._transfer_job_info = transfer_job_info
+        self._mssg = mssg
 
     def __str__(self):
-        return (
+        ret = f"{self._mssg}: " if self._mssg else ""
+        ret += (
             f"Multipart upload failed. Transfer info: "
             f"({self._transfer_job_info})"
         )
+        return ret
 
 
 class NotImplementedOnAPIversion(Exception):
