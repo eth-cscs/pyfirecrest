@@ -6,10 +6,15 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #
 from firecrest import cli, __app_name__
+from firecrest import cli2
 
 
 def main() -> None:
     cli.app(prog_name=__app_name__)
+
+
+def main2() -> None:
+    cli2.app(prog_name=__app_name__)
 
 
 if __name__ == "__main__":
