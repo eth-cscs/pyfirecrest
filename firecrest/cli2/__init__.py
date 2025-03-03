@@ -371,8 +371,8 @@ def chown(
         envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
-    owner: Optional[str] = typer.Option(None, help="Owner ID for target."),
-    group: Optional[str] = typer.Option(None, help="Group ID for target."),
+    owner: str = typer.Option(None, help="Owner ID for target."),
+    group: str = typer.Option(None, help="Group ID for target."),
 ):
     """Change the user and/or group ownership of a given file.
 
@@ -400,7 +400,7 @@ def cp(
 ):
     """Copy files"""
     try:
-        client.copy(system, source, destination, account)
+        client.cp(system, source, destination, account)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -607,17 +607,19 @@ def head(
         raise typer.Exit(code=1)
 
     try:
-        lines_arg = lines
-        bytes_arg = bytes
+        lines_arg = int(lines)
+        bytes_arg = int(bytes)
         skip_ending = False
         if lines and lines.startswith("-"):
-            lines_arg = lines[1:]
+            lines_arg = abs(lines_arg)
             skip_ending = True
         elif bytes and bytes.startswith("-"):
-            bytes_arg = bytes[1:]
+            bytes_arg = abs(bytes_arg)
             skip_ending = True
 
-        console.print(client.head(system, path, bytes_arg, lines_arg, skip_ending))
+        console.print(
+            client.head(system, path, bytes_arg, lines_arg, skip_ending)
+        )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -660,17 +662,19 @@ def tail(
         raise typer.Exit(code=1)
 
     try:
-        lines_arg = lines
-        bytes_arg = bytes
+        lines_arg = int(lines)
+        bytes_arg = int(bytes)
         skip_beginning = False
         if lines and lines.startswith("+"):
-            lines_arg = lines[1:]
+            lines_arg = abs(lines_arg)
             skip_beginning = True
         elif bytes and bytes.startswith("+"):
-            bytes_arg = bytes[1:]
+            bytes_arg = abs(bytes_arg)
             skip_beginning = True
 
-        console.print(client.tail(system, path, bytes_arg, lines_arg, skip_beginning))
+        console.print(
+            client.tail(system, path, bytes_arg, lines_arg, skip_beginning)
+        )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -686,9 +690,9 @@ def download(
         envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
-    destination: Optional[str] = typer.Argument(
+    destination: str = typer.Argument(
         None,
-        help="The destination path (can be relative). It is required only when the download is `direct`.",
+        help="The destination path (can be relative).",
     ),
     account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
@@ -720,9 +724,9 @@ def upload(
     destination_directory: str = typer.Argument(
         ..., help="The absolute destination path."
     ),
-    filename: Optional[str] = typer.Argument(
+    filename: str = typer.Argument(
         None,
-        help="The name of the file in the system (by default it will be same as the local file). It works only for a direct upload.",
+        help="The name of the file in the system.",
     ),
     account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
@@ -828,7 +832,7 @@ def job_metadata(
     """Retrieve metadata for a current job.
     """
     try:
-        result = client.metadat(system, jobid)
+        result = client.job_metadata(system, job)
         if raw:
             console.print(json.dumps(result, indent=4))
         else:
