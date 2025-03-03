@@ -117,14 +117,49 @@ class PollingIterException(Exception):
 class TransferJobFailedException(Exception):
     """Exception raised when the polling iterator is exhausted"""
 
-    def __init__(self, transfer_job_info):
+    def __init__(self, transfer_job_info, file_not_found=False):
         self._transfer_job_info = transfer_job_info
+        self._file_not_found = file_not_found
 
     def __str__(self):
+        if self._file_not_found:
+            return (
+                f"Logs for transfer job not found. Maybe the job was "
+                f"cancelled. Check the transfer job for more information: "
+                f"{self._transfer_job_info['transferJob']}"
+            )
+
         return (
             f"Transfer job failed. Check the log files for more "
             f"information: {self._transfer_job_info['transferJob']}"
         )
+
+
+class TransferJobTimeoutException(TransferJobFailedException):
+    """Exception when the transfer job exceeds the user-defined timeout"""
+
+    def __str__(self):
+        return (
+            f"Transfer job has exceeded the user-defined timeout. "
+            f"Transfer job was cancelled: "
+            f"{self._transfer_job_info['transferJob']}."
+        )
+
+
+class MultipartUploadException(Exception):
+    """Exception raised when a multipart upload fails"""
+
+    def __init__(self, transfer_job_info, msg=None):
+        self._transfer_job_info = transfer_job_info
+        self._msg = msg
+
+    def __str__(self):
+        ret = f"{self._msg}: " if self._msg else ""
+        ret += (
+            f"Multipart upload failed. Transfer info: "
+            f"({self._transfer_job_info})"
+        )
+        return ret
 
 
 class NotImplementedOnAPIversion(Exception):

@@ -14,17 +14,21 @@ import pathlib
 import ssl
 import time
 
-from io import BytesIO
 from packaging.version import Version, parse
 from typing import Any, Optional, List
 
 from firecrest.utilities import (
-    parse_retry_after, slurm_state_completed, time_block
+    parse_retry_after,
+    part_checksum_xml,
+    slurm_state_completed,
+    time_block,
 )
 from firecrest.FirecrestException import (
     FirecrestException,
+    MultipartUploadException,
     TransferJobFailedException,
-    UnexpectedStatusException
+    TransferJobTimeoutException,
+    UnexpectedStatusException,
 )
 
 
@@ -45,11 +49,144 @@ def handle_response(response):
 
 
 def sleep_generator():
-    yield 0.2  # First yield 2 seconds because the api takes time to update
+    yield 0.2
     value = 0.5
     while True:
         yield value
-        value *= 2   # Double the value for each iteration
+        # Double the value for each iteration, up to 2 minutes
+        if value < 60:
+            value *= 2
+
+
+class ExternalUpload:
+    def __init__(self, client, transfer_info, local_file):
+        self._client = client
+        self._local_file = local_file
+        self._transfer_info = transfer_info
+        self._all_tags = []
+        self._chunk_size = 1073741824  # 1GB
+
+    @property
+    def transfer_data(self):
+        return self._transfer_info
+
+    def upload_file_to_stage(self):
+        urls = self._transfer_info["partsUploadUrls"]
+        # We should run this in parallel
+        for index, upload_url in enumerate(urls):
+            self._upload_part(upload_url, index)
+
+        # S3 complains when tags are not sorted
+        self._all_tags.sort(key=lambda x: x['PartNumber'])
+        checksum = part_checksum_xml(self._all_tags)
+        self._complete_upload(
+            checksum
+        )
+
+    def wait_for_transfer_job(self, timeout=None):
+        self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
+
+    def _upload_part(self, url, index):
+        chunk_size = self._transfer_info["maxPartSize"]
+
+        def chunk_reader(f, c):
+            i = 0
+            while True:
+                next_chunk = c if i + c <= chunk_size else chunk_size - i
+                i += next_chunk
+                self._client.log(
+                    logging.DEBUG,
+                    f"Reading {next_chunk} from {self._local_file}"
+                )
+                data = f.read(next_chunk)
+                if not data:
+                    break
+
+                yield data
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploading part {index + 1} to {url}"
+        )
+        start = index * chunk_size
+        with open(self._local_file, "rb") as f:
+            f.seek(start)
+            resp = self._client._session.put(
+                url=url,
+                content=chunk_reader(f, self._chunk_size),
+                timeout=None
+            )
+
+        if resp.status_code >= 400:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Failed to upload part {index + 1}: "
+                f"{resp.status_code}: {resp.text}"
+            )
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploaded part {index + 1} to {url}"
+        )
+        e_tag = resp.headers['ETag']
+        self._all_tags.append({
+            'ETag': e_tag,
+            'PartNumber': index + 1
+        })
+
+    def _complete_upload(self, checksum):
+        url = self._transfer_info["completeUploadUrl"]
+        self._client.log(
+            logging.DEBUG,
+            f"Finishing upload of file {self._local_file} to {url}"
+        )
+        resp = self._client._session.post(
+            url=url,
+            data=checksum
+        )
+        if resp.status_code >= 400:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Failed to finish upload: {resp.status_code}: {resp.text}"
+            )
+
+
+class ExternalDownload:
+    def __init__(self, client, transfer_info, file_path):
+        self._client = client
+        self._transfer_info = transfer_info
+        self._file_path = file_path
+
+    @property
+    def transfer_data(self):
+        return self._transfer_info
+
+    def download_file_from_stage(self, file_path=None):
+        file_name = file_path or self._file_path
+        with open(file_name, "wb") as f:
+            self._client.log(
+                logging.DEBUG,
+                f"Downloading file from {self._transfer_info['downloadUrl']} "
+                f"to {file_name}"
+            )
+            resp = self._client._session.get(
+                url=self._transfer_info["downloadUrl"],
+            )
+            f.write(resp.content)
+            self._client.log(
+                logging.DEBUG,
+                f"Downloaded file from {self._transfer_info['downloadUrl']} "
+                f"to {file_name}"
+            )
+
+    def wait_for_transfer_job(self, timeout=None):
+        self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
 
 
 class Firecrest:
@@ -69,6 +206,7 @@ class Firecrest:
     """
 
     TOO_MANY_REQUESTS_CODE = 429
+    MAX_DIRECT_UPLOAD_SIZE = 1048576
 
     def _retry_requests(func):
         def wrapper(*args, **kwargs):
@@ -660,7 +798,9 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
-        blocking: bool = False
+        account: Optional[str] = None,
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> dict:
         """Rename/move a file, directory, or symlink at the `source_path` to
         the `target_path` on `system_name`'s filesystem.
@@ -669,14 +809,19 @@ class Firecrest:
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param account: the account to be used for the transfer job
         :param blocking: whether to wait for the job to complete
+        :param timeout: the maximum time to wait for the job to complete
 
         :calls: POST `/filesystem/{system_name}/transfer/mv`
         """
         data: dict[str, str] = {
             "sourcePath": source_path,
-            "targetPath": target_path
+            "targetPath": target_path,
         }
+        if account is not None:
+            data["account"] = account
+
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/mv",
             data=json.dumps(data)
@@ -684,7 +829,10 @@ class Firecrest:
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
@@ -736,14 +884,53 @@ class Firecrest:
         )
         self._check_response(resp, 204)
 
-    def _wait_for_transfer_job(self, job_info):
+    def _wait_for_transfer_job(self, job_info, timeout=None):
+        if timeout:
+            timeout_time = time.time() + timeout
+
         job_id = job_info["transferJob"]["jobId"]
         system_name = job_info["transferJob"]["system"]
+        self.log(
+            logging.DEBUG,
+            f"Waiting for transfer job {job_id}."
+        )
+
+        def check_timeout(sleep_time):
+            if not timeout:
+                return
+
+            if time.time() + sleep_time > timeout_time:
+                self.log(
+                    logging.DEBUG,
+                    f"Timeout is about to be reached, while waiting for "
+                    f"transfer job {job_id}. Will cancel the job to stop "
+                    f"the transfer."
+                )
+
+                try:
+                    self.cancel_job(system_name, job_id)
+                except FirecrestException as e:
+                    self.log(
+                        logging.DEBUG,
+                        f"Failed to cancel job {job_id}: {e}"
+                    )
+
+                raise TransferJobTimeoutException(job_info)
+
         for i in sleep_generator():
             try:
                 job = self.job_info(system_name, job_id)
             except FirecrestException as e:
-                if e.responses[-1].status_code == 404 and "Job not found" in e.responses[-1].json()['message']:
+                if (
+                    e.responses[-1].status_code == 404 and
+                    "Job not found" in e.responses[-1].json()['message']
+                ):
+                    self.log(
+                        logging.DEBUG,
+                        f"Job {job_id} information is not yet available, will "
+                        f"sleep for {i} seconds."
+                    )
+                    check_timeout(i)
                     time.sleep(i)
                     continue
 
@@ -752,13 +939,37 @@ class Firecrest:
                 state = ",".join(state)
 
             if slurm_state_completed(state):
+                self.log(
+                    logging.DEBUG,
+                    f"Job {job_id} is completed with state: {state}."
+                )
                 break
 
+            self.log(
+                logging.DEBUG,
+                f"Job {job_id} state is {state}. Will sleep for {i} seconds."
+            )
+            check_timeout(i)
             time.sleep(i)
 
-        # TODO: Check if the job was successful
+        try:
+            # If job is cancelled before it starts running, the log file will
+            # not be available
+            stdout_file = self.view(
+                system_name,
+                job_info["transferJob"]["logs"]["outputLog"]
+            )
+        except FirecrestException as e:
+            if (
+                e.responses[-1].status_code == 404 and
+                "No such file or directory" in e.responses[-1].json()['message']
+            ):
+                raise TransferJobFailedException(
+                    job_info, file_not_found=True
+                )
+            else:
+                raise e
 
-        stdout_file = self.view(system_name, job_info["transferJob"]["logs"]["outputLog"])
         if (
             "Files were successfully" not in stdout_file and
             "File was successfully" not in stdout_file and
@@ -771,7 +982,9 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
-        blocking: bool = False
+        account: Optional[str] = None,
+        blocking: bool = True,
+        timeout: Optional[float] = None
     ) -> dict:
         """Copies file from `source_path` to `target_path`.
 
@@ -779,12 +992,16 @@ class Firecrest:
         :param source_path: the absolute source path
         :param target_path: the absolute target path
         :param blocking: whether to wait for the job to complete
+        :param account: the account to be used for the transfer job
+        :param timeout: the maximum time to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
         data: dict[str, str] = {
             "sourcePath": source_path,
-            "targetPath": target_path
+            "targetPath": target_path,
         }
+        if account is not None:
+            data["account"] = account
 
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/cp",
@@ -793,7 +1010,10 @@ class Firecrest:
         job_info = self._check_response(resp, 201)
 
         if blocking:
-            self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
@@ -801,110 +1021,261 @@ class Firecrest:
         self,
         system_name: str,
         path: str,
-        blocking: bool = False
-    ) -> dict:
+        account: Optional[str] = None,
+        blocking: bool = True,
+        timeout: Optional[float] = None
+    ) -> Optional[dict]:
         """Delete a file.
+        First the client will try to delete the file directly, and if it
+        fails with a timeout, it will launch a job to delete the file.
 
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
-        :param blocking: whether to wait for the job to complete
-        :calls: DELETE `/filesystem/{system_name}/transfer/rm`
+        :param account: the account to be used for the transfer job  (only
+                        relevant when the file is not deleted directly)
+        :param blocking: whether to wait for the job to complete (only
+                         relevant when the file is not deleted directly)
+        :param timeout: the maximum time to wait for the job to complete
+        :calls: DELETE `/filesystem/{system_name}/ops/rm`
+
+                DELETE `/filesystem/{system_name}/transfer/rm`
+
+                GET `/jobs/{system_name}/{job_id}`
         """
+        params = {
+            "path": path,
+        }
+        try:
+            resp = self._delete_request(
+                endpoint=f"/filesystem/{system_name}/ops/rm",
+                params=params
+            )
+            self._check_response(resp, 204)
+            return None
+        except FirecrestException as e:
+            if e.responses[-1].status_code == 408:
+                self.log(
+                    logging.DEBUG,
+                    f"The command for the deletion of file {path} "
+                    f"got a timeout, a job will be launched to "
+                    f"delete the file."
+                )
+            elif e.responses[-1].status_code == 500:
+                try:
+                    json_resp = e.responses[-1].json()
+                    if (
+                        "message" in json_resp and
+                        "exit status:124" in json_resp["message"]
+                    ):
+                        self.log(
+                            logging.DEBUG,
+                            f"The command for the deletion of file {path} "
+                            f"got a timeout, a job will be launched to "
+                            f"delete the file."
+                        )
+                    else:
+                        raise e
+
+                except json.JSONDecodeError:
+                    raise e
+            else:
+                raise e
+
+        if account is not None:
+            params["account"] = account
+
         resp = self._delete_request(
             endpoint=f"/filesystem/{system_name}/transfer/rm",
-            params={"path": path}
+            params=params
         )
-        # self._check_response(resp, 204)
 
         job_info = self._check_response(resp, 200)
-
         if blocking:
-            self._wait_for_transfer_job(job_info)
+            self._wait_for_transfer_job(
+                job_info,
+                timeout=timeout
+            )
 
         return job_info
 
     def upload(
         self,
         system_name: str,
-        local_file: str | pathlib.Path | BytesIO,
+        local_file: str | pathlib.Path,
         directory: str,
         filename: str,
-        blocking: bool = False
-    ) -> dict:
-        """Upload a file to the system. The user uploads a file to the
-        staging area Object storage) of FirecREST and it will be moved
-        to the target directory in a job.
+        account: Optional[str] = None,
+        blocking: bool = True
+    ) -> Optional[ExternalUpload]:
+        """Upload a file to the system. Small files will be
+        uploaded directly to FirecREST and will be immediately available.
+        The function will return `None` in this case.
+        Large files will be uploaded in parts to the
+        staging area of FirecREST and then moved to the target directory in a
+        job. The function will return the transfer job information in this
+        case.
 
         :param system_name: the system name where the filesystem belongs to
         :param local_file: the local file's path to be uploaded (can be
                            relative)
-        :param source_path: the absolut target path of the directory where the
-                            file will be uploaded
+        :param directory: the absolut target path of the directory where the
+                          file will be uploaded
         :param filename: the name of the file in the target directory
-        :param blocking: whether to wait for the job to complete
+        :param account: the account to be used for the transfer job (only
+                        relevant when the file is larger than
+                        `MAX_DIRECT_UPLOAD_SIZE`)
+        :param blocking: whether to wait for the job to complete (only
+                         relevant when the file is larger than
+                         `MAX_DIRECT_UPLOAD_SIZE`)
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        # TODO check if the file exists locally
+        if not os.path.isfile(local_file):
+            raise FileNotFoundError(f"File not found: {local_file}")
+
+        local_file_size = os.path.getsize(local_file)
+        if local_file_size < self.MAX_DIRECT_UPLOAD_SIZE:
+            self.log(
+                logging.DEBUG,
+                f"File ({local_file}) will be directly uploaded to the "
+                f"target directory, since it's {local_file_size} bytes."
+            )
+            with open(local_file, "rb") as f:
+                file_content = f.read()
+                resp = self._post_request(
+                    endpoint=f"/filesystem/{system_name}/ops/upload",
+                    params={
+                        "path": directory,
+                    },
+                    files={"file": (filename, file_content)}
+                )
+                self._check_response(resp, 204)
+                return None
+
+        self.log(
+            logging.DEBUG,
+            f"File ({local_file}) needs to be uploaded in parts to the "
+            f"stage area of FirecREST and then moved to the "
+            f"target directory, since it's {local_file_size} bytes."
+        )
+        data = {
+            "source_path": directory,
+            "fileName": filename,
+            'fileSize': local_file_size,
+        }
+        if account is not None:
+            data["account"] = account
 
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
-            data=json.dumps({
-                "source_path": directory,
-                "fileName": filename
-            })
+            data=json.dumps(data)
         )
 
         transfer_info = self._check_response(resp, 201)
-        # Upload the file
-        # FIXME
-        with open(local_file, "rb") as f:  # type: ignore
-            data = f.read()  # TODO this will fail for large files
-            self._session.put(
-                url=transfer_info["uploadUrl"],
-                data=data  # type: ignore
-            )
+        ext_upload = ExternalUpload(
+            client=self,
+            transfer_info=transfer_info,
+            local_file=local_file,
+        )
 
         if blocking:
-            self._wait_for_transfer_job(transfer_info)
+            self.log(
+                logging.DEBUG,
+                f"Blocking until ({local_file}) is transfered to the "
+                f"filesystem."
+            )
+            # Upload the file in parts
+            ext_upload.upload_file_to_stage()
 
-        return transfer_info
+            # Wait for the file to be available in the target directory
+            ext_upload.wait_for_transfer_job()
+
+        return ext_upload
 
     def download(
         self,
         system_name: str,
         source_path: str,
         target_path: str,
-        blocking: bool = False
-    ) -> dict:
+        account: Optional[str] = None,
+        blocking: bool = True
+    ) -> Optional[ExternalDownload]:
         """Download a file from the remote system.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path of the file
         :param target_path: the target path in the local filesystem (can
                             be relative path)
+        :param account: the account to be used for the transfer job (only
+                        relevant when the file is larger than
+                        `MAX_DIRECT_UPLOAD_SIZE`)
         :param blocking: whether to wait for the job to complete
-        :calls: POST `/filesystem/{system_name}/transfer/upload`
+        :calls: POST `/filesystem/{system_name}/transfer/download`
         """
+        # Check if the file is small enough to be downloaded directly
+        try:
+            file_info = self.stat(system_name, source_path)
+            file_size = file_info["size"]
+        except FirecrestException as e:
+            if (
+                e.responses[-1].status_code == 404 and
+                "No such file or directory" in e.responses[-1].json()['message']
+            ):
+                raise FileNotFoundError(
+                    f"File not found: {source_path} on system {system_name}"
+                )
+            else:
+                raise e
+
+        if file_size < self.MAX_DIRECT_UPLOAD_SIZE:
+            self.log(
+                logging.DEBUG,
+                f"File ({source_path}) will be directly downloaded to the "
+                f"target directory, since it's {file_size} bytes."
+            )
+            self.log(
+                logging.DEBUG,
+                "Arguments `account` and `blocking` will be ignored."
+            )
+            resp = self._get_request(
+                endpoint=f"/filesystem/{system_name}/ops/download",
+                params={
+                    "path": source_path,
+                }
+            )
+            self._check_response(resp, 200, return_json=False)
+
+            with open(target_path, "wb") as f:
+                f.write(resp.content)
+
+            return None
+
+        data = {
+            "source_path": source_path,
+        }
+        if account is not None:
+            data["account"] = account
+
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/download",
-            data=json.dumps({
-                "source_path": source_path,
-            })
+            data=json.dumps(data)
         )
 
         transfer_info = self._check_response(resp, 201)
+        download_obj = ExternalDownload(
+            client=self,
+            transfer_info=transfer_info,
+            file_path=target_path
+        )
         if blocking:
-            self._wait_for_transfer_job(transfer_info)
+            self.log(
+                logging.DEBUG,
+                f"Blocking until ({source_path}) is transfered to the "
+                f"filesystem."
+            )
+            download_obj.wait_for_transfer_job()
+            download_obj.download_file_from_stage()
 
-            # Download the file
-            with open(target_path, "wb") as f:
-                # TODO this will fail for large files
-                resp = self._session.get(
-                    url=transfer_info["downloadUrl"],
-                )
-                f.write(resp.content)
-
-        return transfer_info
+        return download_obj
 
     def submit(
         self,
