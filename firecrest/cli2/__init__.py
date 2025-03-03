@@ -243,12 +243,6 @@ def id(
 
 @app.command(rich_help_panel="Utilities commands")
 def ls(
-    config_from_parent: str = typer.Option(
-        None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -269,28 +263,34 @@ def ls(
         "--recursive",
         help="Recursively list directories encountered.",
     ),
+    numeric_uid_gid: bool = typer.Option(
+        False,
+        "-n",
+        "--numeric-uid-gid",
+        help="Print numeric UID and GID instead of names.",
+    ),
+    dereference: bool = typer.Option(
+        False,
+        "-L",
+        help="When showing file information for a symbolic link, show information for the file the link references rather than for the link itself.",
+    ),
     raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
 ):
     """List directory contents"""
     try:
-        result = client.list_files(system, path, show_hidden, recursive)
+        result = client.list_files(
+            system,
+            path,
+            show_hidden,
+            recursive,
+            numeric_uid_gid,
+            dereference
+        )
         if raw:
             console.print(json.dumps(result, indent=4))
         else:
-            table = create_table(
-                f"Files in system `{system}` and path `{path}`",
-                result,
-                ("Filename", "name"),
-                ("Type", "type"),
-                ("Group", "group"),
-                ("Permissions", "permissions"),
-                ("Size", "size"),
-                ("User", "user"),
-                ("Last modified", "last_modified"),
-                ("Link target", "link_target"),
-            )
+            raise NotImplementedError("Rich table not implemented yet")
 
-            console.print(table)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -298,11 +298,6 @@ def ls(
 
 @app.command(rich_help_panel="Utilities commands")
 def mkdir(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -327,11 +322,6 @@ def mkdir(
 
 @app.command(rich_help_panel="Utilities commands")
 def mv(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -341,10 +331,11 @@ def mv(
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
+    account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
     """Rename/move files, directory, or symlink at the `source_path` to the `target_path` on `system`'s filesystem"""
     try:
-        client.mv(system, source, destination)
+        client.mv(system, source, destination, account)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -352,11 +343,6 @@ def mv(
 
 @app.command(rich_help_panel="Utilities commands")
 def chmod(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -377,11 +363,6 @@ def chmod(
 
 @app.command(rich_help_panel="Utilities commands")
 def chown(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -406,11 +387,6 @@ def chown(
 
 @app.command(rich_help_panel="Utilities commands")
 def cp(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -420,10 +396,11 @@ def cp(
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
+    account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
     """Copy files"""
     try:
-        client.copy(system, source, destination)
+        client.copy(system, source, destination, account)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -431,11 +408,6 @@ def cp(
 
 @app.command(rich_help_panel="Utilities commands")
 def compress(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -445,12 +417,20 @@ def compress(
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
+    dereference: bool = typer.Option(
+        False,
+        help="When compressing a symbolic link, compress the file or directory the link points to rather than the link itself.",
+    ),
 ):
     """Compress files using gzip compression.
-    You can name the output file as you like, but typically these files have a .tar.gz extension.
     """
     try:
-        client.compress(system, source, destination, fail_on_timeout=False)
+        client.compress(
+            system,
+            source,
+            destination,
+            dereference=dereference,
+        )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -458,11 +438,6 @@ def compress(
 
 @app.command(rich_help_panel="Utilities commands")
 def extract(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -472,14 +447,11 @@ def extract(
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
-    extension: str = typer.Argument("auto", help="Extension of file. Possible values are `auto`, `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`."),
 ):
     """Extract files.
-    If you don't select the extension, FirecREST will try to guess the right command based on the extension of the sourcePath.
-    Supported extensions are `.zip`, `.tar`, `.tgz`, `.gz` and `.bz2`.
     """
     try:
-        client.extract(system, source, destination, extension, fail_on_timeout=False)
+        client.extract(system, source, destination)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -487,11 +459,6 @@ def extract(
 
 @app.command(rich_help_panel="Utilities commands")
 def file(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -511,11 +478,6 @@ def file(
 
 @app.command(rich_help_panel="Utilities commands")
 def stat(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -533,71 +495,8 @@ def stat(
         if raw:
             console.print(json.dumps(result, indent=4))
         else:
-            title = f"Status of file {path}"
-            if deref:
-                title += " (dereferenced)"
+            raise NotImplementedError("Rich table not implemented yet")
 
-            data = [
-                {
-                    "Attribute": "mode",
-                    "Value": result["mode"],
-                    "Description": "access rights in octal",
-                },
-                {
-                    "Attribute": "ino",
-                    "Value": result["ino"],
-                    "Description": "inode number",
-                },
-                {
-                    "Attribute": "dev",
-                    "Value": result["dev"],
-                    "Description": "device number in decimal",
-                },
-                {
-                    "Attribute": "nlink",
-                    "Value": result["nlink"],
-                    "Description": "number of hard links",
-                },
-                {
-                    "Attribute": "uid",
-                    "Value": result["uid"],
-                    "Description": "user ID of owner",
-                },
-                {
-                    "Attribute": "gid",
-                    "Value": result["gid"],
-                    "Description": "group ID of owner",
-                },
-                {
-                    "Attribute": "size",
-                    "Value": result["size"],
-                    "Description": "total size, in bytes",
-                },
-                {
-                    "Attribute": "atime",
-                    "Value": result["atime"],
-                    "Description": "time of last access, seconds since Epoch",
-                },
-                {
-                    "Attribute": "mtime",
-                    "Value": result["mtime"],
-                    "Description": "time of last data modification, seconds since Epoch",
-                },
-                {
-                    "Attribute": "ctime",
-                    "Value": result["ctime"],
-                    "Description": "time of last status change, seconds since Epoch",
-                },
-            ]
-            table = create_table(
-                title,
-                data,
-                ("Attribute", "Attribute"),
-                ("Value", "Value"),
-                ("Description", "Description"),
-            )
-
-            console.print(table)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -605,11 +504,6 @@ def stat(
 
 @app.command(rich_help_panel="Utilities commands")
 def symlink(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -630,11 +524,6 @@ def symlink(
 
 @app.command(rich_help_panel="Utilities commands")
 def rm(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -643,6 +532,7 @@ def rm(
         envvar="FIRECREST_SYSTEM",
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
+    account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
     force: bool = typer.Option(
         ...,
         prompt="Are you sure you want to delete this entry?",
@@ -653,7 +543,7 @@ def rm(
     """Remove directory entries"""
     try:
         if force:
-            client.simple_delete(system, path)
+            client.rm(system, path, account)
         else:
             console.print("Operation cancelled")
     except Exception as e:
@@ -663,11 +553,6 @@ def rm(
 
 @app.command(rich_help_panel="Utilities commands")
 def checksum(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -687,11 +572,6 @@ def checksum(
 
 @app.command(rich_help_panel="Utilities commands")
 def head(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -718,10 +598,8 @@ def head(
     """Display the beginning of a specified file.
     By default the first 10 lines will be returned.
     Bytes and lines cannot be specified simultaneously.
-
-    You view only files smaller than UTILITIES_MAX_FILE_SIZE bytes.
-    This variable is available in the parameters command.
     """
+    # TODO: add info about the max size of the file
     if lines and bytes:
         console.print(
             f"[red]{__app_name__} head: cannot specify both 'bytes' and 'lines'[/red]"
@@ -747,11 +625,6 @@ def head(
 
 @app.command(rich_help_panel="Utilities commands")
 def tail(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ...,
         "-s",
@@ -778,10 +651,8 @@ def tail(
     """Display the end of a specified file.
     By default the last 10 lines will be returned.
     Bytes and lines cannot be specified simultaneously.
-
-    You view only files smaller than UTILITIES_MAX_FILE_SIZE bytes.
-    This variable is available in the parameters command.
     """
+    # TODO: add info about the max size of the file
     if lines and bytes:
         console.print(
             f"[red]{__app_name__} tail: cannot specify both 'bytes' and 'lines'[/red]"
@@ -805,152 +676,70 @@ def tail(
         raise typer.Exit(code=1)
 
 
-@app.command(rich_help_panel="Utilities commands")
-def whoami(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
+@app.command(rich_help_panel="Storage commands")
+def download(
     system: str = typer.Option(
-        None,
+        ...,
         "-s",
         "--system",
-        help="The name of the system where the `whoami` command will run.",
+        help="The name of the system where the source filesystem belongs to.",
         envvar="FIRECREST_SYSTEM",
     ),
+    source: str = typer.Argument(..., help="The absolute source path."),
+    destination: Optional[str] = typer.Argument(
+        None,
+        help="The destination path (can be relative). It is required only when the download is `direct`.",
+    ),
+    account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
-    """Return the username that FirecREST will be using to perform the other calls.
-    If the name of the system is not passed the username will be deduced from the token.
+    """Download a file
     """
     try:
-        console.print(client.whoami(system))
+        client.download(
+            system,
+            source,
+            destination,
+            account=account,
+            blocking=True
+        )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
 
-# @app.command(rich_help_panel="Storage commands")
-# def download(
-#     config_from_parent: str = typer.Option(None,
-#         callback=config_parent_load_callback,
-#         is_eager=True,
-#         hidden=True
-#     ),
-#     system: str = typer.Option(
-#         ...,
-#         "-s",
-#         "--system",
-#         help="The name of the system where the source filesystem belongs to.",
-#         envvar="FIRECREST_SYSTEM",
-#     ),
-#     source: str = typer.Argument(..., help="The absolute source path."),
-#     destination: Optional[str] = typer.Argument(
-#         None,
-#         help="The destination path (can be relative). It is required only when the download is `direct`.",
-#     ),
-#     transfer_type: TransferType = typer.Option(
-#         TransferType.direct,
-#         "--type",
-#         case_sensitive=False,
-#         help=f"Select type of transfer.",
-#     ),
-# ):
-#     """Download a file
-
-#     Direct download will download the file to the DESTINATION but it will work only for small files.
-#     You can find the maximum size in UTILITIES_MAX_FILE_SIZE by running the `parameters` command.
-
-#     External download will return with a link in case of success.
-#     The file can be downloaded locally from there without any authentication.
-#     """
-#     try:
-#         if transfer_type == TransferType.direct:
-#             if destination:
-#                 client.simple_download(system, source, destination)
-#             else:
-#                 console.print("`destination` is required when the ")
-#                 raise typer.Exit(code=1)
-#         elif transfer_type == TransferType.external:
-#             down_obj = client.external_download(system, source)
-#             console.print(
-#                 f"Follow the status of the transfer asynchronously with that task ID: [green]{down_obj.task_id}[/green]"
-#             )
-#             with console.status(
-#                 "Moving file to the staging area... It is safe to "
-#                 "cancel the command and follow up through the task."
-#             ):
-#                 console.out(f"Download the file from:\n{down_obj.object_storage_link}")
-#     except Exception as e:
-#         examine_exeption(e)
-#         raise typer.Exit(code=1)
-
-
-# @app.command(rich_help_panel="Storage commands")
-# def upload(
-#     config_from_parent: str = typer.Option(None,
-#         callback=config_parent_load_callback,
-#         is_eager=True,
-#         hidden=True
-#     ),
-#     system: str = typer.Option(
-#         ...,
-#         "-s",
-#         "--system",
-#         help="The name of the system where the source filesystem belongs to.",
-#         envvar="FIRECREST_SYSTEM",
-#     ),
-#     source: str = typer.Argument(..., help="The source path (can be relative)."),
-#     destination_directory: str = typer.Argument(
-#         ..., help="The absolute destination path."
-#     ),
-#     filename: Optional[str] = typer.Argument(
-#         None,
-#         help="The name of the file in the system (by default it will be same as the local file). It works only for a direct upload.",
-#     ),
-#     transfer_type: TransferType = typer.Option(
-#         TransferType.direct,
-#         "--type",
-#         case_sensitive=False,
-#         help=f"Select type of transfer.",
-#     ),
-# ):
-#     """Upload a file
-
-#     Direct upload will upload the file to the DESTINATION directory but it will work only for small files.
-#     You can find the maximum size in UTILITIES_MAX_FILE_SIZE by running the `parameters` command.
-
-#     External download will return with a command that will need to be run in case of success.
-#     The file can be uploaded to a stage area without any authentication and FirecREST will move the file to the cluster's filesystem as soon as it finished.
-#     """
-#     try:
-#         if transfer_type == TransferType.direct:
-#             client.simple_upload(system, source, destination_directory, filename)
-#         elif transfer_type == TransferType.external:
-#             up_obj = client.external_upload(system, source, destination_directory)
-#             console.print(
-#                 f"Follow the status of the transfer asynchronously with that task ID: [green]{up_obj.task_id}[/green]"
-#             )
-#             with console.status(
-#                 "Waiting for Presigned URL to upload file to staging "
-#                 "area... It is safe to cancel the command and follow "
-#                 "up through the task."
-#             ):
-#                 data = up_obj.object_storage_data
-#                 if "command" in data:
-#                     console.print(
-#                         "\nNecessary information to upload the file in the staging area:"
-#                     )
-#                     console.print(f"[yellow]{json.dumps(data['parameters'], indent=4)}[/yellow]")
-#                     console.print(
-#                         "\nOr simply run the following command to finish the upload:"
-#                     )
-#                     console.print(f"[green]{data['command']}[/green]")
-#                 else:
-#                     console.print(json.dumps(data, indent=4))
-#     except Exception as e:
-#         examine_exeption(e)
-#         raise typer.Exit(code=1)
+@app.command(rich_help_panel="Storage commands")
+def upload(
+    system: str = typer.Option(
+        ...,
+        "-s",
+        "--system",
+        help="The name of the system where the source filesystem belongs to.",
+        envvar="FIRECREST_SYSTEM",
+    ),
+    source: str = typer.Argument(..., help="The source path (can be relative)."),
+    destination_directory: str = typer.Argument(
+        ..., help="The absolute destination path."
+    ),
+    filename: Optional[str] = typer.Argument(
+        None,
+        help="The name of the file in the system (by default it will be same as the local file). It works only for a direct upload.",
+    ),
+    account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
+):
+    """Upload a file
+    """
+    try:
+        client.upload(
+            system,
+            source,
+            destination_directory,
+            filename,
+            account=account,
+            blocking=True
+        )
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
 
 
 def validate_env_var_format(value: List[str]):
