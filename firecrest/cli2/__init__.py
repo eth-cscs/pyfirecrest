@@ -241,47 +241,6 @@ def id(
         raise typer.Exit(code=1)
 
 
-@app.command(rich_help_panel="Status commands")
-def tasks(
-    taskids: Optional[List[str]] = typer.Argument(
-        None, help="List of task IDs to display."
-    ),
-    pager: Optional[bool] = typer.Option(
-        True, help="Display the output in a pager application."
-    ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
-):
-    """Retrieve information about the FirecREST tasks of the users"""
-    try:
-        result = client._tasks(taskids)
-        if raw:
-            console.print(json.dumps(result, indent=4))
-            return
-
-        num_results = len(result.values())
-        table = create_table(
-            f"Task information: {num_results} result{'s' if num_results > 1 else ''}",
-            result.values(),
-            ("Task ID", "hash_id"),
-            ("Status", "status"),
-            ("Description", "description"),
-            ("Created at", "created_at"),
-            ("Updated at", "updated_at"),
-            ("User", "user"),
-            ("Service", "service"),
-            ("Data", "data"),
-        )
-        if pager:
-            with console.pager():
-                console.print(table)
-        else:
-            console.print(table)
-
-    except Exception as e:
-        examine_exeption(e)
-        raise typer.Exit(code=1)
-
-
 @app.command(rich_help_panel="Utilities commands")
 def ls(
     config_from_parent: str = typer.Option(
@@ -1005,33 +964,22 @@ def validate_env_var_format(value: List[str]):
 
 @app.command(rich_help_panel="Compute commands")
 def submit(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
+    working_dir: str = typer.Option(
+        ..., help="working directory of the job."
+    ),
     job_script: str = typer.Argument(
         ...,
-        help="The path of the script (if it's local it can be relative path, if it is on the system it has to be the absolute path)",
-    ),
-    account: Optional[str] = typer.Option(
-        None,
-        "--account",
-        help="Charge resources used by this job to specified account.",
-    ),
-    local: Optional[bool] = typer.Option(
-        True,
-        help="The batch file can be local (default) or on the system's filesystem.",
+        help="The path of the local script",
     ),
     env_vars: List[str] = typer.Option(
         [], "-e", "--env-var",
         metavar="VAR=VALUE",
         help="Environment variable to be exported in the environment where the job script will be submitted (format `VAR=VALUE`).",
         callback=validate_env_var_format
-    )
+    ),
 ):
     """Submit a batch script to the workload manager of the target system"""
     envvars = {}
@@ -1040,21 +988,12 @@ def submit(
         envvars[var] = val
 
     try:
-        if local:
-            result = client.submit(
-                system,
-                script_local_path=job_script,
-                account=account,
-                env_vars=envvars
-            )
-        else:
-            result = client.submit(
-                system,
-                script_remote_path=job_script,
-                account=account,
-                env_vars=envvars
-            )
-
+        result = client.submit(
+            system_name=system,
+            script_local_path=job_script,
+            working_dir=working_dir,
+            env_vars=envvars
+        )
         console.print(json.dumps(result, indent=4))
     except Exception as e:
         examine_exeption(e)
@@ -1062,94 +1001,49 @@ def submit(
 
 
 @app.command(rich_help_panel="Compute commands")
-def poll(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
+def job_info(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
     ),
-    start_time: Optional[str] = typer.Option(
-        None,
-        help="Start time (and/or date) of job's query. Allowed formats are `HH:MM\[:SS] \[AM|PM]` or `MMDD\[YY]` or `MM/DD\[/YY]` or `MM.DD\[.YY]` or `MM/DD\[/YY]-HH:MM\[:SS]` or `YYYY-MM-DD\[THH:MM\[:SS]]`.",
-    ),
-    end_time: Optional[str] = typer.Option(
-        None,
-        help="End time (and/or date) of job's query. Allowed formats are `HH:MM\[:SS] \[AM|PM]` or `MMDD\[YY]` or `MM/DD\[/YY]` or `MM.DD\[.YY]` or `MM/DD\[/YY]-HH:MM\[:SS]` or `YYYY-MM-DD\[THH:MM\[:SS]]`.",
-    ),
     raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
 ):
     """Retrieve information about submitted jobs.
-    This call uses the `sacct` command
     """
     try:
-        result = client.poll(system, jobs, start_time, end_time)
+        result = client.job_info(system)
+        if jobs:
+            raise NotImplementedError("Job filtering not implemented yet")
+
         if raw:
             console.print(json.dumps(result, indent=4))
         else:
-            table = create_table(
-                "Accounting data for jobs",
-                result,
-                ("Job ID", "jobid"),
-                ("Name", "name"),
-                ("Nodelist", "nodelist"),
-                ("Nodes", "nodes"),
-                ("Partition", "partition"),
-                ("Start time", "start_time"),
-                ("State", "state"),
-                ("Time", "time"),
-                ("Time left", "time_left"),
-                ("User", "user"),
-            )
-            console.print(table)
+            raise NotImplementedError("Rich table not implemented yet")
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
 
 
 @app.command(rich_help_panel="Compute commands")
-def poll_active(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
+def job_metadata(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
-    jobs: Optional[List[str]] = typer.Argument(
-        None, help="List of job IDs to display."
+    job: str = typer.Argument(
+        ..., help="Job id."
     ),
     raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
 ):
-    """Retrieves information about active jobs.
-    This call uses the `squeue -u <username>` command
+    """Retrieve metadata for a current job.
     """
     try:
-        result = client.poll_active(system, jobs)
+        result = client.metadat(system, jobid)
         if raw:
             console.print(json.dumps(result, indent=4))
         else:
-            table = create_table(
-                "Information about jobs in the queue",
-                result,
-                ("Job ID", "jobid"),
-                ("Name", "name"),
-                ("Nodelist", "nodelist"),
-                ("Nodes", "nodes"),
-                ("Partition", "partition"),
-                ("Start time", "start_time"),
-                ("State", "state"),
-                ("Time", "time"),
-                ("Time left", "time_left"),
-                ("User", "user"),
-            )
-            console.print(table)
+            raise NotImplementedError("Rich table not implemented yet")
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1157,11 +1051,6 @@ def poll_active(
 
 @app.command(rich_help_panel="Compute commands")
 def cancel(
-    config_from_parent: str = typer.Option(None,
-        callback=config_parent_load_callback,
-        is_eager=True,
-        hidden=True
-    ),
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
@@ -1169,7 +1058,23 @@ def cancel(
 ):
     """Cancel job"""
     try:
-        client.cancel(system, job)
+        client.cancel_job(system, job)
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Compute commands")
+def attach_to_job(
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
+    ),
+    job: str = typer.Argument(..., help="The ID of the job that will be cancelled."),
+    command: str = typer.Argument(..., help="The command that will be executed in the context of the job."),
+):
+    """Attach a process to a job."""
+    try:
+        client.attach_to_job(system, job, command)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
