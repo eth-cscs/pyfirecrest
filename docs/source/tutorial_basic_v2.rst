@@ -221,3 +221,71 @@ The files need to be moved first to a staging area, before they are moved to the
 There is again the option to let the client handle the job submission or to do it manually.
 In case of small files the client will return ``None`` or raise an error if the transfer was not successful.
 For large files the client will return an object with information about the job and methods to finish the job in steps.
+
+Here is a simple example of how to transfer a file to a remote machine:
+
+.. code-block:: Python
+
+    # If you want to easily download or upload a file you can use `blocking=True`
+    # and let the client take care of the whole transfer
+    client.download(
+        system_name="cluster",
+        source_path="/scratch/test_user/file.txt",
+        target_path="/home/test_user/local_file.txt",
+        account="scheduler_project",
+        blocking=True
+    )
+
+If you want to do it in steps, you can do each step from the function of ``ExternalDownload`` object.` aor use your own custom finctions.
+Here is the workflow broken down in steps:
+
+.. code-block:: Python
+
+    download_obj = client.download(
+        system_name="cluster",
+        source_path="/scratch/test_user/file.txt",
+        target_path="/home/test_user/local_file.txt",
+        account="scheduler_project",
+        blocking=False
+    )
+    # For small files the download will return `None` and the file will be available in the target directory
+    # For large files the download will return an object with information about the job
+    if download_obj:
+        print(download_obj.transfer_info)
+        # You can also set an optional timeout for the job
+        download_obj.wait_for_transfer_job()
+        download_obj.download_file_from_stage()
+
+Similarly for the upload, you can use ``blocking=True``
+
+.. code-block:: Python
+
+    client.upload(
+        system_name="cluster",
+        local_file="/home/test_user/local_file.txt",
+        directory="/scratch/test_user/",
+        filename="file.txt",
+        account="scheduler_project",
+        blocking=True
+    )
+
+or do it in steps:
+
+.. code-block:: Python
+
+    upload_obj = client.upload(
+        system_name="cluster",
+        local_file="/home/test_user/local_file.txt",
+        directory="/scratch/test_user/",
+        filename="file.txt",
+        account="scheduler_project",
+        blocking=False
+    )
+    # For small files the upload will return `None` and the file will be directly
+    # available in the target directory.
+    # For large files the upload will return an object with information about the job.
+    if upload_obj:
+        print(upload_obj.transfer_info)
+        upload_obj.upload_file_to_stage()
+        # You can also set an optional timeout for the job
+        upload_obj.wait_for_transfer_job()
