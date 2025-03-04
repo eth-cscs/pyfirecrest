@@ -236,7 +236,7 @@ Here is a simple example of how to transfer a file to a remote machine:
         blocking=True
     )
 
-If you want to do it in steps, you can do each step from the function of ``ExternalDownload`` object.` aor use your own custom finctions.
+If you want to do it in steps, you can do each step from the functions of ``ExternalDownload`` object or use your own custom functions.
 Here is the workflow broken down in steps:
 
 .. code-block:: Python
@@ -289,3 +289,8 @@ or do it in steps:
         upload_obj.upload_file_to_stage()
         # You can also set an optional timeout for the job
         upload_obj.wait_for_transfer_job()
+
+.. note::
+
+    If you are using the asynchronous version of the client, you simply need to ``await`` in front of the ``upload``, ``download``, ``download_file_from_stage``, ``upload_file_to_stage`` and ``wait_for_transfer_job`` functions.
+    Check the Reference section to find out which functions are asynchronous in the async client.
