@@ -2,10 +2,10 @@ Tutorial for FirecREST v2
 =========================
 
 This tutorial will guide you through the basic functionalities of v2 of the FirecREST API.
-Since the API of FirecREST v2 has some important differences the python client, cannot be the same as the one for FirecREST v1.
+Since the API of FirecREST v2 has some important differences, the python client cannot be the same as the one for FirecREST v1.
 
 Your starting point to use pyFirecREST will be the creation of a `FirecREST` object.
-This is simply a mini client that, in cooperation with the authorization object, will take care of the necessary requests that need to be made and handle the responses.
+This mini client works with the authorization object to manage necessary requests and handle responses efficiently.
 
 If you want to understand how to setup your authorization object have a look at the previous section.
 For this tutorial we will assume the simplest kind of authorization class, where the same token will always be used.
@@ -292,5 +292,5 @@ or do it in steps:
 
 .. note::
 
-    If you are using the asynchronous version of the client, you simply need to ``await`` in front of the ``upload``, ``download``, ``download_file_from_stage``, ``upload_file_to_stage`` and ``wait_for_transfer_job`` functions.
+    If you are using the asynchronous version of the client, you simply need the ``await`` keyboard in front of the ``upload``, ``download``, ``download_file_from_stage``, ``upload_file_to_stage`` and ``wait_for_transfer_job`` functions.
     Check the Reference section to find out which functions are asynchronous in the async client.
