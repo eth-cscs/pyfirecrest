@@ -798,7 +798,7 @@ class AsyncFirecrest:
                 "parent": create_parents
             })
         )
-        return self._check_response(resp, 201)
+        return self._check_response(resp, 201)["output"]
 
     async def mv(
         self,

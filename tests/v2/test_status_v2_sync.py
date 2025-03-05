@@ -104,8 +104,6 @@ def filesystem_handler(request: Request):
 
     url, *params = request.url.split("?")
 
-    print(f"\n\n\n {url} {params} \n\n\n")
-
     endpoint = url.split("/")[-1]
 
     suffix = ""
@@ -456,11 +454,11 @@ def test_chmod(valid_client):
     assert resp == data["response"]["output"]
 
 
-def xxx_test_rm(valid_client):
+def test_rm(valid_client):
     data = read_json_file("v2/responses/rm.json")
     resp = valid_client.rm("cluster", "/home/user/file")
 
-    # assert resp == data["response"]["output"]
+    assert resp == data["response"]# ["output"]
 
 
 def test_job_info(valid_client):
