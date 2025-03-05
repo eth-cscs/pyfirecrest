@@ -66,6 +66,7 @@ class AsyncExternalUpload:
         self._transfer_info = transfer_info
         self._all_tags = []
         self._chunk_size = 1073741824  # 1GB
+        self._total_file_size = os.path.getsize(local_file)
 
     @property
     def transfer_data(self):
@@ -118,12 +119,20 @@ class AsyncExternalUpload:
             f"Uploading part {index + 1} to {url}"
         )
         start = index * chunk_size
+        if start + chunk_size > self._total_file_size:
+            content_length = self._total_file_size - start
+        else:
+            content_length = chunk_size
+
         async with aiofiles.open(self._local_file, "rb") as f:
             await f.seek(start)
             resp = await self._client._session.put(
                 url=url,
                 content=chunk_reader(f, self._chunk_size),
-                timeout=None
+                timeout=None,
+                headers={
+                    "Content-Length": str(content_length)
+                }
             )
 
         if resp.status_code >= 400:

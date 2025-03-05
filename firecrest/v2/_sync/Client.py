@@ -65,6 +65,7 @@ class ExternalUpload:
         self._transfer_info = transfer_info
         self._all_tags = []
         self._chunk_size = 1073741824  # 1GB
+        self._total_file_size = os.path.getsize(local_file)
 
     @property
     def transfer_data(self):
@@ -112,12 +113,20 @@ class ExternalUpload:
             f"Uploading part {index + 1} to {url}"
         )
         start = index * chunk_size
+        if start + chunk_size > self._total_file_size:
+            content_length = self._total_file_size - start
+        else:
+            content_length = chunk_size
+
         with open(self._local_file, "rb") as f:
             f.seek(start)
             resp = self._client._session.put(
                 url=url,
                 content=chunk_reader(f, self._chunk_size),
-                timeout=None
+                timeout=None,
+                headers={
+                    "Content-Length": str(content_length)
+                }
             )
 
         if resp.status_code >= 400:
