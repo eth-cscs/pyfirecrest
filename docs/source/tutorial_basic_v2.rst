@@ -292,5 +292,5 @@ or do it in steps:
 
 .. note::
 
-    If you are using the asynchronous version of the client, you simply need the ``await`` keyboard in front of the ``upload``, ``download``, ``download_file_from_stage``, ``upload_file_to_stage`` and ``wait_for_transfer_job`` functions.
+    If you are using the asynchronous version of the client, you simply need the ``await`` keyword in front of the ``upload``, ``download``, ``download_file_from_stage``, ``upload_file_to_stage`` and ``wait_for_transfer_job`` functions.
     Check the Reference section to find out which functions are asynchronous in the async client.
