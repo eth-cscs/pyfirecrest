@@ -510,6 +510,7 @@ class AsyncFirecrest:
         :param path: the absolute target path
         :param show_hidden: Show hidden files
         :param recursive: recursively list directories encountered
+        :numeric_uid: list numeric user and group IDs
         :param dereference: when showing file information for a symbolic link,
                             show information for the file the link references
                             rather than for the link itself
@@ -806,7 +807,7 @@ class AsyncFirecrest:
                 "parent": create_parents
             })
         )
-        return self._check_response(resp, 201)
+        return self._check_response(resp, 201)["output"]
 
     async def mv(
         self,
