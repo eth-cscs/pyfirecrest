@@ -134,7 +134,7 @@ def test_tail_lines(valid_client):
     assert resp == data["response"]["output"]
 
 
-def test_tail_lines_exclude_trailing(valid_client):
+def test_tail_lines_exclude_beginning(valid_client):
     data = read_json_file("v2/responses/tail_lines_exclude_beginning.json")
     resp = valid_client.tail("cluster", "/path/to/file",
                              exclude_beginning=True, num_lines=4)
