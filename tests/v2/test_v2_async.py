@@ -151,7 +151,7 @@ async def test_tail_lines(valid_client):
 
 
 @pytest.mark.asyncio
-async def test_tail_lines_exclude_trailing(valid_client):
+async def test_tail_lines_exclude_beginning(valid_client):
     data = read_json_file("v2/responses/tail_lines_exclude_beginning.json")
     resp = await valid_client.tail("cluster", "/path/to/file",
                                    exclude_beginning=True, num_lines=4)
