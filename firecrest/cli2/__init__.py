@@ -608,8 +608,8 @@ def head(
         raise typer.Exit(code=1)
 
     try:
-        lines_arg = int(lines) if lines else None
-        bytes_arg = int(bytes) if bytes else None
+        lines_arg = int(lines) if lines is not None else None
+        bytes_arg = int(bytes) if bytes is not None else None
         skip_ending = False
         if lines and lines.startswith("-"):
             lines_arg = abs(lines_arg)
@@ -618,28 +618,22 @@ def head(
             bytes_arg = abs(bytes_arg)
             skip_ending = True
 
+        result = client.head(
+            system,
+            path,
+            bytes_arg,
+            lines_arg,
+            skip_ending
+        )
         if raw:
             console.print(
                 json.dumps(
-                    client.head(
-                        system,
-                        path,
-                        bytes_arg,
-                        lines_arg,
-                        skip_ending),
+                    result,
                     indent=4
                 )
             )
         else:
-            console.print(
-                client.head(
-                    system,
-                    path,
-                    bytes_arg,
-                    lines_arg,
-                    skip_ending
-                )["content"]
-            )
+            console.print(result["content"])
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -683,8 +677,8 @@ def tail(
         raise typer.Exit(code=1)
 
     try:
-        lines_arg = int(lines) if lines else None
-        bytes_arg = int(bytes) if bytes else None
+        lines_arg = int(lines) if lines is not None else None
+        bytes_arg = int(bytes) if bytes is not None else None
         skip_beginning = False
         if lines and lines.startswith("+"):
             lines_arg = abs(lines_arg)

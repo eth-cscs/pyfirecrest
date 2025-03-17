@@ -14,7 +14,8 @@ def main() -> None:
     # TODO: This is a temporary solution to support both API versions
     # in the same CLI script. We can have better support from the URL path or
     # the API response headers of v2.
-    if os.environ.get("FIRECREST_API_VERSION").startswith("1"):
+    ver = os.environ.get("FIRECREST_API_VERSION")
+    if ver and ver.startswith("1"):
         cli.app(prog_name=__app_name__)
     else:
         cli2.app(prog_name=__app_name__)

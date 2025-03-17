@@ -529,7 +529,7 @@ class Firecrest:
         num_bytes: Optional[int] = None,
         num_lines: Optional[int] = None,
         exclude_trailing: bool = False,
-    ) -> List[dict]:
+    ) -> dict:
         """Display the beginning of a specified file.
         By default 10 lines will be returned.
         `num_bytes` and `num_lines` cannot be specified simultaneously.
@@ -580,7 +580,7 @@ class Firecrest:
         num_bytes: Optional[int] = None,
         num_lines: Optional[int] = None,
         exclude_beginning: bool = False,
-    ) -> List[dict]:
+    ) -> dict:
         """Display the ending of a specified file.
         By default, 10 lines will be returned.
         `num_bytes` and `num_lines` cannot be specified simultaneously.
