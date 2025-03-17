@@ -45,10 +45,10 @@ def examine_exeption(e: Exception) -> None:
         msg += ": could not fetch token"
     elif isinstance(e, fc.FirecrestException):
         msg += ": a Firecrest client error has occurred"
-    else:
+    # else:
         # in case of FirecrestException and ClientsCredentialsException
         # we don't need to log again the exception
-        logger.critical(e)
+    logger.error(e)
 
     console.print(f"[red]{msg}[/red]")
 
@@ -91,8 +91,8 @@ def systems(
     try:
         if name:
             raise NotImplementedError("Rich table not implemented yet")
-            result = [client.system(name)]
-            title = f"Status of FirecREST system `{name}`"
+            # result = [client.system(name)]
+            # title = f"Status of FirecREST system `{name}`"
         else:
             result = client.systems()
             # title = "Status of FirecREST systems"
@@ -217,7 +217,7 @@ def get_partitions(
 @app.command(rich_help_panel="Status commands")
 def id(
     system: str = typer.Option(
-        None,
+        ...,
         "-s",
         "--system",
         help="The name of the system where the `id` command will run.",
@@ -594,6 +594,7 @@ def head(
         help="Print NUM bytes of each of the specified files; with a leading '-', print all but the last NUM bytes of each file",
         metavar="[-]NUM",
     ),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Display the beginning of a specified file.
     By default the first 10 lines will be returned.
@@ -607,8 +608,8 @@ def head(
         raise typer.Exit(code=1)
 
     try:
-        lines_arg = int(lines)
-        bytes_arg = int(bytes)
+        lines_arg = int(lines) if lines else None
+        bytes_arg = int(bytes) if bytes else None
         skip_ending = False
         if lines and lines.startswith("-"):
             lines_arg = abs(lines_arg)
@@ -617,9 +618,28 @@ def head(
             bytes_arg = abs(bytes_arg)
             skip_ending = True
 
-        console.print(
-            client.head(system, path, bytes_arg, lines_arg, skip_ending)
-        )
+        if raw:
+            console.print(
+                json.dumps(
+                    client.head(
+                        system,
+                        path,
+                        bytes_arg,
+                        lines_arg,
+                        skip_ending),
+                    indent=4
+                )
+            )
+        else:
+            console.print(
+                client.head(
+                    system,
+                    path,
+                    bytes_arg,
+                    lines_arg,
+                    skip_ending
+                )["content"]
+            )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -649,6 +669,7 @@ def tail(
         help="Output the last NUM bytes; or use +NUM to output starting with byte NUM",
         metavar="[+]NUM",
     ),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Display the end of a specified file.
     By default the last 10 lines will be returned.
@@ -662,8 +683,8 @@ def tail(
         raise typer.Exit(code=1)
 
     try:
-        lines_arg = int(lines)
-        bytes_arg = int(bytes)
+        lines_arg = int(lines) if lines else None
+        bytes_arg = int(bytes) if bytes else None
         skip_beginning = False
         if lines and lines.startswith("+"):
             lines_arg = abs(lines_arg)
@@ -672,9 +693,26 @@ def tail(
             bytes_arg = abs(bytes_arg)
             skip_beginning = True
 
-        console.print(
-            client.tail(system, path, bytes_arg, lines_arg, skip_beginning)
+        result = client.tail(
+            system,
+            path,
+            bytes_arg,
+            lines_arg,
+            skip_beginning
         )
+
+        if raw:
+            console.print(
+                json.dumps(
+                    result,
+                    indent=4
+                )
+            )
+        else:
+            console.print(
+                result["content"]
+            )
+
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

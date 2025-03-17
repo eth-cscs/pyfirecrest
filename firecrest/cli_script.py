@@ -7,14 +7,17 @@
 #
 from firecrest import cli, __app_name__
 from firecrest import cli2
+import os
 
 
 def main() -> None:
-    cli.app(prog_name=__app_name__)
-
-
-def main2() -> None:
-    cli2.app(prog_name=__app_name__)
+    # TODO: This is a temporary solution to support both API versions
+    # in the same CLI script. We can have better support from the URL path or
+    # the API response headers of v2.
+    if os.environ.get("FIRECREST_API_VERSION").startswith("1"):
+        cli.app(prog_name=__app_name__)
+    else:
+        cli2.app(prog_name=__app_name__)
 
 
 if __name__ == "__main__":
