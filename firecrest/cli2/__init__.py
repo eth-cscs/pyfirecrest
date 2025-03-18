@@ -48,7 +48,7 @@ def examine_exeption(e: Exception) -> None:
     # else:
         # in case of FirecrestException and ClientsCredentialsException
         # we don't need to log again the exception
-    logger.error(e)
+    msg += f": {e}"
 
     console.print(f"[red]{msg}[/red]")
 
@@ -82,7 +82,7 @@ def systems(
     name: Optional[str] = typer.Option(
         None, "-n", "--name", help="Get information for only one system."
     ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
     pager: Optional[bool] = typer.Option(
         True, help="Display the output in a pager application."
     ),
@@ -120,7 +120,7 @@ def get_nodes(
     nodes: Optional[List[str]] = typer.Argument(
         None, help="List of specific compute nodes to query."
     ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
     pager: Optional[bool] = typer.Option(
         True, help="Display the output in a pager application."
     ),
@@ -154,7 +154,7 @@ def get_reservations(
     reservations: Optional[List[str]] = typer.Argument(
         None, help="List of specific reservations to query."
     ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
     pager: Optional[bool] = typer.Option(
         True, help="Display the output in a pager application."
     ),
@@ -188,7 +188,7 @@ def get_partitions(
     partitions: Optional[List[str]] = typer.Argument(
         None, help="List of specific partitions to query."
     ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
     pager: Optional[bool] = typer.Option(
         True, help="Display the output in a pager application."
     ),
@@ -274,7 +274,7 @@ def ls(
         "-L",
         help="When showing file information for a symbolic link, show information for the file the link references rather than for the link itself.",
     ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """List directory contents"""
     try:
@@ -487,7 +487,7 @@ def stat(
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
@@ -564,7 +564,11 @@ def checksum(
 ):
     """Calculate the SHA256 (256-bit) checksum"""
     try:
-        console.print(client.checksum(system, path))
+        result = client.checksum(system, path)
+        console.print(json.dumps(
+            result,
+            indent=4
+        ))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -833,7 +837,7 @@ def job_info(
     jobs: Optional[List[str]] = typer.Argument(
         None, help="List of job IDs to display."
     ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", help="Print the output in json format."),
 ):
     """Retrieve information about submitted jobs.
     """
@@ -859,7 +863,7 @@ def job_metadata(
     job: str = typer.Argument(
         ..., help="Job id."
     ),
-    raw: bool = typer.Option(True, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", help="Print the output in json format."),
 ):
     """Retrieve metadata for a current job.
     """
