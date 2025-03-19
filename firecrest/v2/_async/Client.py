@@ -114,26 +114,27 @@ class AsyncExternalUpload:
 
                 yield data
 
-        self._client.log(
-            logging.DEBUG,
-            f"Uploading part {index + 1} to {url}"
-        )
         start = index * chunk_size
         if start + chunk_size > self._total_file_size:
             content_length = self._total_file_size - start
         else:
             content_length = chunk_size
 
-        async with aiofiles.open(self._local_file, "rb") as f:
-            await f.seek(start)
-            resp = await self._client._session.put(
-                url=url,
-                content=chunk_reader(f, self._chunk_size),
-                timeout=None,
-                headers={
-                    "Content-Length": str(content_length)
-                }
+        async with self._client._upload_semaphone:
+            self._client.log(
+                logging.DEBUG,
+                f"Uploading part {index + 1} to {url}"
             )
+            async with aiofiles.open(self._local_file, "rb") as f:
+                await f.seek(start)
+                resp = await self._client._session.put(
+                    url=url,
+                    content=chunk_reader(f, self._chunk_size),
+                    timeout=None,
+                    headers={
+                        "Content-Length": str(content_length)
+                    }
+                )
 
         if resp.status_code >= 400:
             raise MultipartUploadException(
@@ -222,6 +223,7 @@ class AsyncFirecrest:
 
     TOO_MANY_REQUESTS_CODE = 429
     MAX_DIRECT_UPLOAD_SIZE = 1048576
+    MAX_S3_CONNECTIONS = 10
 
     def _retry_requests(func):
         async def wrapper(*args, **kwargs):
@@ -290,6 +292,7 @@ class AsyncFirecrest:
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("2.0.0")
         self._session = httpx.AsyncClient(verify=self._verify)
+        self._upload_semaphone = asyncio.Semaphore(self.MAX_S3_CONNECTIONS)
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be
@@ -308,6 +311,13 @@ class AsyncFirecrest:
             await self._session.aclose()
 
         self._session = httpx.AsyncClient(verify=self._verify)
+
+    async def set_maximum_s3_connections(self, max_connections: int) -> None:
+        """Set the maximum number of simultaneous connections to S3. By
+        default it is set to 10.
+        """
+        # TODO: Check if the semaphore is used?
+        self._upload_semaphone = asyncio.Semaphore(max_connections)
 
     @property
     def is_session_closed(self) -> bool:
