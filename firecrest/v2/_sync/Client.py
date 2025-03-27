@@ -64,7 +64,8 @@ class ExternalUpload:
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
-        self._chunk_size = 1073741824  # 1GB
+        # self.chunk_size = 1073741824  # 1GB
+        self.chunk_size = 64 * 1024 * 1024  # 64MB
         self._total_file_size = os.path.getsize(local_file)
 
     @property
@@ -97,11 +98,11 @@ class ExternalUpload:
             i = 0
             while True:
                 next_chunk = c if i + c <= chunk_size else chunk_size - i
-                i += next_chunk
                 self._client.log(
                     logging.DEBUG,
-                    f"Reading {next_chunk} from {self._local_file}"
+                    f"Reading {next_chunk} ({i} - {i+next_chunk}) from {self._local_file}"
                 )
+                i += next_chunk
                 data = f.read(next_chunk)
                 if not data:
                     break
@@ -122,7 +123,7 @@ class ExternalUpload:
             f.seek(start)
             resp = self._client._session.put(
                 url=url,
-                content=chunk_reader(f, self._chunk_size),
+                content=chunk_reader(f, self.chunk_size),
                 timeout=None,
                 headers={
                     "Content-Length": str(content_length)
