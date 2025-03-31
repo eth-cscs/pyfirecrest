@@ -117,7 +117,7 @@ class AsyncExternalUpload:
         else:
             content_length = chunk_size
 
-        async with self._client._upload_semaphone:
+        async with self._client._upload_semaphore:
             self._client.log(
                 logging.DEBUG,
                 f"Uploading part {index + 1} to {url}"
@@ -298,7 +298,7 @@ class AsyncFirecrest:
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("2.0.0")
         self._session = httpx.AsyncClient(verify=self._verify)
-        self._upload_semaphone = asyncio.Semaphore(self.MAX_S3_CONNECTIONS)
+        self._upload_semaphore = asyncio.Semaphore(self.MAX_S3_CONNECTIONS)
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be
@@ -318,12 +318,12 @@ class AsyncFirecrest:
 
         self._session = httpx.AsyncClient(verify=self._verify)
 
-    async def set_maximum_s3_connections(self, max_connections: int) -> None:
+    def set_maximum_s3_connections(self, max_connections: int) -> None:
         """Set the maximum number of simultaneous connections to S3. By
         default it is set to 10.
         """
         # TODO: Check if the semaphore is used?
-        self._upload_semaphone = asyncio.Semaphore(max_connections)
+        self._upload_semaphore = asyncio.Semaphore(max_connections)
 
     @property
     def is_session_closed(self) -> bool:
