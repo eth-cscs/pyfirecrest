@@ -64,7 +64,7 @@ class ExternalUpload:
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
-        # self.chunk_size = 1073741824  # 1GB
+        # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
         self._total_file_size = os.path.getsize(local_file)
 
@@ -74,7 +74,7 @@ class ExternalUpload:
 
     def upload_file_to_stage(self):
         urls = self._transfer_info["partsUploadUrls"]
-        # We should run this in parallel
+        # TODO: maybe we should run this in parallel
         for index, upload_url in enumerate(urls):
             self._upload_part(upload_url, index)
 
@@ -98,10 +98,6 @@ class ExternalUpload:
             i = 0
             while True:
                 next_chunk = c if i + c <= chunk_size else chunk_size - i
-                self._client.log(
-                    logging.DEBUG,
-                    f"Reading {next_chunk} ({i} - {i+next_chunk}) from {self._local_file}"
-                )
                 i += next_chunk
                 data = f.read(next_chunk)
                 if not data:
@@ -169,6 +165,8 @@ class ExternalDownload:
         self._client = client
         self._transfer_info = transfer_info
         self._file_path = file_path
+        # Chunk size for the multipart download. Default is 64MB.
+        self.chunk_size = 64 * 1024 * 1024  # 64MB
 
     @property
     def transfer_data(self):
@@ -176,21 +174,29 @@ class ExternalDownload:
 
     def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
-        with open(file_name, "wb") as f:
-            self._client.log(
-                logging.DEBUG,
-                f"Downloading file from {self._transfer_info['downloadUrl']} "
-                f"to {file_name}"
-            )
-            resp = self._client._session.get(
-                url=self._transfer_info["downloadUrl"],
-            )
-            f.write(resp.content)
-            self._client.log(
-                logging.DEBUG,
-                f"Downloaded file from {self._transfer_info['downloadUrl']} "
-                f"to {file_name}"
-            )
+        self._client.log(
+            logging.DEBUG,
+            f"Downloading file from {self._transfer_info['downloadUrl']} "
+            f"to {file_name}"
+        )
+
+        with self._client._session.stream(
+            "GET",
+            self._transfer_info["downloadUrl"]
+        ) as resp:
+            resp.raise_for_status()
+
+            with open(file_name, "wb") as f:
+                for chunk in resp.iter_bytes(
+                    chunk_size=self.chunk_size
+                ):
+                    f.write(chunk)
+
+        self._client.log(
+            logging.DEBUG,
+            f"Downloaded file from {self._transfer_info['downloadUrl']} "
+            f"to {file_name}"
+        )
 
     def wait_for_transfer_job(self, timeout=None):
         self._client._wait_for_transfer_job(

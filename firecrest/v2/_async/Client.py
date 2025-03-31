@@ -65,7 +65,7 @@ class AsyncExternalUpload:
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
-        # self.chunk_size = 1073741824  # 1GB
+        # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
         self._total_file_size = os.path.getsize(local_file)
 
@@ -104,10 +104,6 @@ class AsyncExternalUpload:
             i = 0
             while True:
                 next_chunk = c if i + c <= chunk_size else chunk_size - i
-                self._client.log(
-                    logging.DEBUG,
-                    f"Reading {next_chunk} ({i} - {i+next_chunk}) from {self._local_file}"
-                )
                 i += next_chunk
                 data = await f.read(next_chunk)
                 if not data:
@@ -176,6 +172,8 @@ class AsyncExternalDownload:
         self._client = client
         self._transfer_info = transfer_info
         self._file_path = file_path
+        # Chunk size for the multipart download. Default is 64MB.
+        self.chunk_size = 64 * 1024 * 1024  # 64MB
 
     @property
     def transfer_data(self):
@@ -183,21 +181,28 @@ class AsyncExternalDownload:
 
     async def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
-        async with aiofiles.open(file_name, "wb") as f:
-            self._client.log(
-                logging.DEBUG,
-                f"Downloading file from {self._transfer_info['downloadUrl']} "
-                f"to {file_name}"
-            )
-            resp = await self._client._session.get(
-                url=self._transfer_info["downloadUrl"],
-            )
-            await f.write(resp.content)
-            self._client.log(
-                logging.DEBUG,
-                f"Downloaded file from {self._transfer_info['downloadUrl']} "
-                f"to {file_name}"
-            )
+        self._client.log(
+            logging.DEBUG,
+            f"Downloading file from {self._transfer_info['downloadUrl']} "
+            f"to {file_name}"
+        )
+
+        async with self._client._session.stream(
+            "GET",
+            self._transfer_info["downloadUrl"]
+        ) as resp:
+            resp.raise_for_status()
+
+            async with aiofiles.open(file_name, "wb") as f:
+                async for chunk in resp.aiter_bytes(
+                    chunk_size=self.chunk_size
+                ):
+                    await f.write(chunk)
+
+        self._client.log(
+            logging.DEBUG,
+            f"Downloaded file from {self._transfer_info['downloadUrl']} to {file_name}"
+        )
 
     async def wait_for_transfer_job(self, timeout=None):
         await self._client._wait_for_transfer_job(
