@@ -14,6 +14,12 @@ def read_json_file(filename):
 
 
 @pytest.fixture
+def auth_server(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth_handler)
+    return httpserver
+
+
+@pytest.fixture
 def fc_server(httpserver):
     httpserver.expect_request(
         re.compile("/status/.*"), method="GET"
@@ -48,6 +54,45 @@ def fc_server(httpserver):
     ).respond_with_handler(submit_handler)
 
     return httpserver
+
+def auth_handler(request):
+    client_id = request.form["client_id"]
+    client_secret = request.form["client_secret"]
+    if client_id == "valid_id":
+        if client_secret == "valid_secret":
+            ret = {
+                "access_token": "VALID_TOKEN",
+                "expires_in": 15,
+                "refresh_expires_in": 0,
+                "token_type": "Bearer",
+                "not-before-policy": 0,
+                "scope": "profile firecrest email",
+            }
+            ret_status = 200
+        elif client_secret == "valid_secret_2":
+            ret = {
+                "access_token": "token_2",
+                "expires_in": 15,
+                "refresh_expires_in": 0,
+                "token_type": "Bearer",
+                "not-before-policy": 0,
+                "scope": "profile firecrest email",
+            }
+            ret_status = 200
+        else:
+            ret = {
+                "error": "unauthorized_client",
+                "error_description": "Invalid client secret",
+            }
+            ret_status = 400
+    else:
+        ret = {
+            "error": "invalid_client",
+            "error_description": "Invalid client credentials",
+        }
+        ret_status = 400
+
+    return Response(json.dumps(ret), status=ret_status, content_type="application/json")
 
 
 def status_handler(request: Request):
