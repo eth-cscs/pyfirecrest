@@ -65,7 +65,8 @@ class AsyncExternalUpload:
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
-        self._chunk_size = 1073741824  # 1GB
+        # Chunk size for the multipart upload. Default is 64MB.
+        self.chunk_size = 64 * 1024 * 1024  # 64MB
         self._total_file_size = os.path.getsize(local_file)
 
     @property
@@ -104,36 +105,33 @@ class AsyncExternalUpload:
             while True:
                 next_chunk = c if i + c <= chunk_size else chunk_size - i
                 i += next_chunk
-                self._client.log(
-                    logging.DEBUG,
-                    f"Reading {next_chunk} from {self._local_file}"
-                )
                 data = await f.read(next_chunk)
                 if not data:
                     break
 
                 yield data
 
-        self._client.log(
-            logging.DEBUG,
-            f"Uploading part {index + 1} to {url}"
-        )
         start = index * chunk_size
         if start + chunk_size > self._total_file_size:
             content_length = self._total_file_size - start
         else:
             content_length = chunk_size
 
-        async with aiofiles.open(self._local_file, "rb") as f:
-            await f.seek(start)
-            resp = await self._client._session.put(
-                url=url,
-                content=chunk_reader(f, self._chunk_size),
-                timeout=None,
-                headers={
-                    "Content-Length": str(content_length)
-                }
+        async with self._client._upload_semaphore:
+            self._client.log(
+                logging.DEBUG,
+                f"Uploading part {index + 1} to {url}"
             )
+            async with aiofiles.open(self._local_file, "rb") as f:
+                await f.seek(start)
+                resp = await self._client._session.put(
+                    url=url,
+                    content=chunk_reader(f, self.chunk_size),
+                    timeout=None,
+                    headers={
+                        "Content-Length": str(content_length)
+                    }
+                )
 
         if resp.status_code >= 400:
             raise MultipartUploadException(
@@ -174,6 +172,8 @@ class AsyncExternalDownload:
         self._client = client
         self._transfer_info = transfer_info
         self._file_path = file_path
+        # Chunk size for the multipart download. Default is 64MB.
+        self.chunk_size = 64 * 1024 * 1024  # 64MB
 
     @property
     def transfer_data(self):
@@ -181,21 +181,28 @@ class AsyncExternalDownload:
 
     async def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
-        async with aiofiles.open(file_name, "wb") as f:
-            self._client.log(
-                logging.DEBUG,
-                f"Downloading file from {self._transfer_info['downloadUrl']} "
-                f"to {file_name}"
-            )
-            resp = await self._client._session.get(
-                url=self._transfer_info["downloadUrl"],
-            )
-            await f.write(resp.content)
-            self._client.log(
-                logging.DEBUG,
-                f"Downloaded file from {self._transfer_info['downloadUrl']} "
-                f"to {file_name}"
-            )
+        self._client.log(
+            logging.DEBUG,
+            f"Downloading file from {self._transfer_info['downloadUrl']} "
+            f"to {file_name}"
+        )
+
+        async with self._client._session.stream(
+            "GET",
+            self._transfer_info["downloadUrl"]
+        ) as resp:
+            resp.raise_for_status()
+
+            async with aiofiles.open(file_name, "wb") as f:
+                async for chunk in resp.aiter_bytes(
+                    chunk_size=self.chunk_size
+                ):
+                    await f.write(chunk)
+
+        self._client.log(
+            logging.DEBUG,
+            f"Downloaded file from {self._transfer_info['downloadUrl']} to {file_name}"
+        )
 
     async def wait_for_transfer_job(self, timeout=None):
         await self._client._wait_for_transfer_job(
@@ -222,6 +229,7 @@ class AsyncFirecrest:
 
     TOO_MANY_REQUESTS_CODE = 429
     MAX_DIRECT_UPLOAD_SIZE = 1048576
+    MAX_S3_CONNECTIONS = 10
 
     def _retry_requests(func):
         async def wrapper(*args, **kwargs):
@@ -290,6 +298,7 @@ class AsyncFirecrest:
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("2.0.0")
         self._session = httpx.AsyncClient(verify=self._verify)
+        self._upload_semaphore = asyncio.Semaphore(self.MAX_S3_CONNECTIONS)
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be
@@ -308,6 +317,13 @@ class AsyncFirecrest:
             await self._session.aclose()
 
         self._session = httpx.AsyncClient(verify=self._verify)
+
+    def set_maximum_s3_connections(self, max_connections: int) -> None:
+        """Set the maximum number of simultaneous connections to S3. By
+        default it is set to 10.
+        """
+        # TODO: Check if the semaphore is used?
+        self._upload_semaphore = asyncio.Semaphore(max_connections)
 
     @property
     def is_session_closed(self) -> bool:
