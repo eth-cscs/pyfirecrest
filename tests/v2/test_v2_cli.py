@@ -30,7 +30,6 @@ def test_list_files(valid_credentials):
         "--system",
         "cluster1",
         "/home/user",
-        "--json"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -47,7 +46,6 @@ def test_list_files_hidden(valid_credentials):
             "cluster1",
             "/home/user",
             alias,
-            "--json"
         ]
         result = runner.invoke(cli.app, args=args)
         stdout = common.clean_stdout(result.stdout)
@@ -64,7 +62,6 @@ def test_list_files_recursive(valid_credentials):
             "cluster1",
             "/home/user",
             alias,
-            "--json"
         ]
         result = runner.invoke(cli.app, args=args)
         stdout = common.clean_stdout(result.stdout)
@@ -81,7 +78,6 @@ def test_list_files_num_uid_gid(valid_credentials):
             "cluster1",
             "/home/user",
             alias,
-            "--json"
         ]
         result = runner.invoke(cli.app, args=args)
         stdout = common.clean_stdout(result.stdout)
@@ -97,7 +93,6 @@ def test_list_files_dereference(valid_credentials):
         "cluster1",
         "/home/user",
         "-L",
-        "--json"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -109,7 +104,7 @@ def test_list_files_dereference(valid_credentials):
 
 def test_systems(valid_credentials):
     args = valid_credentials + [
-        "systems", "--json"
+        "systems"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -120,7 +115,7 @@ def test_systems(valid_credentials):
 
 def test_partitions(valid_credentials):
     args = valid_credentials + [
-       "get-partitions", "--system", "cluster", "--json"
+       "get-partitions", "--system", "cluster"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -132,7 +127,7 @@ def test_partitions(valid_credentials):
 
 def test_nodes(valid_credentials):
     args = valid_credentials + [
-        "get-nodes", "--system", "cluster", "--json"
+        "get-nodes", "--system", "cluster"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -145,7 +140,7 @@ def test_nodes(valid_credentials):
 
 def test_reservations(valid_credentials):
     args = valid_credentials + [
-        "get-nodes", "--system", "cluster", "--json"
+        "get-nodes", "--system", "cluster"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -377,7 +372,6 @@ def test_stat(valid_credentials):
         "--system",
         "cluster",
         "/home/user/file",
-        "--json"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -398,7 +392,6 @@ def test_stat_dereference(valid_credentials):
             "--system",
             "cluster",
             "/home/user/file",
-            "--json",
             alias
         ]
         result = runner.invoke(cli.app, args=args)
@@ -509,7 +502,6 @@ def test_job_info(valid_credentials):
         "job-info",
         "--system",
         "cluster",
-        "--json",
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
@@ -524,7 +516,6 @@ def test_job_metadata(valid_credentials):
         "--system",
         "cluster",
         "26",
-        "--json"
     ]
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)

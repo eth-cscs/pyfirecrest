@@ -79,33 +79,18 @@ def config_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 
 @app.command(rich_help_panel="Status commands")
 def systems(
-    name: Optional[str] = typer.Option(
-        None, "-n", "--name", help="Get information for only one system."
-    ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
     pager: Optional[bool] = typer.Option(
-        True, help="Display the output in a pager application."
+        False, help="Display the output in a pager application."
     ),
 ):
     """Provides information for the available systems in FirecREST"""
     try:
-        if name:
-            raise NotImplementedError("Rich table not implemented yet")
-            # result = [client.system(name)]
-            # title = f"Status of FirecREST system `{name}`"
+        result = client.systems()
+        if pager:
+            with console.pager():
+                console.print(json.dumps(result, indent=4))
         else:
-            result = client.systems()
-            # title = "Status of FirecREST systems"
-
-        if raw:
-            if pager:
-                with console.pager():
-                    console.print(json.dumps(result, indent=4))
-
             console.print(json.dumps(result, indent=4))
-            return
-        else:
-            raise NotImplementedError("Rich table not implemented yet")
 
     except Exception as e:
         examine_exeption(e)
@@ -117,10 +102,9 @@ def get_nodes(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
-    nodes: Optional[List[str]] = typer.Argument(
-        None, help="List of specific compute nodes to query."
-    ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
+    # nodes: Optional[List[str]] = typer.Argument(
+    #     None, help="List of specific compute nodes to query."
+    # ),
     pager: Optional[bool] = typer.Option(
         True, help="Display the output in a pager application."
     ),
@@ -130,17 +114,12 @@ def get_nodes(
     try:
         results = client.nodes(system)
         # TODO filter by nodes (?)
-        if nodes:
-            raise NotImplementedError("Node filtering not implemented yet")
 
-        if raw:
-            if pager:
-                with console.pager():
-                    console.print(json.dumps(results, indent=4))
+        if pager:
+            with console.pager():
+                console.print(json.dumps(results, indent=4))
 
-            console.print(json.dumps(results, indent=4))
-        else:
-            raise NotImplementedError("Rich table not implemented yet")
+        console.print(json.dumps(results, indent=4))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -151,12 +130,11 @@ def get_reservations(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
-    reservations: Optional[List[str]] = typer.Argument(
-        None, help="List of specific reservations to query."
-    ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
+    # reservations: Optional[List[str]] = typer.Argument(
+    #     None, help="List of specific reservations to query."
+    # ),
     pager: Optional[bool] = typer.Option(
-        True, help="Display the output in a pager application."
+        False, help="Display the output in a pager application."
     ),
 ):
     """Retrieves information about the scheduler reservations.
@@ -164,17 +142,13 @@ def get_reservations(
     try:
         results = client.reservations(system)
         # TODO filter by reservations (?)
-        if reservations:
-            raise NotImplementedError("Reservations filtering not implemented yet")
 
-        if raw:
-            if pager:
-                with console.pager():
-                    console.print(json.dumps(results, indent=4))
+        if pager:
+            with console.pager():
+                console.print(json.dumps(results, indent=4))
 
-            console.print(json.dumps(results, indent=4))
         else:
-            raise NotImplementedError("Rich table not implemented yet")
+            console.print(json.dumps(results, indent=4))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -185,12 +159,11 @@ def get_partitions(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
-    partitions: Optional[List[str]] = typer.Argument(
-        None, help="List of specific partitions to query."
-    ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
+    # partitions: Optional[List[str]] = typer.Argument(
+    #     None, help="List of specific partitions to query."
+    # ),
     pager: Optional[bool] = typer.Option(
-        True, help="Display the output in a pager application."
+        False, help="Display the output in a pager application."
     ),
 ):
     """Retrieves information about the scheduler partitions.
@@ -198,17 +171,13 @@ def get_partitions(
     try:
         results = client.partitions(system)
         # TODO filter by partitions (?)
-        if partitions:
-            raise NotImplementedError("Partitions filtering not implemented yet")
 
-        if raw:
-            if pager:
-                with console.pager():
-                    console.print(json.dumps(results, indent=4))
-
-            console.print(json.dumps(results, indent=4))
+        if pager:
+            with console.pager():
+                console.print(json.dumps(results, indent=4))
         else:
-            raise NotImplementedError("Rich table not implemented yet")
+            console.print(json.dumps(results, indent=4))
+
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -223,7 +192,7 @@ def id(
         help="The name of the system where the `id` command will run.",
         envvar="FIRECREST_SYSTEM",
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", help="Print the output in json format."),
 ):
     """Return the identity of the user in the remote system.
     """
@@ -274,7 +243,6 @@ def ls(
         "-L",
         help="When showing file information for a symbolic link, show information for the file the link references rather than for the link itself.",
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """List directory contents"""
     try:
@@ -286,10 +254,7 @@ def ls(
             numeric_uid_gid,
             dereference
         )
-        if raw:
-            console.print(json.dumps(result, indent=4))
-        else:
-            raise NotImplementedError("Rich table not implemented yet")
+        console.print(json.dumps(result, indent=4))
 
     except Exception as e:
         examine_exeption(e)
@@ -487,15 +452,11 @@ def stat(
     ),
     path: str = typer.Argument(..., help="The absolute target path."),
     deref: bool = typer.Option(False, "-L", "--dereference", help="Follow links."),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
 ):
     """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
         result = client.stat(system, path, deref)
-        if raw:
-            console.print(json.dumps(result, indent=4))
-        else:
-            raise NotImplementedError("Rich table not implemented yet")
+        console.print(json.dumps(result, indent=4))
 
     except Exception as e:
         examine_exeption(e)
@@ -598,7 +559,7 @@ def head(
         help="Print NUM bytes of each of the specified files; with a leading '-', print all but the last NUM bytes of each file",
         metavar="[-]NUM",
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", help="Print the output in json format."),
 ):
     """Display the beginning of a specified file.
     By default the first 10 lines will be returned.
@@ -667,7 +628,7 @@ def tail(
         help="Output the last NUM bytes; or use +NUM to output starting with byte NUM",
         metavar="[+]NUM",
     ),
-    raw: bool = typer.Option(False, "--json", "--raw", help="Print the output in json format."),
+    raw: bool = typer.Option(False, "--json", help="Print the output in json format."),
 ):
     """Display the end of a specified file.
     By default the last 10 lines will be returned.
@@ -834,22 +795,18 @@ def job_info(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
-    jobs: Optional[List[str]] = typer.Argument(
-        None, help="List of job IDs to display."
-    ),
-    raw: bool = typer.Option(False, "--json", help="Print the output in json format."),
+    # jobs: Optional[List[str]] = typer.Argument(
+    #     None, help="List of job IDs to display."
+    # ),
 ):
     """Retrieve information about submitted jobs.
     """
     try:
         result = client.job_info(system)
-        if jobs:
-            raise NotImplementedError("Job filtering not implemented yet")
+        # if jobs:
+        #     raise NotImplementedError("Job filtering not implemented yet")
 
-        if raw:
-            console.print(json.dumps(result, indent=4))
-        else:
-            raise NotImplementedError("Rich table not implemented yet")
+        console.print(json.dumps(result, indent=4))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -863,16 +820,12 @@ def job_metadata(
     job: str = typer.Argument(
         ..., help="Job id."
     ),
-    raw: bool = typer.Option(False, "--json", help="Print the output in json format."),
 ):
     """Retrieve metadata for a current job.
     """
     try:
         result = client.job_metadata(system, job)
-        if raw:
-            console.print(json.dumps(result, indent=4))
-        else:
-            raise NotImplementedError("Rich table not implemented yet")
+        console.print(json.dumps(result, indent=4))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
