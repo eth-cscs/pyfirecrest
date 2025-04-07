@@ -106,7 +106,7 @@ def get_nodes(
     #     None, help="List of specific compute nodes to query."
     # ),
     pager: Optional[bool] = typer.Option(
-        True, help="Display the output in a pager application."
+        False, help="Display the output in a pager application."
     ),
 ):
     """Retrieves information about the compute nodes of the scheduler.
