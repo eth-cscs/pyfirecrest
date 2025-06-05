@@ -1315,7 +1315,9 @@ class AsyncFirecrest:
         working_dir: str,
         script_str: Optional[str] = None,
         script_local_path: Optional[str] = None,
+        script_remote_path: Optional[str] = None,
         env_vars: Optional[dict[str, str]] = None,
+        account: Optional[str] = None
     ) -> dict:
         """Submit a job.
 
@@ -1323,35 +1325,61 @@ class AsyncFirecrest:
         :param working_dir: the working directory of the job
         :param script_str: the job script
         :param script_local_path: path to the job script
+        :param script_remote_path: path to the job script on the remote
+                                   filesystem
         :param env_vars: environment variables to be set before running the
                          job
+        :param account: the account to be used for the job
         :calls: POST `/compute/{system_name}/jobs`
         """
 
         if sum(
-            arg is not None for arg in [script_str, script_local_path]
+            arg is not None for arg in [
+                script_str,
+                script_local_path,
+                script_remote_path
+            ]
         ) != 1:
             raise ValueError(
-                "Exactly one of the arguments `script_str` or "
-                "`script_local_path` must be set."
+                "Exactly one of the arguments `script_str`, "
+                "`script_local_path` or `script_remote_path` must "
+                "be set."
             )
 
-        if script_local_path:
-            if not os.path.isfile(script_local_path):
-                raise FileNotFoundError(
-                    f"Script file not found: {script_local_path}"
-                )
-            with open(script_local_path) as file:
-                script_str = file.read()
-
-        data: dict[str, dict[str, Any]] = {
+        data = {
             "job": {
-                "script": script_str,
                 "working_directory": working_dir
             }
         }
+        if script_remote_path:
+            # TODO: Check that the version of the api supports this (added in
+            # 2.2.6)
+
+            if not script_remote_path.startswith("/"):
+                raise ValueError(
+                    "The `script_remote_path` must be an absolute path."
+                )
+
+            data["job"]["scriptPath"] = script_remote_path
+
+        else:
+            if script_local_path:
+                if not os.path.isfile(script_local_path):
+                    raise FileNotFoundError(
+                        f"Script file not found: {script_local_path}"
+                    )
+                with open(script_local_path) as file:
+                    script_str = file.read()
+
+            data["job"]["script"] = script_str
+
         if env_vars:
             data["job"]["env"] = env_vars
+
+        if account:
+            # TODO: Check that the version of the api supports this (added in
+            # 2.2.6)
+            data["job"]["account"] = account
 
         resp = await self._post_request(
             endpoint=f"/compute/{system_name}/jobs",

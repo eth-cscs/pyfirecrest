@@ -758,11 +758,11 @@ def submit(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
     working_dir: str = typer.Option(
-        ..., help="working directory of the job."
+        ..., help="Working directory of the job."
     ),
     job_script: str = typer.Argument(
         ...,
-        help="The path of the local script",
+        help="The path of the job script. Treated as remote if it starts with 'remote://'.",
     ),
     env_vars: List[str] = typer.Option(
         [], "-e", "--env-var",
@@ -770,20 +770,37 @@ def submit(
         help="Environment variable to be exported in the environment where the job script will be submitted (format `VAR=VALUE`).",
         callback=validate_env_var_format
     ),
+    account: Optional[str] = typer.Option(
+        None,
+        help="The account to use for the operation. If not specified, the default account will be used.",
+    )
 ):
-    """Submit a batch script to the workload manager of the target system"""
-    envvars = {}
-    for var_value_pair in env_vars:
-        var, val = var_value_pair.split('=', 1)
-        envvars[var] = val
+    """Submit a batch script to the workload manager of the target system."""
+
+    def is_remote_script(p: str) -> bool:
+        return p.startswith("remote://")
+
+    envvars = {var.split("=", 1)[0]: var.split("=", 1)[1] for var in env_vars}
 
     try:
-        result = client.submit(
-            system_name=system,
-            script_local_path=job_script,
-            working_dir=working_dir,
-            env_vars=envvars
-        )
+        if is_remote_script(job_script):
+            p = job_script.split("://", 1)[1]
+            result = client.submit_remote(
+                system_name=system,
+                script_remote_path=p,
+                working_dir=working_dir,
+                env_vars=envvars,
+                account=account,
+            )
+        else:
+            result = client.submit_local(
+                system_name=system,
+                script_local_path=job_script,
+                working_dir=working_dir,
+                env_vars=envvars,
+                account=account,
+            )
+
         console.print(json.dumps(result, indent=4))
     except Exception as e:
         examine_exeption(e)
