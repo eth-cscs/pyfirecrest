@@ -785,7 +785,7 @@ def submit(
     try:
         if is_remote_script(job_script):
             p = job_script.split("://", 1)[1]
-            result = client.submit_remote(
+            result = client.submit(
                 system_name=system,
                 script_remote_path=p,
                 working_dir=working_dir,
@@ -793,7 +793,7 @@ def submit(
                 account=account,
             )
         else:
-            result = client.submit_local(
+            result = client.submit(
                 system_name=system,
                 script_local_path=job_script,
                 working_dir=working_dir,
