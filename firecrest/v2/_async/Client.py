@@ -1362,23 +1362,31 @@ class AsyncFirecrest:
     async def job_info(
         self,
         system_name: str,
-        jobid: Optional[str] = None
+        jobid: Optional[str] = None,
+        allusers: bool = False
     ) -> dict:
         """Get job information. When the job is not specified, it will return
         all the jobs.
 
         :param system_name: the system name where the filesystem belongs to
-        :param job: the ID of the job
+        :param jobid: the ID of the job
+        :param allusers: whether to return jobs of all users or only the
+                         current user
         :calls: GET `/compute/{system_name}/jobs` or
                 GET `/compute/{system_name}/jobs/{job}`
         """
         url = f"/compute/{system_name}/jobs"
         url = f"{url}/{jobid}" if jobid else url
 
+        # TODO: Check version compatibility for `allusers` parameter
+        # It was added in FirecREST 2.2.7
+
         resp = await self._get_request(
             endpoint=url,
+            params={"allusers": allusers}
         )
-        return self._check_response(resp, 200)["jobs"]
+        result_jobs = self._check_response(resp, 200)["jobs"]
+        return result_jobs if result_jobs is not None else []
 
     async def job_metadata(
         self,
