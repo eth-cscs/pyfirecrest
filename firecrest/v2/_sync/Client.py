@@ -1331,7 +1331,7 @@ class Firecrest:
                 "be set."
             )
 
-        data = {
+        data: Any = {
             "job": {
                 "working_directory": working_dir
             }

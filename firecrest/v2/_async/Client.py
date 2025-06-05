@@ -1346,7 +1346,7 @@ class AsyncFirecrest:
                 "be set."
             )
 
-        data = {
+        data: dict = {
             "job": {
                 "working_directory": working_dir
             }
