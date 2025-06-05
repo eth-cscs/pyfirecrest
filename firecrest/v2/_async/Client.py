@@ -1364,7 +1364,7 @@ class AsyncFirecrest:
         system_name: str,
         jobid: Optional[str] = None,
         allusers: bool = False
-    ) -> dict:
+    ) -> list:
         """Get job information. When the job is not specified, it will return
         all the jobs.
 
