@@ -269,7 +269,7 @@ class Firecrest:
         authorization: Any,
         verify: str | bool | ssl.SSLContext = True,
     ) -> None:
-        self._firecrest_url = firecrest_url
+        self._firecrest_url = firecrest_url.rstrip('/')
         self._authorization = authorization
         self._verify = verify
         #: This attribute will be passed to all the requests that will be made.
