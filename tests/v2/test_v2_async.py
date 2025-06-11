@@ -338,6 +338,6 @@ async def test_job_submit_no_script(valid_client):
         await valid_client.submit("cluster", "/path/to/dir")
 
     assert str(excinfo.value) == (
-        "Exactly one of the arguments `script_str` or "
-        "`script_local_path` must be set."
+        "Exactly one of the arguments `script_str`, "
+        "`script_local_path` or `script_remote_path` must be set."
     )
