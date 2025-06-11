@@ -31,7 +31,7 @@ from firecrest.v1.AsyncExternalStorage import AsyncExternalUpload, AsyncExternal
 from firecrest.utilities import (
     async_validate_api_version_compatibility,
     parse_retry_after,
-    slurm_state_completed,
+    sched_state_completed,
     time_block
 )
 
@@ -974,7 +974,7 @@ class AsyncFirecrest:
             intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
-                not slurm_state_completed(active_jobs[0]['state'])
+                not sched_state_completed(active_jobs[0]['state'])
             ):
                 await asyncio.sleep(next(intervals))
                 active_jobs = await self.poll_active(
@@ -1073,7 +1073,7 @@ class AsyncFirecrest:
             intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
-                not slurm_state_completed(active_jobs[0]['state'])
+                not sched_state_completed(active_jobs[0]['state'])
             ):
                 await asyncio.sleep(next(intervals))
                 active_jobs = await self.poll_active(

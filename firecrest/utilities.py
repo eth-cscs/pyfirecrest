@@ -19,7 +19,7 @@ def time_block(label, logger):
         logger.debug(f"{label} took {end_time - start_time:.6f} seconds")
 
 
-def slurm_state_completed(state):
+def sched_state_completed(state):
     completion_states = {
         'BOOT_FAIL',
         'CANCELLED',
@@ -30,6 +30,7 @@ def slurm_state_completed(state):
         'OUT_OF_MEMORY',
         'PREEMPTED',
         'TIMEOUT',
+        'F', # PBS state 'F': job Finished
     }
     if state:
         # Make sure all the steps include one of the completion states

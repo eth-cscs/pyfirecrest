@@ -27,7 +27,7 @@ import firecrest.types as t
 from firecrest.v1.ExternalStorage import ExternalUpload, ExternalDownload
 from firecrest.utilities import (
     parse_retry_after,
-    slurm_state_completed,
+    sched_state_completed,
     time_block,
     validate_api_version_compatibility
 )
@@ -728,7 +728,7 @@ class Firecrest:
             intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
-                not slurm_state_completed(active_jobs[0]['state'])
+                not sched_state_completed(active_jobs[0]['state'])
             ):
                 time.sleep(next(intervals))
                 active_jobs = self.poll_active(
@@ -829,7 +829,7 @@ class Firecrest:
             intervals = (2**i for i in itertools.count(start=0))
             while (
                 active_jobs and
-                not slurm_state_completed(active_jobs[0]['state'])
+                not sched_state_completed(active_jobs[0]['state'])
             ):
                 time.sleep(next(intervals))
                 active_jobs = self.poll_active(

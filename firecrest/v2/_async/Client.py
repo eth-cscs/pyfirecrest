@@ -21,7 +21,7 @@ from typing import Any, Optional, List
 from firecrest.utilities import (
     parse_retry_after,
     part_checksum_xml,
-    slurm_state_completed,
+    sched_state_completed,
     time_block,
 )
 from firecrest.FirecrestException import (
@@ -970,7 +970,7 @@ class AsyncFirecrest:
             if isinstance(state, list):
                 state = ",".join(state)
 
-            if slurm_state_completed(state):
+            if sched_state_completed(state):
                 self.log(
                     logging.DEBUG,
                     f"Job {job_id} is completed with state: {state}."
