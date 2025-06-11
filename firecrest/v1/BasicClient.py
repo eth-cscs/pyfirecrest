@@ -135,7 +135,7 @@ class Firecrest:
         verify: Optional[str | bool] = None,
         sa_role: str = "firecrest-sa",
     ) -> None:
-        self._firecrest_url = firecrest_url
+        self._firecrest_url = firecrest_url.rstrip('/')
         self._authorization = authorization
         # This should be used only for blocking operations that require
         # multiple requests, not for external upload/download
