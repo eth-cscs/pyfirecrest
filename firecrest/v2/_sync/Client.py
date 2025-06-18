@@ -1015,6 +1015,7 @@ class Firecrest:
         :param timeout: the maximum time to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
+        # TODO: dereference is supported only after version 2.2.8 of the API
         data: dict[str, Any] = {
             "sourcePath": source_path,
             "targetPath": target_path,
