@@ -361,11 +361,17 @@ def cp(
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
+    dereference: bool = typer.Option(
+        False,
+        "-L",
+        "--dereference",
+        help="When copying a symbolic link, copy the file or directory the link points to rather than the link itself.",
+    ),
     account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
     """Copy files"""
     try:
-        client.cp(system, source, destination, account)
+        client.cp(system, source, destination, dereference=dereference, account=account)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)

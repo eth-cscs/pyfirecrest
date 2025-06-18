@@ -1014,6 +1014,7 @@ class AsyncFirecrest:
         system_name: str,
         source_path: str,
         target_path: str,
+        dereference: bool = False,
         account: Optional[str] = None,
         blocking: bool = True,
         timeout: Optional[float] = None
@@ -1023,6 +1024,7 @@ class AsyncFirecrest:
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute source path
         :param target_path: the absolute target path
+        :param dereference: dereference links when copying
         :param blocking: whether to wait for the job to complete
         :param account: the account to be used for the transfer job
         :param timeout: the maximum time to wait for the job to complete
@@ -1031,6 +1033,7 @@ class AsyncFirecrest:
         data: dict[str, str] = {
             "sourcePath": source_path,
             "targetPath": target_path,
+            "dereference": dereference,
         }
         if account is not None:
             data["account"] = account
