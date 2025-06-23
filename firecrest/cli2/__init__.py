@@ -82,7 +82,10 @@ def server_version():
     """Provides the exact version of the FirecREST server, when available."""
     try:
         result = client.server_version()
-        console.print(result)
+        if result is None:
+            console.print("[yellow]Server version not available[/yellow]")
+        else:
+            console.print(result)
 
     except Exception as e:
         examine_exeption(e)
