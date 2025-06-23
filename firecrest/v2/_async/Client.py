@@ -448,6 +448,21 @@ class AsyncFirecrest:
 
         return response.json() if return_json and status_code != 204 else {}
 
+    async def server_version(self) -> str | None:
+        """Returns the exact API version of the FirecREST server.
+
+        :calls: GET `/status/systems`
+        """
+        resp = await self._get_request(endpoint="/status/systems")
+        if resp.headers.get("f7t-appversion") == "2.x.x":
+            return "2"
+        elif (
+            resp.headers.get("f7t-appversion")
+        ):
+            return resp.headers["f7t-appversion"]
+        else:
+            return None
+
     async def systems(self) -> List[dict]:
         """Returns available systems.
 

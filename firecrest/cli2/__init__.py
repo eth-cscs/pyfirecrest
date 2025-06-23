@@ -78,6 +78,21 @@ def config_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 
 
 @app.command(rich_help_panel="Status commands")
+def server_version():
+    """Provides the exact version of the FirecREST server, when available."""
+    try:
+        result = client.server_version()
+        if result is None:
+            console.print("[yellow]Server version not available[/yellow]")
+        else:
+            console.print(result)
+
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Status commands")
 def systems(
     pager: Optional[bool] = typer.Option(
         False, help="Display the output in a pager application."
