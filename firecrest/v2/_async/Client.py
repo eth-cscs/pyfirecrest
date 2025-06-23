@@ -454,12 +454,12 @@ class AsyncFirecrest:
         :calls: GET `/status/systems`
         """
         resp = await self._get_request(endpoint="/status/systems")
-        if (
-            resp.headers.get("f7t-appversion") and
-            resp.headers.get("f7t-appversion") != "2.x.x"
+        if resp.headers.get("f7t-appversion") == "2.x.x":
+            return "2"
+        elif (
+            resp.headers.get("f7t-appversion")
         ):
             return resp.headers["f7t-appversion"]
-
         else:
             return None
 
