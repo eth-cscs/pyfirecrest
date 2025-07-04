@@ -135,6 +135,18 @@ class TransferJobFailedException(Exception):
         )
 
 
+class JobTimeoutException(Exception):
+    """Exception when the job exceeds the user-defined timeout"""
+
+    def __init__(self, jobid):
+        self._jobid = jobid
+
+    def __str__(self):
+        return (
+            f"Job {self._jobid} has exceeded the user-defined timeout."
+        )
+
+
 class TransferJobTimeoutException(TransferJobFailedException):
     """Exception when the transfer job exceeds the user-defined timeout"""
 
