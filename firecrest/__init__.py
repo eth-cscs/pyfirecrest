@@ -18,7 +18,7 @@ from firecrest.FirecrestException import (
     UnexpectedStatusException,
 )
 
-__version__ = "3.2.2"
+__version__ = "3.2.3"
 __app_name__ = "firecrest"
 MIN_PYTHON_VERSION = (3, 7, 0)
 
