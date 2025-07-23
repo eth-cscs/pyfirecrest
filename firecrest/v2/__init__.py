@@ -15,3 +15,12 @@ from firecrest.v2._sync.Client import (  # noqa
     ExternalUpload,
     Firecrest,
 )
+
+__all__ = [
+    "AsyncExternalDownload",
+    "AsyncExternalUpload",
+    "AsyncFirecrest",
+    "ExternalDownload",
+    "ExternalUpload",
+    "Firecrest",
+]
