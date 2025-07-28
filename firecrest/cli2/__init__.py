@@ -866,7 +866,7 @@ def wait_for_job(
 
         console.print(json.dumps(result, indent=4))
     except Exception as e:
-        examine_exeption(e)
+        examine_exception(e)
         raise typer.Exit(code=1)
 
 
