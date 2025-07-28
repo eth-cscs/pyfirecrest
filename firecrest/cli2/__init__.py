@@ -863,7 +863,6 @@ def wait_for_job(
     """
     try:
         result = client.wait_for_job(system, jobid)
-
         console.print(json.dumps(result, indent=4))
     except Exception as e:
         examine_exeption(e)
