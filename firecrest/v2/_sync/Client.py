@@ -967,8 +967,9 @@ class Firecrest:
         system_name: str,
         job_id: str,
         timeout=None
-    ) -> None:
-        """Wait for a job to complete.
+    ) -> List[Any]:
+        """Wait for a job to complete. When the job is completed, it will
+        return the job information.
         :param system_name: the system name where the filesystem belongs to
         :param job_id: the ID of the job to wait for
         :param timeout: the maximum time to wait for the job to complete
@@ -1039,6 +1040,8 @@ class Firecrest:
             )
             check_timeout(i)
             time.sleep(i)
+
+        return job
 
     def cp(
         self,
