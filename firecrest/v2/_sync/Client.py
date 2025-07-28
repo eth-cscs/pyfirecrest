@@ -25,6 +25,7 @@ from firecrest.utilities import (
 )
 from firecrest.FirecrestException import (
     FirecrestException,
+    JobTimeoutException,
     MultipartUploadException,
     TransferJobFailedException,
     TransferJobTimeoutException,
@@ -115,16 +116,16 @@ class ExternalUpload:
         else:
             content_length = chunk_size
 
-        with open(self._local_file, "rb") as f:
-            f.seek(start)
-            resp = self._client._session.put(
-                url=url,
-                content=chunk_reader(f, self.chunk_size),
-                timeout=None,
-                headers={
-                    "Content-Length": str(content_length)
-                }
-            )
+            with open(self._local_file, "rb") as f:
+                f.seek(start)
+                resp = self._client._session.put(
+                    url=url,
+                    content=chunk_reader(f, self.chunk_size),
+                    timeout=None,
+                    headers={
+                        "Content-Length": str(content_length)
+                    }
+                )
 
         if resp.status_code >= 400:
             raise MultipartUploadException(
@@ -916,15 +917,72 @@ class Firecrest:
         )
         self._check_response(resp, 204)
 
-    def _wait_for_transfer_job(self, job_info, timeout=None):
+    def _wait_for_transfer_job(
+        self,
+        job_info: dict,
+        timeout: Optional[float] = None
+    ) -> None:
+        job_id = job_info["transferJob"]["jobId"]
+        system_name = job_info["transferJob"]["system"]
+        try:
+            self.wait_for_job(
+                system_name,
+                job_id,
+                timeout=timeout
+            )
+        except JobTimeoutException:
+            self.log(
+                logging.DEBUG,
+                f"Transfer job {job_id} timed out"
+            )
+            raise TransferJobTimeoutException(job_info)
+
+        try:
+            # If job is cancelled before it starts running, the log file will
+            # not be available
+            stdout_file = self.view(
+                system_name,
+                job_info["transferJob"]["logs"]["outputLog"]
+            )
+        except FirecrestException as e:
+            if (
+                e.responses[-1].status_code == 404 and
+                "No such file or directory" in e.responses[-1].json()['message']
+            ):
+                raise TransferJobFailedException(
+                    job_info, file_not_found=True
+                )
+            else:
+                raise e
+
+        if (
+            "Files were successfully" not in stdout_file and
+            "File was successfully" not in stdout_file and
+            "Multipart file upload successfully completed" not in stdout_file
+        ):
+            raise TransferJobFailedException(job_info)
+
+    def wait_for_job(
+        self,
+        system_name: str,
+        job_id: str,
+        timeout=None
+    ) -> List[Any]:
+        """Wait for a job to complete. When the job is completed, it will
+        return the job information.
+        :param system_name: the system name where the filesystem belongs to
+        :param job_id: the ID of the job to wait for
+        :param timeout: the maximum time to wait for the job to complete
+                        in seconds. If the timeout is set and the job is not
+                        completed within this time, it will be cancelled.
+        :calls: GET `/jobs/{system_name}/{job_id}`
+        """
         if timeout:
             timeout_time = time.time() + timeout
 
-        job_id = job_info["transferJob"]["jobId"]
-        system_name = job_info["transferJob"]["system"]
         self.log(
             logging.DEBUG,
-            f"Waiting for transfer job {job_id}."
+            f"Waiting for job {job_id}."
         )
 
         def check_timeout(sleep_time):
@@ -935,8 +993,7 @@ class Firecrest:
                 self.log(
                     logging.DEBUG,
                     f"Timeout is about to be reached, while waiting for "
-                    f"transfer job {job_id}. Will cancel the job to stop "
-                    f"the transfer."
+                    f"job {job_id}. Will cancel the job to stop the transfer."
                 )
 
                 try:
@@ -947,7 +1004,7 @@ class Firecrest:
                         f"Failed to cancel job {job_id}: {e}"
                     )
 
-                raise TransferJobTimeoutException(job_info)
+                raise JobTimeoutException(job_id)
 
         for i in sleep_generator():
             try:
@@ -984,30 +1041,7 @@ class Firecrest:
             check_timeout(i)
             time.sleep(i)
 
-        try:
-            # If job is cancelled before it starts running, the log file will
-            # not be available
-            stdout_file = self.view(
-                system_name,
-                job_info["transferJob"]["logs"]["outputLog"]
-            )
-        except FirecrestException as e:
-            if (
-                e.responses[-1].status_code == 404 and
-                "No such file or directory" in e.responses[-1].json()['message']
-            ):
-                raise TransferJobFailedException(
-                    job_info, file_not_found=True
-                )
-            else:
-                raise e
-
-        if (
-            "Files were successfully" not in stdout_file and
-            "File was successfully" not in stdout_file and
-            "Multipart file upload successfully completed" not in stdout_file
-        ):
-            raise TransferJobFailedException(job_info)
+        return job
 
     def cp(
         self,
@@ -1350,7 +1384,7 @@ class Firecrest:
                 "be set."
             )
 
-        data: Any = {
+        data: dict = {
             "job": {
                 "working_directory": working_dir
             }

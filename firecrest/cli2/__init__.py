@@ -851,6 +851,25 @@ def job_info(
 
 
 @app.command(rich_help_panel="Compute commands")
+def wait_for_job(
+    system: str = typer.Option(
+        ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
+    ),
+    jobid: str = typer.Argument(
+        ..., help="Job id of the job to wait for."
+    ),
+):
+    """Wait for a job to complete. It will return the job information when the job is completed.
+    """
+    try:
+        result = client.wait_for_job(system, jobid)
+        console.print(json.dumps(result, indent=4))
+    except Exception as e:
+        examine_exeption(e)
+        raise typer.Exit(code=1)
+
+
+@app.command(rich_help_panel="Compute commands")
 def job_metadata(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
