@@ -26,10 +26,10 @@ classifiers = [
 requires-python = ">=3.7"
 dependencies = [
     "click>=8.0,<8.1.0",
-    "aiofiles~=23.2.1",
+    "aiofiles>=23.2.1",
     "requests>=2.14.0",
     "PyJWT>=2.4.0",
-    "typer[all]~=0.7.0",
+    "typer[all]>=0.7.0,<1.0.0",
     "packaging>=21.0",
     "httpx>=0.24.0",
     "PyYAML>=5.1"
