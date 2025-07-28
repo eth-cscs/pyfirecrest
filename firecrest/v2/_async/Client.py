@@ -983,7 +983,7 @@ class AsyncFirecrest:
         job_id: str,
         timeout=None
     ) -> None:
-        """Wait for a transfer job to complete.
+        """Wait for a job to complete.
         :param system_name: the system name where the filesystem belongs to
         :param job_id: the ID of the job to wait for
         :param timeout: the maximum time to wait for the job to complete
