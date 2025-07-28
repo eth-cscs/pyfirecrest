@@ -966,7 +966,7 @@ class Firecrest:
         self,
         system_name: str,
         job_id: str,
-        timeout=None
+        timeout: Optional[float] = None
     ) -> None:
         """Wait for a job to complete.
         :param system_name: the system name where the filesystem belongs to
