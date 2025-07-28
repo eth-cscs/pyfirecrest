@@ -1114,9 +1114,9 @@ class AsyncFirecrest:
         :param system_name: the system name where the filesystem belongs to
         :param path: the absolute target path
         :param account: the account to be used for the transfer job  (only
-                            relevant when the file is not deleted directly)
+                        relevant when the file is not deleted directly)
         :param blocking: whether to wait for the job to complete (only
-                            relevant when the file is not deleted directly)
+                         relevant when the file is not deleted directly)
         :param timeout: the maximum time to wait for the job to complete
         :calls: DELETE `/filesystem/{system_name}/ops/rm`
 
