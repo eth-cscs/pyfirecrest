@@ -996,7 +996,7 @@ class AsyncFirecrest:
 
         self.log(
             logging.DEBUG,
-            f"Waiting for transfer job {job_id}."
+            f"Waiting for job {job_id}."
         )
 
         async def check_timeout(sleep_time):
