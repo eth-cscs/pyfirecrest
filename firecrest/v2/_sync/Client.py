@@ -966,7 +966,8 @@ class Firecrest:
         self,
         system_name: str,
         job_id: str,
-        timeout=None
+        timeout: Optional[float] = None,
+        not_found_timeout: float = 20.0
     ) -> List[Any]:
         """Wait for a job to complete. When the job is completed, it will
         return the job information.
@@ -975,10 +976,20 @@ class Firecrest:
         :param timeout: the maximum time to wait for the job to complete
                         in seconds. If the timeout is set and the job is not
                         completed within this time, it will be cancelled.
+        :param not_found_timeout: the maximum time to wait for the job to be
+                                  available in the scheduler, in seconds.
+                                  Slurm or other scheduler will need a few
+                                  seconds before updating the database. If
+                                  the job is not found within this time, the
+                                  function will raise an exception.
         :calls: GET `/jobs/{system_name}/{job_id}`
         """
         if timeout:
             timeout_time = time.time() + timeout
+
+        not_found_timeout_time = (
+            time.time() + not_found_timeout
+        )
 
         self.log(
             logging.DEBUG,
@@ -1014,6 +1025,9 @@ class Firecrest:
                     e.responses[-1].status_code == 404 and
                     "Job not found" in e.responses[-1].json()['message']
                 ):
+                    if time.time() > not_found_timeout_time:
+                        raise e
+
                     self.log(
                         logging.DEBUG,
                         f"Job {job_id} information is not yet available, will "
