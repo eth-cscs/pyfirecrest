@@ -27,6 +27,7 @@ from firecrest.FirecrestException import (
     FirecrestException,
     JobTimeoutException,
     MultipartUploadException,
+    NotImplementedOnAPIversion,
     TransferJobFailedException,
     TransferJobTimeoutException,
     UnexpectedStatusException,
@@ -290,12 +291,12 @@ class Firecrest:
         # to `None`, the client will keep trying until it gets a different
         # status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
-        self._api_version: Version = parse("2.0.0")
+        self._api_version: Version = parse("2.3.0")
         self._session = httpx.Client(verify=self._verify)
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be
-        assumed that you are using version 2.0.0 or compatible. The version is
+        assumed that you are using version 2.3.0 or compatible. The version is
         parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
@@ -1078,7 +1079,11 @@ class Firecrest:
         :param timeout: the maximum time to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
-        # TODO: dereference is supported only after version 2.2.8 of the API
+        if self._api_version < parse("2.2.8") and dereference:
+            raise NotImplementedOnAPIversion(
+                "cp dereferencing is not available for "
+                "version <2.2.8 of the API."
+            )
         data: dict[str, Any] = {
             "sourcePath": source_path,
             "targetPath": target_path,
@@ -1404,8 +1409,11 @@ class Firecrest:
             }
         }
         if script_remote_path:
-            # TODO: Check that the version of the api supports this (added in
-            # 2.2.6)
+            if self._api_version < parse("2.2.6"):
+                raise NotImplementedOnAPIversion(
+                    "submitting a job from a remote script path is not "
+                    "supported in API version <2.2.6."
+                )
 
             if not script_remote_path.startswith("/"):
                 raise ValueError(
@@ -1429,8 +1437,12 @@ class Firecrest:
             data["job"]["env"] = env_vars
 
         if account:
-            # TODO: Check that the version of the api supports this (added in
-            # 2.2.6)
+            if self._api_version < parse("2.2.6"):
+                raise NotImplementedOnAPIversion(
+                    "account information is not available for "
+                    "version <2.2.6 of the API."
+                )
+
             data["job"]["account"] = account
 
         resp = self._post_request(
@@ -1458,8 +1470,11 @@ class Firecrest:
         url = f"/compute/{system_name}/jobs"
         url = f"{url}/{jobid}" if jobid else url
 
-        # TODO: Check version compatibility for `allusers` parameter
-        # It was added in FirecREST 2.2.7
+        if self._api_version < parse("2.2.7") and allusers:
+            raise NotImplementedOnAPIversion(
+                "The `allusers` parameter is not available for "
+                "version <2.2.7 of the API."
+            )
 
         resp = self._get_request(
             endpoint=url,
