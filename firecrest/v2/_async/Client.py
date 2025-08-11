@@ -28,6 +28,7 @@ from firecrest.FirecrestException import (
     FirecrestException,
     JobTimeoutException,
     MultipartUploadException,
+    NotImplementedOnAPIversion,
     TransferJobFailedException,
     TransferJobTimeoutException,
     UnexpectedStatusException,
@@ -1093,7 +1094,11 @@ class AsyncFirecrest:
         :param timeout: the maximum time to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/cp`
         """
-        # TODO: dereference is supported only after version 2.2.8 of the API
+        if self._api_version < parse("2.2.8") and dereference:
+            raise NotImplementedOnAPIversion(
+                "cp dereferencing is not available for "
+                "version <2.2.8 of the API."
+            )
         data: dict[str, Any] = {
             "sourcePath": source_path,
             "targetPath": target_path,
@@ -1419,8 +1424,11 @@ class AsyncFirecrest:
             }
         }
         if script_remote_path:
-            # TODO: Check that the version of the api supports this (added in
-            # 2.2.6)
+            if self._api_version < parse("2.2.6"):
+                raise NotImplementedOnAPIversion(
+                    "submitting a job from a remote script path is not "
+                    "supported in API version <2.2.6."
+                )
 
             if not script_remote_path.startswith("/"):
                 raise ValueError(
@@ -1444,8 +1452,12 @@ class AsyncFirecrest:
             data["job"]["env"] = env_vars
 
         if account:
-            # TODO: Check that the version of the api supports this (added in
-            # 2.2.6)
+            if self._api_version < parse("2.2.6"):
+                raise NotImplementedOnAPIversion(
+                    "account information is not available for "
+                    "version <2.2.6 of the API."
+                )
+
             data["job"]["account"] = account
 
         resp = await self._post_request(
@@ -1473,8 +1485,11 @@ class AsyncFirecrest:
         url = f"/compute/{system_name}/jobs"
         url = f"{url}/{jobid}" if jobid else url
 
-        # TODO: Check version compatibility for `allusers` parameter
-        # It was added in FirecREST 2.2.7
+        if self._api_version < parse("2.2.7") and allusers:
+            raise NotImplementedOnAPIversion(
+                "The `allusers` parameter is not available for "
+                "version <2.2.7 of the API."
+            )
 
         resp = await self._get_request(
             endpoint=url,
