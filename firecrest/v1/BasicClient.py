@@ -12,6 +12,7 @@ import logging
 import os
 import pathlib
 import requests
+import sys
 import tempfile
 import time
 
@@ -31,6 +32,10 @@ from firecrest.utilities import (
     validate_api_version_compatibility
 )
 
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 
