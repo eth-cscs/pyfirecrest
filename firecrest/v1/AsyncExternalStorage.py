@@ -12,7 +12,6 @@ import logging
 import pathlib
 import requests
 import shutil
-import sys
 from typing import ContextManager, Optional, List, TYPE_CHECKING
 import urllib.request
 from packaging.version import Version

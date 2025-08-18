@@ -12,7 +12,6 @@ import logging
 import os
 import pathlib
 import requests
-import sys
 import tempfile
 import time
 

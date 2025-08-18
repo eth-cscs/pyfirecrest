@@ -16,7 +16,6 @@ import os
 import pathlib
 import requests
 import ssl
-import sys
 import tempfile
 import time
 

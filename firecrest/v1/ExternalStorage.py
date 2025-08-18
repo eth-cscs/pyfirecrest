@@ -14,7 +14,6 @@ import requests
 import shlex
 import shutil
 import subprocess
-import sys
 import time
 from typing import ContextManager, Optional, List, TYPE_CHECKING
 import urllib.request
