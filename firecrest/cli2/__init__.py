@@ -14,12 +14,9 @@ import firecrest as fc
 
 from firecrest import __app_name__, __version__
 from typing import List, Optional
-from enum import Enum
 
-from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.table import Table
 from rich.theme import Theme
 
 
@@ -768,7 +765,7 @@ def validate_env_var_format(value: List[str]):
     pattern = re.compile(r'\S+=\S+')
     for item in value:
         if not pattern.match(item):
-            raise typer.BadParameter(f"Please use the format `VAR=VALUE`.")
+            raise typer.BadParameter("Please use the format `VAR=VALUE`.")
 
     return value
 

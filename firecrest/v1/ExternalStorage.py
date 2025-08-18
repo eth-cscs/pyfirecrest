@@ -14,7 +14,6 @@ import requests
 import shlex
 import shutil
 import subprocess
-import sys
 import time
 from typing import ContextManager, Optional, List, TYPE_CHECKING
 import urllib.request
@@ -24,12 +23,6 @@ if TYPE_CHECKING:
     from firecrest.v1.BasicClient import Firecrest as FirecrestV1
 
 from contextlib import nullcontext
-from requests.compat import json  # type: ignore
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -268,5 +261,5 @@ class ExternalDownload(ExternalStorage):
             if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
             else nullcontext(target_path)
         )
-        with urllib.request.urlopen(url) as response, context as out_file:
+        with urllib.request.urlopen(url) as response, context as out_file:  # nosec B310
             shutil.copyfileobj(response, out_file)

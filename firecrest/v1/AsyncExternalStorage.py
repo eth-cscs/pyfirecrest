@@ -12,7 +12,6 @@ import logging
 import pathlib
 import requests
 import shutil
-import sys
 from typing import ContextManager, Optional, List, TYPE_CHECKING
 import urllib.request
 from packaging.version import Version
@@ -21,12 +20,6 @@ if TYPE_CHECKING:
     from firecrest.v1.AsyncClient import AsyncFirecrest as AsyncFirecrestV1
 
 from contextlib import nullcontext
-from requests.compat import json  # type: ignore
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -263,5 +256,5 @@ class AsyncExternalDownload(AsyncExternalStorage):
             if isinstance(target_path, str) or isinstance(target_path, pathlib.Path)
             else nullcontext(target_path)
         )
-        with urllib.request.urlopen(url) as response, context as out_file:
+        with urllib.request.urlopen(url) as response, context as out_file:  # nosec B310
             shutil.copyfileobj(response, out_file)

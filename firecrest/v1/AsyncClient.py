@@ -23,7 +23,7 @@ import time
 from contextlib import nullcontext
 from typing import Any, ContextManager, Optional, overload, Sequence, List
 from requests.compat import json  # type: ignore
-from packaging.version import Version, parse
+from packaging.version import parse
 
 import firecrest.FirecrestException as fe
 import firecrest.types as t
@@ -34,7 +34,6 @@ from firecrest.utilities import (
     sched_state_completed,
     time_block
 )
-
 
 if sys.version_info >= (3, 8):
     from typing import Literal
