@@ -41,8 +41,8 @@ jobs:
         pip install .[test]
     - name: Run Static Code Analysis
       run: |
-        ruff check ./src
-        bandit -ll -r ./src
+        ruff check ./firecrest
+        bandit -ll -r ./firecrest
 
   type-check:
 
