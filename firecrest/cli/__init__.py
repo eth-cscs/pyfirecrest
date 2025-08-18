@@ -978,7 +978,7 @@ def download(
         TransferType.direct,
         "--type",
         case_sensitive=False,
-        help=f"Select type of transfer.",
+        help="Select type of transfer.",
     ),
 ):
     """Download a file
@@ -1037,7 +1037,7 @@ def upload(
         TransferType.direct,
         "--type",
         case_sensitive=False,
-        help=f"Select type of transfer.",
+        help="Select type of transfer.",
     ),
 ):
     """Upload a file
@@ -1082,7 +1082,7 @@ def validate_env_var_format(value: List[str]):
     pattern = re.compile(r'\S+=\S+')
     for item in value:
         if not pattern.match(item):
-            raise typer.BadParameter(f"Please use the format `VAR=VALUE`.")
+            raise typer.BadParameter("Please use the format `VAR=VALUE`.")
 
     return value
 

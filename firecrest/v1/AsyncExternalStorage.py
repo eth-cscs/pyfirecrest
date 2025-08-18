@@ -21,12 +21,6 @@ if TYPE_CHECKING:
     from firecrest.v1.AsyncClient import AsyncFirecrest as AsyncFirecrestV1
 
 from contextlib import nullcontext
-from requests.compat import json  # type: ignore
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 logger = logging.getLogger(__name__)
 

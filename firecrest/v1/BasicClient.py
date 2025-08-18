@@ -33,11 +33,6 @@ from firecrest.utilities import (
 )
 
 
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
-
 logger = logging.getLogger(__name__)
 
 
