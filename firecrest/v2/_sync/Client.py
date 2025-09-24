@@ -910,7 +910,7 @@ class Firecrest:
         target_path: str,
         compression: str = "gzip"
     ) -> None:
-        """Extract tar gzip archives.
+        """Extract compressed archives.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute path to the archive
