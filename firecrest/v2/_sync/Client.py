@@ -875,7 +875,9 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
-        dereference: bool = False
+        dereference: bool = False,
+        compression: str = "gzip",
+        match_pattern: Optional[str] = None,
     ) -> None:
         """Compress a directory or file.
 
@@ -884,6 +886,9 @@ class Firecrest:
         :param target_path: the absolute path to the newly created
                             compressed file
         :param dereference: dereference links when compressing
+        :param compression: compression algorithm to use (one of "none",
+                            "gzip", "bzip2", "xz"). Default is "gzip".
+        :param match_pattern: regex pattern to filter files to compress
         :calls: POST `/filesystem/{system_name}/ops/compress`
         """
         resp = self._post_request(
@@ -891,7 +896,9 @@ class Firecrest:
             data=json.dumps({
                 "source_path": source_path,
                 "target_path": target_path,
-                "dereference": dereference
+                "dereference": dereference,
+                "compression": compression,
+                "match_pattern": match_pattern
             })
         )
         self._check_response(resp, 204)
@@ -901,19 +908,23 @@ class Firecrest:
         system_name: str,
         source_path: str,
         target_path: str,
+        compression: str = "gzip"
     ) -> None:
         """Extract tar gzip archives.
 
         :param system_name: the system name where the filesystem belongs to
         :param source_path: the absolute path to the archive
         :param target_path: the absolute path to target directory
+        :param compression: compression algorithm to use (one of "none",
+                            "gzip", "bzip2", "xz"). Default is "gzip".
         :calls: POST `/filesystem/{system_name}/ops/extract`
         """
         resp = self._post_request(
             endpoint=f"/filesystem/{system_name}/ops/extract",
             data=json.dumps({
                 "source_path": source_path,
-                "target_path": target_path
+                "target_path": target_path,
+                "compression": compression
             })
         )
         self._check_response(resp, 204)
