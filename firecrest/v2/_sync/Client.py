@@ -117,16 +117,16 @@ class ExternalUpload:
         else:
             content_length = chunk_size
 
-            with open(self._local_file, "rb") as f:
-                f.seek(start)
-                resp = self._client._session.put(
-                    url=url,
-                    content=chunk_reader(f, self.chunk_size),
-                    timeout=None,
-                    headers={
-                        "Content-Length": str(content_length)
-                    }
-                )
+        with open(self._local_file, "rb") as f:
+            f.seek(start)
+            resp = self._client._session.put(
+                url=url,
+                content=chunk_reader(f, self.chunk_size),
+                timeout=None,
+                headers={
+                    "Content-Length": str(content_length)
+                }
+            )
 
         if resp.status_code >= 400:
             raise MultipartUploadException(
