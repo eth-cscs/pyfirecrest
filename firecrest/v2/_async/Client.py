@@ -76,10 +76,17 @@ class AsyncExternalUpload:
         return self._transfer_info
 
     async def upload_file_to_stage(self):
-        if self._client._api_version < parse("2.4.0"):
-            urls = self._transfer_info["partsUploadUrls"]
-        else:
-            urls = self._transfer_info["transferDirectives"]["parts_upload_urls"]
+        urls = self._transfer_info.get("partsUploadUrls")
+        if urls is None:
+            urls = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("parts_upload_urls")
+
+        if urls is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find parts upload URLs in the transfer info"
+            )
 
         await asyncio.gather(
             *[
@@ -104,10 +111,17 @@ class AsyncExternalUpload:
         )
 
     async def _upload_part(self, url, index):
-        if self._client._api_version < parse("2.4.0"):
-            chunk_size = self._transfer_info["partSize"]
-        else:
-            chunk_size = self._transfer_info["transferDirectives"]["max_part_size"]
+        chunk_size = self._transfer_info.get("partSize")
+        if chunk_size is None:
+            chunk_size = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("max_part_size")
+
+        if chunk_size is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find chunk size in the transfer info"
+            )
 
         async def chunk_reader(f, c):
             i = 0
@@ -160,10 +174,17 @@ class AsyncExternalUpload:
         })
 
     async def _complete_upload(self, checksum):
-        if self._client._api_version < parse("2.4.0"):
-            url = self._transfer_info["completeMultipartUploadUrl"]
-        else:
-            url = self._transfer_info["transferDirectives"]["complete_upload_url"]
+        url = self._transfer_info.get("completeMultipartUploadUrl")
+        if url is None:
+            url = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("complete_upload_url")
+
+        if url is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find complete upload URL in the transfer info"
+            )
 
         self._client.log(
             logging.DEBUG,
@@ -194,10 +215,17 @@ class AsyncExternalDownload:
 
     async def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
-        if self._client._api_version < parse("2.4.0"):
-            download_url = self._transfer_info["downloadUrl"]
-        else:
-            download_url = self._transfer_info["transferDirectives"]["download_url"]
+        download_url = self._transfer_info.get("downloadUrl")
+        if download_url is None:
+            download_url = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("download_url")
+
+        if download_url is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find download URL in the transfer info"
+            )
 
         self._client.log(
             logging.DEBUG,
