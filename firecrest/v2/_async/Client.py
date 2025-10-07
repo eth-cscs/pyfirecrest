@@ -76,7 +76,11 @@ class AsyncExternalUpload:
         return self._transfer_info
 
     async def upload_file_to_stage(self):
-        urls = self._transfer_info["partsUploadUrls"]
+        if self._client._api_version < parse("2.4.0"):
+            urls = self._transfer_info["partsUploadUrls"]
+        else:
+            urls = self._transfer_info["transferDirectives"]["parts_upload_urls"]
+
         await asyncio.gather(
             *[
                 self._upload_part(
@@ -100,7 +104,10 @@ class AsyncExternalUpload:
         )
 
     async def _upload_part(self, url, index):
-        chunk_size = self._transfer_info["maxPartSize"]
+        if self._client._api_version < parse("2.4.0"):
+            chunk_size = self._transfer_info["partSize"]
+        else:
+            chunk_size = self._transfer_info["transferDirectives"]["max_part_size"]
 
         async def chunk_reader(f, c):
             i = 0
@@ -153,7 +160,11 @@ class AsyncExternalUpload:
         })
 
     async def _complete_upload(self, checksum):
-        url = self._transfer_info["completeUploadUrl"]
+        if self._client._api_version < parse("2.4.0"):
+            url = self._transfer_info["completeMultipartUploadUrl"]
+        else:
+            url = self._transfer_info["transferDirectives"]["complete_upload_url"]
+
         self._client.log(
             logging.DEBUG,
             f"Finishing upload of file {self._local_file} to {url}"
@@ -183,15 +194,20 @@ class AsyncExternalDownload:
 
     async def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
+        if self._client._api_version < parse("2.4.0"):
+            download_url = self._transfer_info["downloadUrl"]
+        else:
+            download_url = self._transfer_info["transferDirectives"]["download_url"]
+
         self._client.log(
             logging.DEBUG,
-            f"Downloading file from {self._transfer_info['downloadUrl']} "
+            f"Downloading file from {download_url} "
             f"to {file_name}"
         )
 
         async with self._client._session.stream(
             "GET",
-            self._transfer_info["downloadUrl"]
+            download_url
         ) as resp:
             resp.raise_for_status()
 
@@ -203,7 +219,7 @@ class AsyncExternalDownload:
 
         self._client.log(
             logging.DEBUG,
-            f"Downloaded file from {self._transfer_info['downloadUrl']} to {file_name}"
+            f"Downloaded file from {download_url} to {file_name}"
         )
 
     async def wait_for_transfer_job(self, timeout=None):
@@ -1220,7 +1236,8 @@ class AsyncFirecrest:
         directory: str,
         filename: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        transfer_method: str = "s3"
     ) -> Optional[AsyncExternalUpload]:
         """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
@@ -1242,6 +1259,8 @@ class AsyncFirecrest:
         :param blocking: whether to wait for the job to complete (only
                          relevant when the file is larger than
                          `MAX_DIRECT_UPLOAD_SIZE`)
+        :param transfer_method: the method to be used for the upload of large
+                                files. Currently only "s3" is supported.
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
         if not os.path.isfile(local_file):
@@ -1272,11 +1291,21 @@ class AsyncFirecrest:
             f"stage area of FirecREST and then moved to the "
             f"target directory, since it's {local_file_size} bytes."
         )
-        data = {
-            "source_path": directory,
-            "fileName": filename,
-            'fileSize': local_file_size,
-        }
+        if self._api_version < parse("2.4.0"):
+            data = {
+                "source_path": directory,
+                "fileName": filename,
+                "fileSize": local_file_size,
+            }
+        else:
+            data = {
+                "path": os.path.join(directory, filename),
+                "transfer_directives": {
+                    "file_size": local_file_size,
+                    "transfer_method": transfer_method
+                }
+            }
+
         if account is not None:
             data["account"] = account
 
