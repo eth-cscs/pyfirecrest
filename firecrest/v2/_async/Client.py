@@ -111,7 +111,7 @@ class AsyncExternalUpload:
         )
 
     async def _upload_part(self, url, index):
-        chunk_size = self._transfer_info.get("partSize")
+        chunk_size = self._transfer_info.get("maxPartSize")
         if chunk_size is None:
             chunk_size = self._transfer_info.get(
                 "transferDirectives", {}
@@ -1291,6 +1291,12 @@ class AsyncFirecrest:
                                 files. Currently only "s3" is supported.
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
+        if transfer_method != "s3":
+            raise ValueError(
+                f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
+                f"is currently supported."
+            )
+
         if not os.path.isfile(local_file):
             raise FileNotFoundError(f"File not found: {local_file}")
 
