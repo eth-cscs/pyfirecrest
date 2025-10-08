@@ -76,7 +76,18 @@ class AsyncExternalUpload:
         return self._transfer_info
 
     async def upload_file_to_stage(self):
-        urls = self._transfer_info["partsUploadUrls"]
+        urls = self._transfer_info.get("partsUploadUrls")
+        if urls is None:
+            urls = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("parts_upload_urls")
+
+        if urls is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find parts upload URLs in the transfer info"
+            )
+
         await asyncio.gather(
             *[
                 self._upload_part(
@@ -100,7 +111,17 @@ class AsyncExternalUpload:
         )
 
     async def _upload_part(self, url, index):
-        chunk_size = self._transfer_info["maxPartSize"]
+        chunk_size = self._transfer_info.get("maxPartSize")
+        if chunk_size is None:
+            chunk_size = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("max_part_size")
+
+        if chunk_size is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find chunk size in the transfer info"
+            )
 
         async def chunk_reader(f, c):
             i = 0
@@ -153,7 +174,18 @@ class AsyncExternalUpload:
         })
 
     async def _complete_upload(self, checksum):
-        url = self._transfer_info["completeUploadUrl"]
+        url = self._transfer_info.get("completeMultipartUploadUrl")
+        if url is None:
+            url = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("complete_upload_url")
+
+        if url is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find complete upload URL in the transfer info"
+            )
+
         self._client.log(
             logging.DEBUG,
             f"Finishing upload of file {self._local_file} to {url}"
@@ -183,15 +215,27 @@ class AsyncExternalDownload:
 
     async def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
+        download_url = self._transfer_info.get("downloadUrl")
+        if download_url is None:
+            download_url = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("download_url")
+
+        if download_url is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find download URL in the transfer info"
+            )
+
         self._client.log(
             logging.DEBUG,
-            f"Downloading file from {self._transfer_info['downloadUrl']} "
+            f"Downloading file from {download_url} "
             f"to {file_name}"
         )
 
         async with self._client._session.stream(
             "GET",
-            self._transfer_info["downloadUrl"]
+            download_url
         ) as resp:
             resp.raise_for_status()
 
@@ -203,7 +247,7 @@ class AsyncExternalDownload:
 
         self._client.log(
             logging.DEBUG,
-            f"Downloaded file from {self._transfer_info['downloadUrl']} to {file_name}"
+            f"Downloaded file from {download_url} to {file_name}"
         )
 
     async def wait_for_transfer_job(self, timeout=None):
@@ -1220,7 +1264,8 @@ class AsyncFirecrest:
         directory: str,
         filename: str,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        transfer_method: str = "s3"
     ) -> Optional[AsyncExternalUpload]:
         """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
@@ -1242,8 +1287,16 @@ class AsyncFirecrest:
         :param blocking: whether to wait for the job to complete (only
                          relevant when the file is larger than
                          `MAX_DIRECT_UPLOAD_SIZE`)
+        :param transfer_method: the method to be used for the upload of large
+                                files. Currently only "s3" is supported.
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
+        if transfer_method != "s3":
+            raise ValueError(
+                f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
+                f"is currently supported."
+            )
+
         if not os.path.isfile(local_file):
             raise FileNotFoundError(f"File not found: {local_file}")
 
@@ -1272,11 +1325,21 @@ class AsyncFirecrest:
             f"stage area of FirecREST and then moved to the "
             f"target directory, since it's {local_file_size} bytes."
         )
-        data = {
-            "source_path": directory,
-            "fileName": filename,
-            'fileSize': local_file_size,
-        }
+        if self._api_version < parse("2.4.0"):
+            data = {
+                "source_path": directory,
+                "fileName": filename,
+                "fileSize": local_file_size,
+            }
+        else:
+            data = {
+                "path": os.path.join(directory, filename),
+                "transfer_directives": {
+                    "file_size": local_file_size,
+                    "transfer_method": transfer_method
+                }
+            }
+
         if account is not None:
             data["account"] = account
 
