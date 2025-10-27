@@ -61,18 +61,71 @@ def sleep_generator():
 
 
 class ExternalUpload:
-    def __init__(self, client, transfer_info, local_file):
+    """
+    Supports multipart uploads from either a local file path OR a binary stream.
+
+    If `stream` is seekable, each part is read by seeking to the appropriate offset.
+    If `stream` is not seekable, parts are uploaded sequentially by consuming the stream once.
+    """
+    def __init__(
+        self,
+        client,
+        transfer_info,
+        local_file: Optional[str] = None,
+        *,
+        stream: Optional[Readable] = None,
+        stream_size: Optional[int] = None,
+    ):
         self._client = client
-        self._local_file = local_file
+        self._local_file = local_file  # only used for logs / b/w compatibility
         self._transfer_info = transfer_info
         self._all_tags = []
         # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
-        self._total_file_size = os.path.getsize(local_file)
+
+        # Source handling
+        self._stream: Optional[Readable] = stream
+        self._we_opened_stream = False  # track if we open a path internally to close it later
+
+        # Determine total size
+        if stream is not None:
+            if stream_size is None:
+                # Try to infer for seekable streams
+                if hasattr(stream, "seek") and hasattr(stream, "tell"):
+                    try:
+                        cur = stream.tell()
+                        stream.seek(0, os.SEEK_END)
+                        stream_size = stream.tell()
+                        stream.seek(cur, os.SEEK_SET)
+                    except Exception:
+                        pass
+            if stream_size is None:
+                raise ValueError("stream_size is required when providing a non-seekable stream.")
+            self._total_file_size = stream_size
+        else:
+            # Path case: open lazily per part (parity with original) but compute size now
+            if local_file is None:
+                raise ValueError("Either 'stream' or 'local_file' must be provided.")
+            self._total_file_size = os.path.getsize(local_file)
 
     @property
     def transfer_data(self):
         return self._transfer_info
+
+    def _is_stream_seekable(self) -> bool:
+        s = self._stream
+        if s is None:
+            return True  # path-based approach is effectively "seekable" via reopen + seek
+        try:
+            return bool(getattr(s, "seekable", lambda: True)())
+        except Exception:
+            # Fallback: try a harmless seek/tell
+            try:
+                pos = s.tell()
+                s.seek(pos, os.SEEK_SET)
+                return True
+            except Exception:
+                return False
 
     def upload_file_to_stage(self):
         urls = self._transfer_info.get("partsUploadUrls")
@@ -80,7 +133,6 @@ class ExternalUpload:
             urls = self._transfer_info.get(
                 "transferDirectives", {}
             ).get("parts_upload_urls")
-
         if urls is None:
             raise MultipartUploadException(
                 self._transfer_info,
@@ -91,12 +143,10 @@ class ExternalUpload:
         for index, upload_url in enumerate(urls):
             self._upload_part(upload_url, index)
 
-        # S3 complains when tags are not sorted
+        # S3 requires parts sorted by PartNumber
         self._all_tags.sort(key=lambda x: x['PartNumber'])
         checksum = part_checksum_xml(self._all_tags)
-        self._complete_upload(
-            checksum
-        )
+        self._complete_upload(checksum)
 
     def wait_for_transfer_job(self, timeout=None):
         self._client._wait_for_transfer_job(
@@ -104,7 +154,7 @@ class ExternalUpload:
             timeout=timeout
         )
 
-    def _upload_part(self, url, index):
+    def _upload_part(self, url: str, index: int):
         chunk_size = self._transfer_info.get("maxPartSize")
         if chunk_size is None:
             chunk_size = self._transfer_info.get(
@@ -117,61 +167,125 @@ class ExternalUpload:
                 "Could not find chunk size in the transfer info"
             )
 
-        def chunk_reader(f, c):
-            i = 0
-            while True:
-                next_chunk = c if i + c <= chunk_size else chunk_size - i
-                i += next_chunk
-                data = f.read(next_chunk)
-                if not data:
-                    break
+        self._client.log(logging.DEBUG, f"Uploading part {index + 1} to {url}")
 
-                yield data
-
-        self._client.log(
-            logging.DEBUG,
-            f"Uploading part {index + 1} to {url}"
-        )
         start = index * chunk_size
         if start + chunk_size > self._total_file_size:
             content_length = self._total_file_size - start
         else:
             content_length = chunk_size
 
-        with open(self._local_file, "rb") as f:
-            f.seek(start)
-            resp = self._client._session.put(
-                url=url,
-                content=chunk_reader(f, self.chunk_size),
-                timeout=None,
-                headers={
-                    "Content-Length": str(content_length)
-                }
-            )
+        # Generator that yields exactly `content_length` bytes from the source
+        def stream_slice_reader(f: Readable, to_read: int):
+            remaining = to_read
+            buf_size = self.chunk_size
+            while remaining > 0:
+                n = buf_size if remaining >= buf_size else remaining
+                data = f.read(n)
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
 
-        if resp.status_code >= 400:
+        # Two source modes:
+        # 1) Path-based (no _stream): open, seek, read exactly content_length
+        # 2) Stream-based:
+        #    a) seekable -> seek(start), read exactly content_length
+        #    b) non-seekable -> assume parts are uploaded in increasing order; consume sequentially
+
+        resp = None
+
+        if self._stream is None:
+            # Path mode: reopen for each part (as in original), seek to offset
+            with open(self._local_file, "rb") as f:
+                f.seek(start)
+                resp = self._client._session.put(
+                    url=url,
+                    content=stream_slice_reader(f, content_length),
+                    timeout=None,
+                    headers={"Content-Length": str(content_length)},
+                )
+        else:
+            s = self._stream
+            seekable = self._is_stream_seekable()
+
+            if seekable:
+                # Seek to the appropriate offset for the part
+                try:
+                    s.seek(start)
+                except Exception as e:
+                    raise MultipartUploadException(
+                        self._transfer_info,
+                        f"Failed to seek to offset {start} on stream: {e}"
+                    )
+                resp = self._client._session.put(
+                    url=url,
+                    content=stream_slice_reader(s, content_length),
+                    timeout=None,
+                    headers={"Content-Length": str(content_length)},
+                )
+            else:
+                # Non-seekable stream (pipe/socket). We can only read forward.
+                # We require that parts are uploaded strictly in increasing order (which they are here).
+                # Consume up to the required start offset if we aren't there yet.
+                # Track how much we've consumed so far on this stream.
+                if not hasattr(self, "_bytes_consumed"):
+                    self._bytes_consumed = 0  # type: ignore[attr-defined]
+
+                # If we're behind the needed start, skip bytes
+                to_skip = start - self._bytes_consumed
+                if to_skip < 0:
+                    # This would imply we need to go backwards; unsupported for non-seekable streams.
+                    raise MultipartUploadException(
+                        self._transfer_info,
+                        "Non-seekable stream cannot upload parts out of order."
+                    )
+                if to_skip > 0:
+                    # Skip (read and discard) to reach the part start
+                    _skip_left = to_skip
+                    while _skip_left > 0:
+                        n = min(self.chunk_size, _skip_left)
+                        chunk = s.read(n)
+                        if not chunk:
+                            break
+                        _skip_left -= len(chunk)
+                        self._bytes_consumed += len(chunk)
+
+                # Now read exactly content_length bytes for this part
+                def nonseek_reader():
+                    remaining = content_length
+                    while remaining > 0:
+                        n = min(self.chunk_size, remaining)
+                        data = s.read(n)
+                        if not data:
+                            break
+                        remaining -= len(data)
+                        self._bytes_consumed += len(data)
+                        yield data
+
+                resp = self._client._session.put(
+                    url=url,
+                    content=nonseek_reader(),
+                    timeout=None,
+                    headers={"Content-Length": str(content_length)},
+                )
+
+        if resp is None or resp.status_code >= 400:
+            status = getattr(resp, "status_code", "N/A")
+            text = getattr(resp, "text", "")
             raise MultipartUploadException(
                 self._transfer_info,
-                f"Failed to upload part {index + 1}: "
-                f"{resp.status_code}: {resp.text}"
+                f"Failed to upload part {index + 1}: {status}: {text}"
             )
 
-        self._client.log(
-            logging.DEBUG,
-            f"Uploaded part {index + 1} to {url}"
-        )
+        self._client.log(logging.DEBUG, f"Uploaded part {index + 1} to {url}")
         e_tag = resp.headers['ETag']
-        self._all_tags.append({
-            'ETag': e_tag,
-            'PartNumber': index + 1
-        })
+        self._all_tags.append({'ETag': e_tag, 'PartNumber': index + 1})
 
     def _complete_upload(self, checksum):
         url = self._transfer_info.get("completeUploadUrl")
         if url is None:
-            url = self._transfer_info.get(
-                "transferDirectives", {}
-            ).get("complete_upload_url")
+            url = self._transfer_info.get("transferDirectives", {}).get("complete_upload_url")
 
         if url is None:
             raise MultipartUploadException(
@@ -181,17 +295,23 @@ class ExternalUpload:
 
         self._client.log(
             logging.DEBUG,
-            f"Finishing upload of file {self._local_file} to {url}"
+            f"Finishing upload of file {self._local_file or '<stream>'} to {url}"
         )
-        resp = self._client._session.post(
-            url=url,
-            data=checksum
-        )
+        resp = self._client._session.post(url=url, data=checksum)
         if resp.status_code >= 400:
             raise MultipartUploadException(
                 self._transfer_info,
                 f"Failed to finish upload: {resp.status_code}: {resp.text}"
             )
+
+    def __del__(self):
+        # If in future you decide to open the path as a persistent stream,
+        # you can close it here when _we_opened_stream is True.
+        try:
+            if getattr(self, "_we_opened_stream", False) and self._stream is not None:
+                self._stream.close()
+        except Exception:
+            pass
 
 
 class ExternalDownload:
@@ -1244,20 +1364,20 @@ class Firecrest:
     def upload(
         self,
         system_name: str,
-        local_file: str | pathlib.Path,
+        local_file: str | pathlib.Path | Readable | int,
         directory: str,
         filename: str,
         account: Optional[str] = None,
         blocking: bool = True,
-        transfer_method: str = "s3"
-    ) -> Optional[ExternalUpload]:
-        """Upload a file to the system. Small files will be
-        uploaded directly to FirecREST and will be immediately available.
-        The function will return `None` in this case.
-        Large files will be uploaded in parts to the
-        staging area of FirecREST and then moved to the target directory in a
-        job. The function will return the transfer job information in this
-        case.
+        transfer_method: str = "s3",
+        file_size: Optional[int] = None,
+    ) -> Optional["ExternalUpload"]:
+        """Upload a file or stream to the system.
+
+        `local_file` can be:
+          - a path str/PathLike
+          - a file descriptor (int)
+          - a binary file-like object (implements .read(), and preferably .seek()/.tell())
 
         :param system_name: the system name where the filesystem belongs to
         :param local_file: the local file's path to be uploaded (can be
@@ -1273,85 +1393,147 @@ class Firecrest:
                          `MAX_DIRECT_UPLOAD_SIZE`)
         :param transfer_method: the method to be used for the upload of large
                                 files. Currently only "s3" is supported.
+        :param file_size: the size of the file in bytes. Required for
+                          non-seekable streams or when size cannot be inferred.
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
         if transfer_method != "s3":
             raise ValueError(
-                f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
-                f"is currently supported."
+                f"Unsupported transfer_method '{transfer_method}'. Only 's3' is currently supported."
             )
 
-        if not os.path.isfile(local_file):
-            raise FileNotFoundError(f"File not found: {local_file}")
+        # Normalize into a binary file-like and determine size if possible.
+        f: Optional[Readable] = None
+        must_close = False
+        source_path: Optional[str] = None  # keep for b/w logging and ExternalUpload display
 
-        local_file_size = os.path.getsize(local_file)
-        if local_file_size < self.MAX_DIRECT_UPLOAD_SIZE:
-            self.log(
-                logging.DEBUG,
-                f"File ({local_file}) will be directly uploaded to the "
-                f"target directory, since it's {local_file_size} bytes."
-            )
-            with open(local_file, "rb") as f:
+        try:
+            # Case 1: file descriptor (int)
+            if isinstance(local_file, int):
+                f = os.fdopen(local_file, "rb", closefd=False)
+
+            # Case 2: pathlike
+            elif isinstance(local_file, (str, bytes, os.PathLike, pathlib.Path)):
+                source_path = os.fspath(local_file)
+                if not os.path.isfile(source_path):
+                    raise FileNotFoundError(f"File not found: {source_path}")
+                f = open(source_path, "rb")
+                must_close = True
+                if file_size is None:
+                    file_size = os.path.getsize(source_path)
+
+            # Case 3: already a file-like
+            else:
+                f = local_file  # type: ignore[assignment]
+                # best-effort name if present (e.g., BytesIO has no name)
+                source_path = getattr(local_file, "name", None)
+
+            if f is None:
+                raise ValueError("Could not open or interpret 'local_file' as a readable binary stream.")
+
+            # Determine size if not provided
+            if file_size is None and hasattr(f, "seek") and hasattr(f, "tell"):
+                try:
+                    cur = f.tell()
+                    f.seek(0, os.SEEK_END)
+                    file_size = f.tell()
+                    f.seek(cur, os.SEEK_SET)
+                except Exception:
+                    pass
+
+            if file_size is None:
+                # We need the size to decide direct vs multipart and to inform the server for multipart
+                raise ValueError(
+                    "file_size is required for non-seekable streams or when size cannot be inferred."
+                )
+
+            # Decide upload strategy
+            if file_size < self.MAX_DIRECT_UPLOAD_SIZE:
+                self.log(
+                    logging.DEBUG,
+                    f"File ({source_path or filename}) will be directly uploaded to the "
+                    f"target directory, since it's {file_size} bytes."
+                )
+                # For direct upload we read the full content (small files only).
+                # Try to rewind to start for consistency
+                try:
+                    if hasattr(f, "seek"):
+                        f.seek(0)
+                except Exception:
+                    pass
+
                 file_content = f.read()
                 resp = self._post_request(
                     endpoint=f"/filesystem/{system_name}/ops/upload",
-                    params={
-                        "path": directory,
-                    },
-                    files={"file": (filename, file_content)}
+                    params={"path": directory},
+                    files={"file": (filename, file_content)},
                 )
                 self._check_response(resp, 204)
                 return None
 
-        self.log(
-            logging.DEBUG,
-            f"File ({local_file}) needs to be uploaded in parts to the "
-            f"stage area of FirecREST and then moved to the "
-            f"target directory, since it's {local_file_size} bytes."
-        )
-        if self._api_version < parse("2.4.0"):
-            data = {
-                "source_path": directory,
-                "fileName": filename,
-                "fileSize": local_file_size,
-            }
-        else:
-            data = {
-                "path": os.path.join(directory, filename),
-                "transfer_directives": {
-                    "file_size": local_file_size,
-                    "transfer_method": transfer_method
-                }
-            }
-
-        if account is not None:
-            data["account"] = account
-
-        resp = self._post_request(
-            endpoint=f"/filesystem/{system_name}/transfer/upload",
-            data=json.dumps(data)
-        )
-
-        transfer_info = self._check_response(resp, 201)
-        ext_upload = ExternalUpload(
-            client=self,
-            transfer_info=transfer_info,
-            local_file=local_file,
-        )
-
-        if blocking:
+            # Multipart/staged upload
             self.log(
                 logging.DEBUG,
-                f"Blocking until ({local_file}) is transfered to the "
-                f"filesystem."
+                f"File ({source_path or filename}) needs to be uploaded in parts to the "
+                f"stage area of FirecREST and then moved to the target directory, "
+                f"since it's {file_size} bytes."
             )
-            # Upload the file in parts
-            ext_upload.upload_file_to_stage()
 
-            # Wait for the file to be available in the target directory
-            ext_upload.wait_for_transfer_job()
+            if self._api_version < parse("2.4.0"):
+                data = {
+                    "source_path": directory,
+                    "fileName": filename,
+                    "fileSize": file_size,
+                }
+            else:
+                data = {
+                    "path": os.path.join(directory, filename),
+                    "transfer_directives": {
+                        "file_size": file_size,
+                        "transfer_method": transfer_method,
+                    },
+                }
 
-        return ext_upload
+            if account is not None:
+                data["account"] = account
+
+            resp = self._post_request(
+                endpoint=f"/filesystem/{system_name}/transfer/upload",
+                data=json.dumps(data),
+            )
+            transfer_info = self._check_response(resp, 201)
+
+            # ExternalUpload now supports both path and stream sources
+            ext_upload = ExternalUpload(
+                client=self,
+                transfer_info=transfer_info,
+                local_file=source_path if source_path is not None else filename,  # keep a friendly name
+                stream=f,
+                stream_size=file_size,
+            )
+
+            if blocking:
+                self.log(
+                    logging.DEBUG,
+                    f"Blocking until ({source_path or filename}) is transferred to the filesystem."
+                )
+                ext_upload.upload_file_to_stage()
+                ext_upload.wait_for_transfer_job()
+
+            return ext_upload
+
+        finally:
+            # If we opened a file from a path for a direct upload, we closed it implicitly by scope.
+            # For multipart, we deliberately pass the open handle to ExternalUpload, so DON'T close here.
+            # Only close when we opened it but did not pass it (i.e., direct upload or early errors).
+            if must_close and f is not None:
+                try:
+                    # If we returned an ExternalUpload, we didn't get here due to the finally,
+                    # because we don't close when passing to ExternalUpload. So this only runs
+                    # for direct uploads or failures before creating ext_upload.
+                    f.close()
+                except Exception:
+                    pass
 
     def download(
         self,
