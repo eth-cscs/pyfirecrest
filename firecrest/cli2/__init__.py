@@ -616,7 +616,7 @@ def head(
                 )
             )
         else:
-            console.print(result["content"])
+            console.print(result["content"], end='')
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -687,7 +687,8 @@ def tail(
             )
         else:
             console.print(
-                result["content"]
+                result["content"],
+                end='',
             )
 
     except Exception as e:
