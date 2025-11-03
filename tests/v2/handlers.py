@@ -130,43 +130,43 @@ def filesystem_handler(request: Request):
 
     if endpoint == "head":
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipEnding") == "false" and
+            request.args.get("skipTrailing") == "false" and
             request.args.get("bytes") == "8"):
             suffix = "_bytes"
 
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipEnding") == "true" and
+            request.args.get("skipTrailing") == "true" and
             request.args.get("bytes") == "8"):
             suffix = "_bytes_exclude_trailing"
 
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipEnding") == "false" and
+            request.args.get("skipTrailing") == "false" and
             request.args.get("lines") == "4"):
             suffix = "_lines"
 
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipEnding") == "true" and
+            request.args.get("skipTrailing") == "true" and
             request.args.get("lines") == "4"):
             suffix = "_lines_exclude_trailing"
 
     if endpoint == "tail":
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipBeginning") == "false" and
+            request.args.get("skipHeading") == "false" and
             request.args.get("bytes") == "8"):
             suffix = "_bytes"
 
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipBeginning") == "true" and
+            request.args.get("skipHeading") == "true" and
             request.args.get("bytes") == "8"):
             suffix = "_bytes_exclude_beginning"
 
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipBeginning") == "false" and
+            request.args.get("skipHeading") == "false" and
             request.args.get("lines") == "4"):
             suffix = "_lines"
 
         if (request.args.get("path") == "/path/to/file" and
-            request.args.get("skipBeginning") == "true" and
+            request.args.get("skipHeading") == "true" and
             request.args.get("lines") == "4"):
             suffix = "_lines_exclude_beginning"
 
