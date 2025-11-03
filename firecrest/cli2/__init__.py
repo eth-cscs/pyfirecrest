@@ -6,6 +6,7 @@
 #
 import json
 import logging
+import os
 import re
 import typer
 import yaml
@@ -752,7 +753,7 @@ def upload(
             system,
             source,
             destination_directory,
-            filename,
+            filename if filename is not None else os.path.basename(source),
             account=account,
             blocking=True
         )
