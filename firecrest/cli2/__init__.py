@@ -831,16 +831,14 @@ def job_info(
     system: str = typer.Option(
         ..., "-s", "--system", help="The name of the system.", envvar="FIRECREST_SYSTEM"
     ),
-    # jobs: Optional[List[str]] = typer.Argument(
-    #     None, help="List of job IDs to display."
-    # ),
+    jobid: Optional[str] = typer.Argument(
+         None, help="Job ID to display."
+    ),
 ):
     """Retrieve information about submitted jobs.
     """
     try:
-        result = client.job_info(system)
-        # if jobs:
-        #     raise NotImplementedError("Job filtering not implemented yet")
+        result = client.job_info(system, jobid)
 
         console.print(json.dumps(result, indent=4))
     except Exception as e:
