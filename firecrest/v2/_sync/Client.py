@@ -1253,7 +1253,7 @@ class Firecrest:
     def upload(
         self,
         system_name: str,
-        local_file: str | pathlib.Path | Readable | int,
+        local_file: str | pathlib.Path | Readable,
         directory: str,
         filename: str,
         account: Optional[str] = None,

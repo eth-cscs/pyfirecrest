@@ -1297,6 +1297,13 @@ class AsyncFirecrest:
                 f"is currently supported."
             )
 
+        if not isinstance(local_file, (str, pathlib.Path)):
+            raise TypeError(
+                f"`local_file` must be a string or pathlib.Path, got "
+                f"{type(local_file)}. For more options, consider using the "
+                "serial Client."
+            )
+
         if not os.path.isfile(local_file):
             raise FileNotFoundError(f"File not found: {local_file}")
 
