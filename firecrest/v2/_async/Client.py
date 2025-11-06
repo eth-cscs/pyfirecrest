@@ -642,7 +642,7 @@ class AsyncFirecrest:
 
         params = {
             "path": path,
-            "skipEnding": exclude_trailing
+            "skipTrailing": exclude_trailing
         }
         if num_bytes is not None:
             params["bytes"] = num_bytes
@@ -695,7 +695,7 @@ class AsyncFirecrest:
 
         params = {
             "path": path,
-            "skipBeginning": exclude_beginning
+            "skipHeading": exclude_beginning
         }
         if num_bytes is not None:
             params["bytes"] = num_bytes

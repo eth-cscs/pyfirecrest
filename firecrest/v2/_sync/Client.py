@@ -626,7 +626,7 @@ class Firecrest:
 
         params = {
             "path": path,
-            "skipEnding": exclude_trailing
+            "skipTrailing": exclude_trailing
         }
         if num_bytes is not None:
             params["bytes"] = num_bytes
@@ -679,7 +679,7 @@ class Firecrest:
 
         params = {
             "path": path,
-            "skipBeginning": exclude_beginning
+            "skipHeading": exclude_beginning
         }
         if num_bytes is not None:
             params["bytes"] = num_bytes
