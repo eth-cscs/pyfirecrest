@@ -15,7 +15,7 @@ import ssl
 import time
 
 from packaging.version import Version, parse
-from typing import Any, Optional, List
+from typing import Any, BinaryIO, List, Optional
 
 from firecrest.utilities import (
     parse_retry_after,
@@ -1253,7 +1253,7 @@ class Firecrest:
     def upload(
         self,
         system_name: str,
-        local_file: str | pathlib.Path | Readable,
+        local_file: str | pathlib.Path | BinaryIO,
         directory: str,
         filename: str,
         account: Optional[str] = None,
