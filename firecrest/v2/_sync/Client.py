@@ -241,11 +241,17 @@ class ExternalDownload:
         ) as resp:
             resp.raise_for_status()
 
-            with open(file_name, "wb") as f:
+            if isinstance(file_name, (str, pathlib.Path)):
+                with open(file_name, "wb") as f:
+                    for chunk in resp.iter_bytes(
+                        chunk_size=self.chunk_size
+                    ):
+                        f.write(chunk)
+            else:
                 for chunk in resp.iter_bytes(
                     chunk_size=self.chunk_size
                 ):
-                    f.write(chunk)
+                    file_name.write(chunk)
 
         self._client.log(
             logging.DEBUG,
@@ -1377,7 +1383,7 @@ class Firecrest:
         self,
         system_name: str,
         source_path: str,
-        target_path: str,
+        target_path: str | pathlib.Path | BinaryIO,
         account: Optional[str] = None,
         blocking: bool = True
     ) -> Optional[ExternalDownload]:
@@ -1426,8 +1432,11 @@ class Firecrest:
             )
             self._check_response(resp, 200, return_json=False)
 
-            with open(target_path, "wb") as f:
-                f.write(resp.content)
+            if isinstance(target_path, (str, pathlib.Path)):
+                with open(target_path, "wb") as f:
+                    f.write(resp.content)
+            else:
+                target_path.write(resp.content)
 
             return None
 
