@@ -15,7 +15,7 @@ import ssl
 import time
 
 from packaging.version import Version, parse
-from typing import Any, Optional, List
+from typing import Any, BinaryIO, List, Optional
 
 from firecrest.utilities import (
     parse_retry_after,
@@ -61,14 +61,14 @@ def sleep_generator():
 
 
 class ExternalUpload:
-    def __init__(self, client, transfer_info, local_file):
+    def __init__(self, client, transfer_info, local_file, file_size):
         self._client = client
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
         # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
-        self._total_file_size = os.path.getsize(local_file)
+        self._total_file_size = file_size
 
     @property
     def transfer_data(self):
@@ -87,16 +87,14 @@ class ExternalUpload:
                 "Could not find parts upload URLs in the transfer info"
             )
 
-        # TODO: maybe we should run this in parallel
+        # TODO: maybe we should run this in parallel for normal files
         for index, upload_url in enumerate(urls):
             self._upload_part(upload_url, index)
 
-        # S3 complains when tags are not sorted
+        # S3 requires parts sorted by PartNumber
         self._all_tags.sort(key=lambda x: x['PartNumber'])
         checksum = part_checksum_xml(self._all_tags)
-        self._complete_upload(
-            checksum
-        )
+        self._complete_upload(checksum)
 
     def wait_for_transfer_job(self, timeout=None):
         self._client._wait_for_transfer_job(
@@ -138,11 +136,22 @@ class ExternalUpload:
         else:
             content_length = chunk_size
 
-        with open(self._local_file, "rb") as f:
-            f.seek(start)
+        if isinstance(self._local_file, (str, pathlib.Path)):
+            with open(self._local_file, "rb") as f:
+                f.seek(start)
+                resp = self._client._session.put(
+                    url=url,
+                    content=chunk_reader(f, self.chunk_size),
+                    timeout=None,
+                    headers={
+                        "Content-Length": str(content_length)
+                    }
+                )
+        else:
+            # Will not seek on stream, assume it is at the right position
             resp = self._client._session.put(
                 url=url,
-                content=chunk_reader(f, self.chunk_size),
+                content=chunk_reader(self._local_file, self.chunk_size),
                 timeout=None,
                 headers={
                     "Content-Length": str(content_length)
@@ -232,11 +241,17 @@ class ExternalDownload:
         ) as resp:
             resp.raise_for_status()
 
-            with open(file_name, "wb") as f:
+            if isinstance(file_name, (str, pathlib.Path)):
+                with open(file_name, "wb") as f:
+                    for chunk in resp.iter_bytes(
+                        chunk_size=self.chunk_size
+                    ):
+                        f.write(chunk)
+            else:
                 for chunk in resp.iter_bytes(
                     chunk_size=self.chunk_size
                 ):
-                    f.write(chunk)
+                    file_name.write(chunk)
 
         self._client.log(
             logging.DEBUG,
@@ -1244,13 +1259,14 @@ class Firecrest:
     def upload(
         self,
         system_name: str,
-        local_file: str | pathlib.Path,
+        local_file: str | pathlib.Path | BinaryIO,
         directory: str,
         filename: str,
         account: Optional[str] = None,
         blocking: bool = True,
-        transfer_method: str = "s3"
-    ) -> Optional[ExternalUpload]:
+        transfer_method: str = "s3",
+        file_size: Optional[int] = None,
+    ) -> Optional["ExternalUpload"]:
         """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
         The function will return `None` in this case.
@@ -1261,7 +1277,7 @@ class Firecrest:
 
         :param system_name: the system name where the filesystem belongs to
         :param local_file: the local file's path to be uploaded (can be
-                           relative)
+                           relative) or a file-like object (implements .read())
         :param directory: the absolut target path of the directory where the
                           file will be uploaded
         :param filename: the name of the file in the target directory
@@ -1273,6 +1289,8 @@ class Firecrest:
                          `MAX_DIRECT_UPLOAD_SIZE`)
         :param transfer_method: the method to be used for the upload of large
                                 files. Currently only "s3" is supported.
+        :param file_size: the size of the file in bytes. Required for the
+                          `local_file` is a file-like object.
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
         if transfer_method != "s3":
@@ -1281,27 +1299,35 @@ class Firecrest:
                 f"is currently supported."
             )
 
-        if not os.path.isfile(local_file):
-            raise FileNotFoundError(f"File not found: {local_file}")
+        # TODO: check local_file is readable if file-like object, otherwise that is exists
 
-        local_file_size = os.path.getsize(local_file)
+        if file_size is None:
+            if isinstance(local_file, (str, pathlib.Path)):
+                local_file_size = os.path.getsize(local_file)
+            else:
+                raise ValueError("`file_size` is required for file-like objects.")
+        else:
+            local_file_size = file_size
+
         if local_file_size < self.MAX_DIRECT_UPLOAD_SIZE:
             self.log(
                 logging.DEBUG,
                 f"File ({local_file}) will be directly uploaded to the "
                 f"target directory, since it's {local_file_size} bytes."
             )
-            with open(local_file, "rb") as f:
-                file_content = f.read()
-                resp = self._post_request(
-                    endpoint=f"/filesystem/{system_name}/ops/upload",
-                    params={
-                        "path": directory,
-                    },
-                    files={"file": (filename, file_content)}
-                )
-                self._check_response(resp, 204)
-                return None
+            if isinstance(local_file, (str, pathlib.Path)):
+                with open(local_file, "rb") as f:
+                    file_content = f.read(local_file_size)
+            else:
+                file_content = local_file.read(local_file_size)
+
+            resp = self._post_request(
+                endpoint=f"/filesystem/{system_name}/ops/upload",
+                params={"path": directory},
+                files={"file": (filename, file_content)},
+            )
+            self._check_response(resp, 204)
+            return None
 
         self.log(
             logging.DEBUG,
@@ -1331,12 +1357,12 @@ class Firecrest:
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             data=json.dumps(data)
         )
-
         transfer_info = self._check_response(resp, 201)
         ext_upload = ExternalUpload(
             client=self,
             transfer_info=transfer_info,
             local_file=local_file,
+            file_size=local_file_size,
         )
 
         if blocking:
@@ -1357,7 +1383,7 @@ class Firecrest:
         self,
         system_name: str,
         source_path: str,
-        target_path: str,
+        target_path: str | pathlib.Path | BinaryIO,
         account: Optional[str] = None,
         blocking: bool = True
     ) -> Optional[ExternalDownload]:
@@ -1406,8 +1432,11 @@ class Firecrest:
             )
             self._check_response(resp, 200, return_json=False)
 
-            with open(target_path, "wb") as f:
-                f.write(resp.content)
+            if isinstance(target_path, (str, pathlib.Path)):
+                with open(target_path, "wb") as f:
+                    f.write(resp.content)
+            else:
+                target_path.write(resp.content)
 
             return None
 

@@ -1297,6 +1297,13 @@ class AsyncFirecrest:
                 f"is currently supported."
             )
 
+        if not isinstance(local_file, (str, pathlib.Path)):
+            raise TypeError(
+                f"`local_file` must be a string or pathlib.Path, got "
+                f"{type(local_file)}. For more options, consider using the "
+                "serial Client."
+            )
+
         if not os.path.isfile(local_file):
             raise FileNotFoundError(f"File not found: {local_file}")
 
@@ -1373,7 +1380,7 @@ class AsyncFirecrest:
         self,
         system_name: str,
         source_path: str,
-        target_path: str,
+        target_path: str | pathlib.Path,
         account: Optional[str] = None,
         blocking: bool = True
     ) -> Optional[AsyncExternalDownload]:
@@ -1389,6 +1396,13 @@ class AsyncFirecrest:
         :param blocking: whether to wait for the job to complete
         :calls: POST `/filesystem/{system_name}/transfer/download`
         """
+        if not isinstance(target_path, (str, pathlib.Path)):
+            raise TypeError(
+                f"`target_path` must be a string or pathlib.Path, got "
+                f"{type(target_path)}. For more options, consider using the "
+                "serial Client."
+            )
+
         # Check if the file is small enough to be downloaded directly
         try:
             file_info = await self.stat(system_name, source_path)
