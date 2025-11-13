@@ -400,10 +400,20 @@ def compress(
         envvar="FIRECREST_SYSTEM",
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
-    destination: str = typer.Argument(..., help="The absolute destination path."),
+    destination: str = typer.Argument(
+        ...,
+        help="The absolute destination path.",
+        metavar="DESTINATION.tar.gz"
+    ),
     dereference: bool = typer.Option(
         False,
         help="When compressing a symbolic link, compress the file or directory the link points to rather than the link itself.",
+    ),
+    regexp: str = typer.Option(
+        None,
+        help=("A regular expression to filter files to be compressed. Only "
+              "files matching the expression will be compressed. Emacs "
+              "Regular Expressions syntax is used."),
     ),
 ):
     """Compress files using gzip compression.
@@ -414,6 +424,7 @@ def compress(
             source,
             destination,
             dereference=dereference,
+            match_pattern=regexp
         )
     except Exception as e:
         examine_exeption(e)
