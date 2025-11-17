@@ -415,6 +415,7 @@ def compress(
               "files matching the expression will be compressed. Emacs "
               "Regular Expressions syntax is used."),
     ),
+    account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
     """Compress files using gzip compression.
     """
@@ -424,7 +425,9 @@ def compress(
             source,
             destination,
             dereference=dereference,
-            match_pattern=regexp
+            match_pattern=regexp,
+            account=account,
+            blocking=True
         )
     except Exception as e:
         examine_exeption(e)
@@ -442,11 +445,18 @@ def extract(
     ),
     source: str = typer.Argument(..., help="The absolute source path."),
     destination: str = typer.Argument(..., help="The absolute destination path."),
+    account: Optional[str] = typer.Option(None, help="The account to use for the operation."),
 ):
     """Extract files.
     """
     try:
-        client.extract(system, source, destination)
+        client.extract(
+            system,
+            source,
+            destination,
+            account=account,
+            blocking=True
+        )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
