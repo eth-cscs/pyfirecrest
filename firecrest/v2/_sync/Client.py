@@ -974,6 +974,7 @@ class Firecrest:
                 data=json.dumps(data)
             )
             self._check_response(resp, 204)
+            return None
         except FirecrestException as e:
             if e.responses[-1].status_code == 408:
                 # Operation took too long, will run it as a transfer job
