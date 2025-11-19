@@ -936,7 +936,9 @@ class AsyncFirecrest:
         target_path: str,
         dereference: bool = False,
         compression: str = "gzip",
-        match_pattern: Optional[str] = None
+        match_pattern: Optional[str] = None,
+        account: Optional[str] = None,
+        blocking: bool = True
     ) -> None:
         """Compress a directory or file.
 
@@ -948,26 +950,65 @@ class AsyncFirecrest:
         :param compression: compression algorithm to use (one of "none",
                             "gzip", "bzip2", "xz"). Default is "gzip".
         :param match_pattern: regex pattern to filter files to compress
+        :param account: the account to be used for the transfer job (only
+                        relevant when the compression operation is not done
+                        directly)
+        :param blocking: whether to wait for the job to complete (only
+                         relevant when the compression operation is not done
+                         directly)
         :calls: POST `/filesystem/{system_name}/ops/compress`
+
+                POST `/filesystem/{system_name}/transfer/compress`
+
+                GET `/jobs/{system_name}/{job_id}`
         """
+        data = {
+            "source_path": source_path,
+            "target_path": target_path,
+            "dereference": dereference,
+            "compression": compression,
+            "match_pattern": match_pattern
+        }
+        try:
+            resp = await self._post_request(
+                endpoint=f"/filesystem/{system_name}/ops/compress",
+                data=json.dumps(data)
+            )
+            self._check_response(resp, 204)
+            return None
+        except FirecrestException as e:
+            if e.responses[-1].status_code == 408:
+                # Operation took too long, will run it as a transfer job
+                self.log(
+                    logging.INFO,
+                    "Compression operation is taking too long, "
+                    "will run it as a transfer job"
+                )
+            else:
+                raise e
+
+        if account is not None:
+            data["account"] = account
+
         resp = await self._post_request(
-            endpoint=f"/filesystem/{system_name}/ops/compress",
-            data=json.dumps({
-                "source_path": source_path,
-                "target_path": target_path,
-                "dereference": dereference,
-                "compression": compression,
-                "match_pattern": match_pattern
-            })
+            endpoint=f"/filesystem/{system_name}/transfer/compress",
+            data=json.dumps(data)
         )
-        self._check_response(resp, 204)
+        job_info = self._check_response(resp, 201)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return None
 
     async def extract(
         self,
         system_name: str,
         source_path: str,
         target_path: str,
-        compression: str = "gzip"
+        compression: str = "gzip",
+        account: Optional[str] = None,
+        blocking: bool = True
     ) -> None:
         """Extract compressed archives.
 
@@ -976,17 +1017,54 @@ class AsyncFirecrest:
         :param target_path: the absolute path to target directory
         :param compression: compression algorithm to use (one of "none",
                             "gzip", "bzip2", "xz"). Default is "gzip".
+        :param account: the account to be used for the transfer job (only
+                        relevant when the extract operation is not done
+                        directly)
+        :param blocking: whether to wait for the job to complete (only
+                         relevant when the extract operation is not done
+                         directly)
         :calls: POST `/filesystem/{system_name}/ops/extract`
+
+                POST `/filesystem/{system_name}/transfer/extract`
+
+                GET `/jobs/{system_name}/{job_id}`
         """
+        data = {
+            "source_path": source_path,
+            "target_path": target_path,
+            "compression": compression
+        }
+        try:
+            resp = await self._post_request(
+                endpoint=f"/filesystem/{system_name}/ops/extract",
+                data=json.dumps(data)
+            )
+            self._check_response(resp, 204)
+            return None
+        except FirecrestException as e:
+            if e.responses[-1].status_code == 408:
+                # Operation took too long, will run it as a transfer job
+                self.log(
+                    logging.INFO,
+                    "Extract operation is taking too long, "
+                    "will run it as a transfer job"
+                )
+            else:
+                raise e
+
+        if account is not None:
+            data["account"] = account
+
         resp = await self._post_request(
-            endpoint=f"/filesystem/{system_name}/ops/extract",
-            data=json.dumps({
-                "source_path": source_path,
-                "target_path": target_path,
-                "compression": compression
-            })
+            endpoint=f"/filesystem/{system_name}/transfer/extract",
+            data=json.dumps(data)
         )
-        self._check_response(resp, 204)
+        job_info = self._check_response(resp, 201)
+
+        if blocking:
+            await self._wait_for_transfer_job(job_info)
+
+        return None
 
     async def _wait_for_transfer_job(
         self,
