@@ -1448,7 +1448,9 @@ class AsyncFirecrest:
         else:
             data = {
                 "source_path": source_path,
-                "transfer_directives": "s3"
+                "transfer_directives": {
+                    "transferMethod": "s3"
+                }
             }
 
         if account is not None:
