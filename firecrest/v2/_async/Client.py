@@ -1441,9 +1441,19 @@ class AsyncFirecrest:
 
             return None
 
-        data = {
-            "source_path": source_path,
-        }
+        data: dict[str, Any] = {}
+        if self._api_version < parse("2.4.0"):
+            data = {
+                "source_path": source_path,
+            }
+        else:
+            data = {
+                "source_path": source_path,
+                "transfer_directives": {
+                    "transferMethod": "s3"
+                }
+            }
+
         if account is not None:
             data["account"] = account
 
