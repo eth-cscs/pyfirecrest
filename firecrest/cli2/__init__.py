@@ -943,6 +943,16 @@ def attach_to_job(
         raise typer.Exit(code=1)
 
 
+def _ensure_event_loop():
+    # Make sure there's a current loop in the main thread.
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop -> create and set one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+
 @app.callback()
 def main(
     config: Optional[str] = typer.Option(
@@ -1000,6 +1010,8 @@ def main(
     - FIRECREST_CLIENT_SECRET: secret for the client
     - AUTH_TOKEN_URL: URL for the token request in the authorization server (e.g. https://auth.your-server.com/auth/.../openid-connect/token)
     """
+    _ensure_event_loop()
+
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
     auth_obj.timeout = auth_timeout
