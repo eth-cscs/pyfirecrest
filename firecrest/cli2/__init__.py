@@ -38,6 +38,10 @@ client: fc.v2.AsyncFirecrest = None  # type: ignore
 logger = logging.getLogger(__name__)
 
 
+def json_out(obj):
+    print(json.dumps(obj, indent=4))
+
+
 def examine_exeption(e: Exception) -> None:
     msg = f"{__app_name__}: Operation failed"
     if isinstance(e, fc.ClientsCredentialsException):
@@ -104,7 +108,7 @@ def systems(
             with console.pager():
                 console.print(json.dumps(result, indent=4))
         else:
-            console.print(json.dumps(result, indent=4))
+            json_out(result)
 
     except Exception as e:
         examine_exeption(e)
@@ -133,7 +137,7 @@ def get_nodes(
             with console.pager():
                 console.print(json.dumps(results, indent=4))
 
-        console.print(json.dumps(results, indent=4))
+        json_out(results)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -162,7 +166,7 @@ def get_reservations(
                 console.print(json.dumps(results, indent=4))
 
         else:
-            console.print(json.dumps(results, indent=4))
+            json_out(results)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -190,7 +194,7 @@ def get_partitions(
             with console.pager():
                 console.print(json.dumps(results, indent=4))
         else:
-            console.print(json.dumps(results, indent=4))
+            json_out(results)
 
     except Exception as e:
         examine_exeption(e)
@@ -213,7 +217,7 @@ def id(
     try:
         result = asyncio.run(client.userinfo(system))
         if raw:
-            console.print(json.dumps(result, indent=4))
+            json_out(result)
         else:
             user = f"{result['user']['id']}({result['user']['name']})"
             group = f"{result['group']['id']}({result['group']['name']})"
@@ -268,7 +272,8 @@ def ls(
             numeric_uid_gid,
             dereference
         ))
-        console.print(json.dumps(result, indent=4))
+        json_out(result)
+
 
     except Exception as e:
         examine_exeption(e)
@@ -502,7 +507,7 @@ def stat(
     """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
         result = asyncio.run(client.stat(system, path, deref))
-        console.print(json.dumps(result, indent=4))
+        json_out(result)
 
     except Exception as e:
         examine_exeption(e)
@@ -572,10 +577,7 @@ def checksum(
     """Calculate the SHA256 (256-bit) checksum"""
     try:
         result = asyncio.run(client.checksum(system, path))
-        console.print(json.dumps(
-            result,
-            indent=4
-        ))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -637,12 +639,7 @@ def head(
             skip_ending
         ))
         if raw:
-            console.print(
-                json.dumps(
-                    result,
-                    indent=4
-                )
-            )
+            json_out(result)
         else:
             console.print(result["content"], end='')
     except Exception as e:
@@ -707,12 +704,7 @@ def tail(
         ))
 
         if raw:
-            console.print(
-                json.dumps(
-                    result,
-                    indent=4
-                )
-            )
+            json_out(result)
         else:
             console.print(
                 result["content"],
@@ -848,7 +840,7 @@ def submit(
                 account=account,
             ))
 
-        console.print(json.dumps(result, indent=4))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -867,8 +859,7 @@ def job_info(
     """
     try:
         result = asyncio.run(client.job_info(system, jobid))
-
-        console.print(json.dumps(result, indent=4))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -887,7 +878,7 @@ def wait_for_job(
     """
     try:
         result = asyncio.run(client.wait_for_job(system, jobid))
-        console.print(json.dumps(result, indent=4))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -906,7 +897,7 @@ def job_metadata(
     """
     try:
         result = asyncio.run(client.job_metadata(system, job))
-        console.print(json.dumps(result, indent=4))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
