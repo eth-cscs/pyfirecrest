@@ -501,7 +501,7 @@ def stat(
 ):
     """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
-        result = (asyncio.run(client.stat(system, path, deref)))
+        result = asyncio.run(client.stat(system, path, deref))
         console.print(json.dumps(result, indent=4))
 
     except Exception as e:
