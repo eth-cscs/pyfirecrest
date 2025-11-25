@@ -34,7 +34,7 @@ custom_theme = {
     "repr.number": "none",
 }
 console = Console(theme=Theme(custom_theme))
-client: fc.v2.Firecrest = None  # type: ignore
+client: fc.v2.AsyncFirecrest = None  # type: ignore
 logger = logging.getLogger(__name__)
 
 
