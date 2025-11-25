@@ -1366,13 +1366,13 @@ class AsyncFirecrest:
                          relevant when the file is larger than
                          `MAX_DIRECT_UPLOAD_SIZE`)
         :param transfer_method: the method to be used for the upload of large
-                                files. Currently only "s3" is supported.
+                                files. Supported methods: "s3", "streamer".
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        if transfer_method != "s3":
+        if transfer_method not in ["s3", "streamer"]:
             raise ValueError(
                 f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
-                f"is currently supported."
+                f"and 'streamer' are currently supported."
             )
 
         if not isinstance(local_file, (str, pathlib.Path)):
