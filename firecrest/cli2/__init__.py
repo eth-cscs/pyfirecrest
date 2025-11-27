@@ -4,6 +4,7 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
+import asyncio
 import json
 import logging
 import os
@@ -33,8 +34,12 @@ custom_theme = {
     "repr.number": "none",
 }
 console = Console(theme=Theme(custom_theme))
-client: fc.v2.Firecrest = None  # type: ignore
+client: fc.v2.AsyncFirecrest = None  # type: ignore
 logger = logging.getLogger(__name__)
+
+
+def json_out(obj):
+    print(json.dumps(obj, indent=4))
 
 
 def examine_exeption(e: Exception) -> None:
@@ -79,7 +84,7 @@ def config_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 def server_version():
     """Provides the exact version of the FirecREST server, when available."""
     try:
-        result = client.server_version()
+        result = asyncio.run(client.server_version())
         if result is None:
             console.print("[yellow]Server version not available[/yellow]")
         else:
@@ -98,12 +103,12 @@ def systems(
 ):
     """Provides information for the available systems in FirecREST"""
     try:
-        result = client.systems()
+        result = asyncio.run(client.systems())
         if pager:
             with console.pager():
                 console.print(json.dumps(result, indent=4))
         else:
-            console.print(json.dumps(result, indent=4))
+            json_out(result)
 
     except Exception as e:
         examine_exeption(e)
@@ -125,14 +130,14 @@ def get_nodes(
     """Retrieves information about the compute nodes of the scheduler.
     """
     try:
-        results = client.nodes(system)
+        results = asyncio.run(client.nodes(system))
         # TODO filter by nodes (?)
 
         if pager:
             with console.pager():
                 console.print(json.dumps(results, indent=4))
 
-        console.print(json.dumps(results, indent=4))
+        json_out(results)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -153,7 +158,7 @@ def get_reservations(
     """Retrieves information about the scheduler reservations.
     """
     try:
-        results = client.reservations(system)
+        results = asyncio.run(client.reservations(system))
         # TODO filter by reservations (?)
 
         if pager:
@@ -161,7 +166,7 @@ def get_reservations(
                 console.print(json.dumps(results, indent=4))
 
         else:
-            console.print(json.dumps(results, indent=4))
+            json_out(results)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -182,14 +187,14 @@ def get_partitions(
     """Retrieves information about the scheduler partitions.
     """
     try:
-        results = client.partitions(system)
+        results = asyncio.run(client.partitions(system))
         # TODO filter by partitions (?)
 
         if pager:
             with console.pager():
                 console.print(json.dumps(results, indent=4))
         else:
-            console.print(json.dumps(results, indent=4))
+            json_out(results)
 
     except Exception as e:
         examine_exeption(e)
@@ -210,9 +215,9 @@ def id(
     """Return the identity of the user in the remote system.
     """
     try:
-        result = client.userinfo(system)
+        result = asyncio.run(client.userinfo(system))
         if raw:
-            console.print(json.dumps(result, indent=4))
+            json_out(result)
         else:
             user = f"{result['user']['id']}({result['user']['name']})"
             group = f"{result['group']['id']}({result['group']['name']})"
@@ -259,15 +264,16 @@ def ls(
 ):
     """List directory contents"""
     try:
-        result = client.list_files(
+        result = asyncio.run(client.list_files(
             system,
             path,
             show_hidden,
             recursive,
             numeric_uid_gid,
             dereference
-        )
-        console.print(json.dumps(result, indent=4))
+        ))
+        json_out(result)
+
 
     except Exception as e:
         examine_exeption(e)
@@ -292,7 +298,7 @@ def mkdir(
 ):
     """Create new directories"""
     try:
-        client.mkdir(system, path, p)
+        asyncio.run(client.mkdir(system, path, p))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -313,7 +319,7 @@ def mv(
 ):
     """Rename/move files, directory, or symlink at the `source_path` to the `target_path` on `system`'s filesystem"""
     try:
-        client.mv(system, source, destination, account)
+        asyncio.run(client.mv(system, source, destination, account))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -333,7 +339,7 @@ def chmod(
 ):
     """Change the file mod bits of a given file according to the specified mode"""
     try:
-        client.chmod(system, path, mode)
+        asyncio.run(client.chmod(system, path, mode))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -357,7 +363,7 @@ def chown(
     If only owner or group information is passed, only that information will be updated.
     """
     try:
-        client.chown(system, path, owner, group)
+        asyncio.run(client.chown(system, path, owner, group))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -384,7 +390,10 @@ def cp(
 ):
     """Copy files"""
     try:
-        client.cp(system, source, destination, dereference=dereference, account=account)
+        asyncio.run(
+            client.cp(system, source, destination, dereference=dereference,
+                      account=account)
+        )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -420,7 +429,7 @@ def compress(
     """Compress files using gzip compression.
     """
     try:
-        client.compress(
+        asyncio.run(client.compress(
             system,
             source,
             destination,
@@ -428,7 +437,7 @@ def compress(
             match_pattern=regexp,
             account=account,
             blocking=True
-        )
+        ))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -450,13 +459,13 @@ def extract(
     """Extract files.
     """
     try:
-        client.extract(
+        asyncio.run(client.extract(
             system,
             source,
             destination,
             account=account,
             blocking=True
-        )
+        ))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -475,7 +484,9 @@ def file(
 ):
     """Determine file type"""
     try:
-        console.print(client.file_type(system, path))
+        console.print(
+            asyncio.run(client.file_type(system, path))
+        )
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -495,8 +506,8 @@ def stat(
 ):
     """Use the stat linux application to determine the status of a file on the system's filesystem"""
     try:
-        result = client.stat(system, path, deref)
-        console.print(json.dumps(result, indent=4))
+        result = asyncio.run(client.stat(system, path, deref))
+        json_out(result)
 
     except Exception as e:
         examine_exeption(e)
@@ -517,7 +528,7 @@ def symlink(
 ):
     """Create a symbolic link"""
     try:
-        client.symlink(system, target, link_name)
+        asyncio.run(client.symlink(system, target, link_name))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -544,7 +555,7 @@ def rm(
     """Remove directory entries"""
     try:
         if force:
-            client.rm(system, path, account)
+            asyncio.run(client.rm(system, path, account))
         else:
             console.print("Operation cancelled")
     except Exception as e:
@@ -565,11 +576,8 @@ def checksum(
 ):
     """Calculate the SHA256 (256-bit) checksum"""
     try:
-        result = client.checksum(system, path)
-        console.print(json.dumps(
-            result,
-            indent=4
-        ))
+        result = asyncio.run(client.checksum(system, path))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -623,20 +631,15 @@ def head(
             bytes_arg = abs(bytes_arg)
             skip_ending = True
 
-        result = client.head(
+        result = asyncio.run(client.head(
             system,
             path,
             bytes_arg,
             lines_arg,
             skip_ending
-        )
+        ))
         if raw:
-            console.print(
-                json.dumps(
-                    result,
-                    indent=4
-                )
-            )
+            json_out(result)
         else:
             console.print(result["content"], end='')
     except Exception as e:
@@ -692,21 +695,16 @@ def tail(
             bytes_arg = abs(bytes_arg)
             skip_beginning = True
 
-        result = client.tail(
+        result = asyncio.run(client.tail(
             system,
             path,
             bytes_arg,
             lines_arg,
             skip_beginning
-        )
+        ))
 
         if raw:
-            console.print(
-                json.dumps(
-                    result,
-                    indent=4
-                )
-            )
+            json_out(result)
         else:
             console.print(
                 result["content"],
@@ -737,13 +735,13 @@ def download(
     """Download a file
     """
     try:
-        client.download(
+        asyncio.run(client.download(
             system,
             source,
             destination,
             account=account,
             blocking=True
-        )
+        ))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -771,14 +769,14 @@ def upload(
     """Upload a file
     """
     try:
-        client.upload(
+        asyncio.run(client.upload(
             system,
             source,
             destination_directory,
             filename if filename is not None else os.path.basename(source),
             account=account,
             blocking=True
-        )
+        ))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -826,23 +824,23 @@ def submit(
     try:
         if is_remote_script(job_script):
             p = job_script.split("://", 1)[1]
-            result = client.submit(
+            result = asyncio.run(client.submit(
                 system_name=system,
                 script_remote_path=p,
                 working_dir=working_dir,
                 env_vars=envvars,
                 account=account,
-            )
+            ))
         else:
-            result = client.submit(
+            result = asyncio.run(client.submit(
                 system_name=system,
                 script_local_path=job_script,
                 working_dir=working_dir,
                 env_vars=envvars,
                 account=account,
-            )
+            ))
 
-        console.print(json.dumps(result, indent=4))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -860,9 +858,8 @@ def job_info(
     """Retrieve information about submitted jobs.
     """
     try:
-        result = client.job_info(system, jobid)
-
-        console.print(json.dumps(result, indent=4))
+        result = asyncio.run(client.job_info(system, jobid))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -880,8 +877,8 @@ def wait_for_job(
     """Wait for a job to complete. It will return the job information when the job is completed.
     """
     try:
-        result = client.wait_for_job(system, jobid)
-        console.print(json.dumps(result, indent=4))
+        result = asyncio.run(client.wait_for_job(system, jobid))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -899,8 +896,8 @@ def job_metadata(
     """Retrieve metadata for a current job.
     """
     try:
-        result = client.job_metadata(system, job)
-        console.print(json.dumps(result, indent=4))
+        result = asyncio.run(client.job_metadata(system, job))
+        json_out(result)
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -915,7 +912,7 @@ def cancel(
 ):
     """Cancel job"""
     try:
-        client.cancel_job(system, job)
+        asyncio.run(client.cancel_job(system, job))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -931,10 +928,20 @@ def attach_to_job(
 ):
     """Attach a process to a job."""
     try:
-        client.attach_to_job(system, job, command)
+        asyncio.run(client.attach_to_job(system, job, command))
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
+
+
+def _ensure_event_loop():
+    # Make sure there's a current loop in the main thread.
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop -> create and set one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
 
 @app.callback()
@@ -994,10 +1001,12 @@ def main(
     - FIRECREST_CLIENT_SECRET: secret for the client
     - AUTH_TOKEN_URL: URL for the token request in the authorization server (e.g. https://auth.your-server.com/auth/.../openid-connect/token)
     """
+    _ensure_event_loop()
+
     global client
     auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
     auth_obj.timeout = auth_timeout
-    client = fc.v2.Firecrest(firecrest_url=firecrest_url, authorization=auth_obj)
+    client = fc.v2.AsyncFirecrest(firecrest_url=firecrest_url, authorization=auth_obj)
     client.timeout = timeout
     if api_version:
         client.set_api_version(api_version)
