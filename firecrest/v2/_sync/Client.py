@@ -1645,7 +1645,8 @@ class Firecrest:
         self,
         system_name: str,
         jobid: Optional[str] = None,
-        allusers: bool = False
+        allusers: bool = False,
+        account: Optional[str] = None
     ) -> list:
         """Get job information. When the job is not specified, it will return
         all the jobs.
@@ -1654,6 +1655,8 @@ class Firecrest:
         :param jobid: the ID of the job
         :param allusers: whether to return jobs of all users or only the
                          current user
+        :param account: an account to filter the jobs by. It will only be taken
+                        into account when you are not specifying a jobid.
         :calls: GET `/compute/{system_name}/jobs` or
                 GET `/compute/{system_name}/jobs/{job}`
         """
@@ -1666,9 +1669,15 @@ class Firecrest:
                 "version <2.2.7 of the API."
             )
 
+        if self._api_version < parse("2.4.2") and account:
+            raise NotImplementedOnAPIversion(
+                "The `account` parameter is not available for "
+                "version <2.4.2 of the API."
+            )
+
         resp = self._get_request(
             endpoint=url,
-            params={"allusers": allusers}
+            params={"allusers": allusers, "account": account}
         )
         result_jobs = self._check_response(resp, 200)["jobs"]
         return result_jobs if result_jobs is not None else []

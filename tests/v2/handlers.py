@@ -47,7 +47,7 @@ def fc_server(httpserver):
     for endpoint in ["jobs", "metadata"]:
         httpserver.expect_request(
             re.compile(rf"/compute/.*/{endpoint}"), method="GET"
-        ).respond_with_handler(filesystem_handler)
+        ).respond_with_handler(get_jobs_handler)
 
     httpserver.expect_request(
         re.compile(r"/compute/.*/jobs"), method="POST"
@@ -259,6 +259,48 @@ def submit_handler(request: Request):
     if endpoint == "jobs":
         endpoint = "job"
         suffix = "_submit"
+
+    data = read_json_file(f"v2/responses/{endpoint}{suffix}.json")
+
+    ret = data["response"]
+    ret_status = data["status_code"]
+
+    return Response(json.dumps(ret),
+                    status=ret_status,
+                    content_type="application/json")
+
+
+def get_jobs_handler(request: Request):
+    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+        return Response(
+            json.dumps({"message": "Bad token; invalid JSON"}),
+            status=401,
+            content_type="application/json",
+        )
+
+    url, *params = request.url.split("?")
+
+    endpoint = url.split("/")[-1]
+
+    suffix = ""
+
+    if endpoint == "jobs":
+        endpoint = "job"
+
+        if "account=users2" in "&".join(params):
+            suffix = "_info_account"
+        elif "allusers=true" in "&".join(params):
+            suffix = "_info_all_users"
+        else:
+            suffix = "_info"
+
+    if endpoint == "1":
+        endpoint = "job"
+        suffix = "_info"
+
+    if endpoint == "metadata":
+        endpoint = "job"
+        suffix = "_metadata"
 
     data = read_json_file(f"v2/responses/{endpoint}{suffix}.json")
 
