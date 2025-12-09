@@ -854,11 +854,19 @@ def job_info(
     jobid: Optional[str] = typer.Argument(
          None, help="Job ID to display."
     ),
+    allusers: bool = typer.Option(
+        False, "--all-users", help="Retrieve information about all users' jobs."
+    ),
+    account: Optional[str] = typer.Option(
+        None,
+        help=("An account to filter the jobs by. It will only be taken into "
+              "account when you are not specifying a jobid."),
+    ),
 ):
     """Retrieve information about submitted jobs.
     """
     try:
-        result = asyncio.run(client.job_info(system, jobid))
+        result = asyncio.run(client.job_info(system, jobid, allusers, account))
         json_out(result)
     except Exception as e:
         examine_exeption(e)
