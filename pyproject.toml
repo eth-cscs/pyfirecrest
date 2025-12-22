@@ -31,7 +31,8 @@ dependencies = [
     "typer[all]>=0.7.0,<1.0.0",
     "packaging>=21.0",
     "httpx>=0.24.0",
-    "PyYAML>=5.1"
+    "PyYAML>=5.1",
+    "firecrest-streamer"
 ]
 
 [project.urls]

@@ -16,12 +16,14 @@ import pathlib
 import ssl
 
 from packaging.version import Version, parse
+from streamer import streamer_client as cli
 from typing import Any, Optional, List
 
 from firecrest.utilities import (
     parse_retry_after,
     part_checksum_xml,
     sched_state_completed,
+    sched_state_running,
     time_block,
 )
 from firecrest.FirecrestException import (
@@ -199,6 +201,90 @@ class AsyncExternalUpload:
                 self._transfer_info,
                 f"Failed to finish upload: {resp.status_code}: {resp.text}"
             )
+
+    async def wait_for_streamer_job_to_listen(self):
+        job_id = self._transfer_info.get("transferJob", {}).get("jobId")
+        if job_id is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find transfer job ID in the transfer info"
+            )
+
+        system_name = self._transfer_info.get("transferJob", {}).get("system")
+        if system_name is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find transfer job system name in the transfer info"
+            )
+
+        for i in sleep_generator():
+            try:
+                job = await self._client.job_info(system_name, job_id)
+            except FirecrestException as e:
+                if (
+                    e.responses[-1].status_code == 404 and
+                    "Job not found" in e.responses[-1].json()['message']
+                ):
+                    self._client.log(
+                        logging.DEBUG,
+                        f"Job {job_id} information is not yet available, will "
+                        f"sleep for {i} seconds."
+                    )
+                    await asyncio.sleep(i)
+                    continue
+                else:
+                    raise e
+
+            state = job[0]["status"]["state"]
+            if isinstance(state, list):
+                state = ",".join(state)
+
+            if sched_state_running(state):
+                self._client.log(
+                    logging.DEBUG,
+                    f"Job {job_id} is running with state: {state}."
+                )
+                break
+
+            if sched_state_completed(state):
+                raise MultipartUploadException(
+                    self._transfer_info,
+                    f"Job {job_id} completed before listening for "
+                    f"connections. Current state: {state}."
+                )
+
+            self._client.log(
+                logging.DEBUG,
+                f"Job {job_id} state is {state}. Will sleep for {i} seconds."
+            )
+            await asyncio.sleep(i)
+
+    async def upload_file_streamer(self):
+        coordinates = self._transfer_info.get(
+            "transferDirectives", {}
+        ).get("coordinates")
+
+        if coordinates is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find upload coordinates in the transfer info"
+            )
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploading file {self._local_file} with `{coordinates}` "
+            f"coordinates"
+        )
+
+        config = cli.set_coordinates(coordinates)
+        config.target = self._local_file
+        await cli.client_send(config)
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploaded file {self._local_file} to {coordinates} "
+            f"using Streamer client"
+        )
 
 
 class AsyncExternalDownload:
@@ -1440,17 +1526,28 @@ class AsyncFirecrest:
             local_file=local_file,
         )
 
+        actual_transfer_method = transfer_info.get(
+            "transferDirectives", {}
+        ).get("transfer_method", "s3")
+
         if blocking:
             self.log(
                 logging.DEBUG,
                 f"Blocking until ({local_file}) is transfered to the "
                 f"filesystem."
             )
-            # Upload the file in parts
-            await ext_upload.upload_file_to_stage()
+            if actual_transfer_method == "s3":
+                # Upload the file in parts
+                await ext_upload.upload_file_to_stage()
 
-            # Wait for the file to be available in the target directory
-            await ext_upload.wait_for_transfer_job()
+                # Wait for the file to be available in the target directory
+                await ext_upload.wait_for_transfer_job()
+            elif actual_transfer_method == "streamer":
+                # Wait for job to start listening
+                await ext_upload.wait_for_streamer_job_to_listen()
+
+                # Directly upload the file via the streamer
+                await ext_upload.upload_file_streamer()
 
         return ext_upload
 
