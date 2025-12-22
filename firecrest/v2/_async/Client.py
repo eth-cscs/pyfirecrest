@@ -63,7 +63,72 @@ def sleep_generator():
             value *= 2
 
 
-class AsyncExternalUpload:
+class AsyncExternalTransfer:
+    async def wait_for_transfer_job(self, timeout=None):
+        await self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
+
+    async def wait_for_streamer_job_to_listen(self):
+        job_id = self._transfer_info.get("transferJob", {}).get("jobId")
+        if job_id is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find transfer job ID in the transfer info"
+            )
+
+        system_name = self._transfer_info.get("transferJob", {}).get("system")
+        if system_name is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find transfer job system name in the transfer info"
+            )
+
+        for i in sleep_generator():
+            try:
+                job = await self._client.job_info(system_name, job_id)
+            except FirecrestException as e:
+                if (
+                    e.responses[-1].status_code == 404 and
+                    "Job not found" in e.responses[-1].json()['message']
+                ):
+                    self._client.log(
+                        logging.DEBUG,
+                        f"Job {job_id} information is not yet available, will "
+                        f"sleep for {i} seconds."
+                    )
+                    await asyncio.sleep(i)
+                    continue
+                else:
+                    raise e
+
+            state = job[0]["status"]["state"]
+            if isinstance(state, list):
+                state = ",".join(state)
+
+            if sched_state_running(state):
+                self._client.log(
+                    logging.DEBUG,
+                    f"Job {job_id} is running with state: {state}."
+                )
+                break
+
+            if sched_state_completed(state):
+                raise MultipartUploadException(
+                    self._transfer_info,
+                    f"Job {job_id} completed before listening for "
+                    f"connections. Current state: {state}."
+                )
+
+            self._client.log(
+                logging.DEBUG,
+                f"Job {job_id} state is {state}. Will sleep for {i} seconds."
+            )
+            await asyncio.sleep(i)
+
+
+class AsyncExternalUpload(AsyncExternalTransfer):
     def __init__(self, client, transfer_info, local_file):
         self._client = client
         self._local_file = local_file
@@ -104,12 +169,6 @@ class AsyncExternalUpload:
         checksum = part_checksum_xml(self._all_tags)
         await self._complete_upload(
             checksum
-        )
-
-    async def wait_for_transfer_job(self, timeout=None):
-        await self._client._wait_for_transfer_job(
-            self._transfer_info,
-            timeout=timeout
         )
 
     async def _upload_part(self, url, index):
@@ -202,63 +261,6 @@ class AsyncExternalUpload:
                 f"Failed to finish upload: {resp.status_code}: {resp.text}"
             )
 
-    async def wait_for_streamer_job_to_listen(self):
-        job_id = self._transfer_info.get("transferJob", {}).get("jobId")
-        if job_id is None:
-            raise MultipartUploadException(
-                self._transfer_info,
-                "Could not find transfer job ID in the transfer info"
-            )
-
-        system_name = self._transfer_info.get("transferJob", {}).get("system")
-        if system_name is None:
-            raise MultipartUploadException(
-                self._transfer_info,
-                "Could not find transfer job system name in the transfer info"
-            )
-
-        for i in sleep_generator():
-            try:
-                job = await self._client.job_info(system_name, job_id)
-            except FirecrestException as e:
-                if (
-                    e.responses[-1].status_code == 404 and
-                    "Job not found" in e.responses[-1].json()['message']
-                ):
-                    self._client.log(
-                        logging.DEBUG,
-                        f"Job {job_id} information is not yet available, will "
-                        f"sleep for {i} seconds."
-                    )
-                    await asyncio.sleep(i)
-                    continue
-                else:
-                    raise e
-
-            state = job[0]["status"]["state"]
-            if isinstance(state, list):
-                state = ",".join(state)
-
-            if sched_state_running(state):
-                self._client.log(
-                    logging.DEBUG,
-                    f"Job {job_id} is running with state: {state}."
-                )
-                break
-
-            if sched_state_completed(state):
-                raise MultipartUploadException(
-                    self._transfer_info,
-                    f"Job {job_id} completed before listening for "
-                    f"connections. Current state: {state}."
-                )
-
-            self._client.log(
-                logging.DEBUG,
-                f"Job {job_id} state is {state}. Will sleep for {i} seconds."
-            )
-            await asyncio.sleep(i)
-
     async def upload_file_streamer(self):
         coordinates = self._transfer_info.get(
             "transferDirectives", {}
@@ -287,7 +289,7 @@ class AsyncExternalUpload:
         )
 
 
-class AsyncExternalDownload:
+class AsyncExternalDownload(AsyncExternalTransfer):
     def __init__(self, client, transfer_info, file_path):
         self._client = client
         self._transfer_info = transfer_info
@@ -336,10 +338,32 @@ class AsyncExternalDownload:
             f"Downloaded file from {download_url} to {file_name}"
         )
 
-    async def wait_for_transfer_job(self, timeout=None):
-        await self._client._wait_for_transfer_job(
-            self._transfer_info,
-            timeout=timeout
+    async def download_file_streamer(self, file_path=None):
+        file_name = file_path or self._file_path
+        coordinates = self._transfer_info.get(
+            "transferDirectives", {}
+        ).get("coordinates")
+
+        if coordinates is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find upload coordinates in the transfer info"
+            )
+
+        self._client.log(
+            logging.DEBUG,
+            f"Downloading file {file_name} with `{coordinates}` "
+            f"coordinates"
+        )
+
+        config = cli.set_coordinates(coordinates)
+        config.target = file_name
+        await cli.client_receive(config)
+
+        self._client.log(
+            logging.DEBUG,
+            f"Downloaded file {file_name} from {coordinates} "
+            f"using Streamer client"
         )
 
 
@@ -1557,7 +1581,8 @@ class AsyncFirecrest:
         source_path: str,
         target_path: str | pathlib.Path,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        transfer_method: str = "s3"
     ) -> Optional[AsyncExternalDownload]:
         """Download a file from the remote system.
 
@@ -1569,8 +1594,16 @@ class AsyncFirecrest:
                         relevant when the file is larger than
                         `MAX_DIRECT_UPLOAD_SIZE`)
         :param blocking: whether to wait for the job to complete
+        :param transfer_method: the method to be used for the download of large
+                                files. Supported methods: "s3", "streamer".
         :calls: POST `/filesystem/{system_name}/transfer/download`
         """
+        if transfer_method not in ["s3", "streamer"]:
+            raise ValueError(
+                f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
+                f"and 'streamer' are currently supported."
+            )
+
         if not isinstance(target_path, (str, pathlib.Path)):
             raise TypeError(
                 f"`target_path` must be a string or pathlib.Path, got "
@@ -1643,14 +1676,23 @@ class AsyncFirecrest:
             transfer_info=transfer_info,
             file_path=target_path
         )
+
+        actual_transfer_method = transfer_info.get(
+            "transferDirectives", {}
+        ).get("transfer_method", "s3")
+
         if blocking:
             self.log(
                 logging.DEBUG,
                 f"Blocking until ({source_path}) is transfered to the "
                 f"filesystem."
             )
-            await download_obj.wait_for_transfer_job()
-            await download_obj.download_file_from_stage()
+            if actual_transfer_method == "s3":
+                await download_obj.wait_for_transfer_job()
+                await download_obj.download_file_from_stage()
+            elif actual_transfer_method == "streamer":
+                await download_obj.wait_for_streamer_job_to_listen()
+                await download_obj.download_file_streamer()
 
         return download_obj
 
