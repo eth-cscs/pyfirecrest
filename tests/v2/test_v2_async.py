@@ -1,6 +1,5 @@
 import json
 import pytest
-import re
 
 from context_v2 import AsyncFirecrest, UnexpectedStatusException
 from werkzeug.wrappers import Response
@@ -18,10 +17,12 @@ def valid_client(fc_server):
         def get_access_token(self):
             return "VALID_TOKEN"
 
-    return AsyncFirecrest(
+    client = AsyncFirecrest(
         firecrest_url=fc_server.url_for("/"),
         authorization=ValidAuthorization()
     )
+    client.set_api_version("2.99.0") # Set to a high enough version for all tests
+    return client
 
 
 @pytest.fixture
@@ -314,6 +315,20 @@ async def test_job_info(valid_client):
 async def test_job_info_jobid(valid_client):
     data = read_json_file("v2/responses/job_info.json")
     resp = await valid_client.job_info("cluster", "1")
+    assert resp == data["response"]["jobs"]
+
+
+@pytest.mark.asyncio
+async def test_job_allusers(valid_client):
+    data = read_json_file("v2/responses/job_info_all_users.json")
+    resp = await valid_client.job_info("cluster", allusers=True)
+    assert resp == data["response"]["jobs"]
+
+
+@pytest.mark.asyncio
+async def test_job_info_account(valid_client):
+    data = read_json_file("v2/responses/job_info_account.json")
+    resp = await valid_client.job_info("cluster", account="users2")
     assert resp == data["response"]["jobs"]
 
 
