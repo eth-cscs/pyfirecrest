@@ -41,6 +41,17 @@ def sched_state_completed(state):
     return False
 
 
+def sched_state_running(state):
+    running_states = {
+        'RUNNING',
+        'R', # PBS state 'R': job Running
+    }
+    return any(
+        any(rs in s for rs in running_states)
+        for s in state.split(',')
+    )
+
+
 def parse_retry_after(retry_after_header, log_func):
     """
     Parse the Retry-After header.

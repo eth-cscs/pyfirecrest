@@ -6,6 +6,7 @@
 #
 from __future__ import annotations
 
+import asyncio
 import httpx
 import json
 import logging
@@ -15,12 +16,14 @@ import ssl
 import time
 
 from packaging.version import Version, parse
+from streamer import streamer_client as cli
 from typing import Any, BinaryIO, List, Optional
 
 from firecrest.utilities import (
     parse_retry_after,
     part_checksum_xml,
     sched_state_completed,
+    sched_state_running,
     time_block,
 )
 from firecrest.FirecrestException import (
@@ -60,7 +63,72 @@ def sleep_generator():
             value *= 2
 
 
-class ExternalUpload:
+class ExternalTransfer:
+    def wait_for_transfer_job(self, timeout=None):
+        self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
+        )
+
+    def wait_for_streamer_job_to_listen(self):
+        job_id = self._transfer_info.get("transferJob", {}).get("jobId")
+        if job_id is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find transfer job ID in the transfer info"
+            )
+
+        system_name = self._transfer_info.get("transferJob", {}).get("system")
+        if system_name is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find transfer job system name in the transfer info"
+            )
+
+        for i in sleep_generator():
+            try:
+                job = self._client.job_info(system_name, job_id)
+            except FirecrestException as e:
+                if (
+                    e.responses[-1].status_code == 404 and
+                    "Job not found" in e.responses[-1].json()['message']
+                ):
+                    self._client.log(
+                        logging.DEBUG,
+                        f"Job {job_id} information is not yet available, will "
+                        f"sleep for {i} seconds."
+                    )
+                    time.sleep(i)
+                    continue
+                else:
+                    raise e
+
+            state = job[0]["status"]["state"]
+            if isinstance(state, list):
+                state = ",".join(state)
+
+            if sched_state_running(state):
+                self._client.log(
+                    logging.DEBUG,
+                    f"Job {job_id} is running with state: {state}."
+                )
+                break
+
+            if sched_state_completed(state):
+                raise MultipartUploadException(
+                    self._transfer_info,
+                    f"Job {job_id} completed before listening for "
+                    f"connections. Current state: {state}."
+                )
+
+            self._client.log(
+                logging.DEBUG,
+                f"Job {job_id} state is {state}. Will sleep for {i} seconds."
+            )
+            time.sleep(i)
+
+
+class ExternalUpload(ExternalTransfer):
     def __init__(self, client, transfer_info, local_file, file_size):
         self._client = client
         self._local_file = local_file
@@ -202,8 +270,35 @@ class ExternalUpload:
                 f"Failed to finish upload: {resp.status_code}: {resp.text}"
             )
 
+    def upload_file_streamer(self):
+        coordinates = self._transfer_info.get(
+            "transferDirectives", {}
+        ).get("coordinates")
 
-class ExternalDownload:
+        if coordinates is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find upload coordinates in the transfer info"
+            )
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploading file {self._local_file} with `{coordinates}` "
+            f"coordinates"
+        )
+
+        config = cli.set_coordinates(coordinates)
+        config.target = self._local_file
+        asyncio.run(cli.client_send(config))
+
+        self._client.log(
+            logging.DEBUG,
+            f"Uploaded file {self._local_file} to {coordinates} "
+            f"using Streamer client"
+        )
+
+
+class ExternalDownload(ExternalTransfer):
     def __init__(self, client, transfer_info, file_path):
         self._client = client
         self._transfer_info = transfer_info
@@ -258,10 +353,32 @@ class ExternalDownload:
             f"Downloaded file from {download_url} to {file_name}"
         )
 
-    def wait_for_transfer_job(self, timeout=None):
-        self._client._wait_for_transfer_job(
-            self._transfer_info,
-            timeout=timeout
+    def download_file_streamer(self, file_path=None):
+        file_name = file_path or self._file_path
+        coordinates = self._transfer_info.get(
+            "transferDirectives", {}
+        ).get("coordinates")
+
+        if coordinates is None:
+            raise MultipartUploadException(
+                self._transfer_info,
+                "Could not find download coordinates in the transfer info"
+            )
+
+        self._client.log(
+            logging.DEBUG,
+            f"Downloading file {file_name} with `{coordinates}` "
+            f"coordinates"
+        )
+
+        config = cli.set_coordinates(coordinates)
+        config.target = file_name
+        asyncio.run(cli.client_receive(config))
+
+        self._client.log(
+            logging.DEBUG,
+            f"Downloaded file {file_name} from {coordinates} "
+            f"using Streamer client"
         )
 
 
@@ -1344,7 +1461,7 @@ class Firecrest:
         blocking: bool = True,
         transfer_method: str = "s3",
         file_size: Optional[int] = None,
-    ) -> Optional["ExternalUpload"]:
+    ) -> Optional[ExternalUpload]:
         """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
         The function will return `None` in this case.
@@ -1366,15 +1483,15 @@ class Firecrest:
                          relevant when the file is larger than
                          `MAX_DIRECT_UPLOAD_SIZE`)
         :param transfer_method: the method to be used for the upload of large
-                                files. Currently only "s3" is supported.
+                                files. Supported methods: "s3", "streamer".
         :param file_size: the size of the file in bytes. Required for the
                           `local_file` is a file-like object.
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        if transfer_method != "s3":
+        if transfer_method not in ["s3", "streamer"]:
             raise ValueError(
                 f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
-                f"is currently supported."
+                f"and 'streamer' are currently supported."
             )
 
         # TODO: check local_file is readable if file-like object, otherwise that is exists
@@ -1443,17 +1560,28 @@ class Firecrest:
             file_size=local_file_size,
         )
 
+        actual_transfer_method = transfer_info.get(
+            "transferDirectives", {}
+        ).get("transfer_method", "s3")
+
         if blocking:
             self.log(
                 logging.DEBUG,
                 f"Blocking until ({local_file}) is transfered to the "
                 f"filesystem."
             )
-            # Upload the file in parts
-            ext_upload.upload_file_to_stage()
+            if actual_transfer_method == "s3":
+                # Upload the file in parts
+                ext_upload.upload_file_to_stage()
 
-            # Wait for the file to be available in the target directory
-            ext_upload.wait_for_transfer_job()
+                # Wait for the file to be available in the target directory
+                ext_upload.wait_for_transfer_job()
+            elif actual_transfer_method == "streamer":
+                # Wait for job to start listening
+                ext_upload.wait_for_streamer_job_to_listen()
+
+                # Directly upload the file via the streamer
+                ext_upload.upload_file_streamer()
 
         return ext_upload
 
@@ -1461,9 +1589,10 @@ class Firecrest:
         self,
         system_name: str,
         source_path: str,
-        target_path: str | pathlib.Path | BinaryIO,
+        target_path: str | pathlib.Path,
         account: Optional[str] = None,
-        blocking: bool = True
+        blocking: bool = True,
+        transfer_method: str = "s3"
     ) -> Optional[ExternalDownload]:
         """Download a file from the remote system.
 
@@ -1475,8 +1604,23 @@ class Firecrest:
                         relevant when the file is larger than
                         `MAX_DIRECT_UPLOAD_SIZE`)
         :param blocking: whether to wait for the job to complete
+        :param transfer_method: the method to be used for the download of large
+                                files. Supported methods: "s3", "streamer".
         :calls: POST `/filesystem/{system_name}/transfer/download`
         """
+        if transfer_method not in ["s3", "streamer"]:
+            raise ValueError(
+                f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
+                f"and 'streamer' are currently supported."
+            )
+
+        if not isinstance(target_path, (str, pathlib.Path)):
+            raise TypeError(
+                f"`target_path` must be a string or pathlib.Path, got "
+                f"{type(target_path)}. For more options, consider using the "
+                "serial Client."
+            )
+
         # Check if the file is small enough to be downloaded directly
         try:
             file_info = self.stat(system_name, source_path)
@@ -1545,14 +1689,23 @@ class Firecrest:
             transfer_info=transfer_info,
             file_path=target_path
         )
+
+        actual_transfer_method = transfer_info.get(
+            "transferDirectives", {}
+        ).get("transfer_method", "s3")
+
         if blocking:
             self.log(
                 logging.DEBUG,
                 f"Blocking until ({source_path}) is transfered to the "
                 f"filesystem."
             )
-            download_obj.wait_for_transfer_job()
-            download_obj.download_file_from_stage()
+            if actual_transfer_method == "s3":
+                download_obj.wait_for_transfer_job()
+                download_obj.download_file_from_stage()
+            elif actual_transfer_method == "streamer":
+                download_obj.wait_for_streamer_job_to_listen()
+                download_obj.download_file_streamer()
 
         return download_obj
 
