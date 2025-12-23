@@ -129,7 +129,7 @@ class ExternalTransfer:
 
 
 class ExternalUpload(ExternalTransfer):
-    def __init__(self, client, transfer_info, local_file):
+    def __init__(self, client, transfer_info, local_file, file_size):
         self._client = client
         self._local_file = local_file
         self._transfer_info = transfer_info
