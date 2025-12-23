@@ -347,7 +347,7 @@ class AsyncExternalDownload(AsyncExternalTransfer):
         if coordinates is None:
             raise MultipartUploadException(
                 self._transfer_info,
-                "Could not find upload coordinates in the transfer info"
+                "Could not find download coordinates in the transfer info"
             )
 
         self._client.log(

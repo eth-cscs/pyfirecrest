@@ -362,7 +362,7 @@ class ExternalDownload(ExternalTransfer):
         if coordinates is None:
             raise MultipartUploadException(
                 self._transfer_info,
-                "Could not find upload coordinates in the transfer info"
+                "Could not find download coordinates in the transfer info"
             )
 
         self._client.log(
@@ -400,7 +400,6 @@ class Firecrest:
 
     TOO_MANY_REQUESTS_CODE = 429
     MAX_DIRECT_UPLOAD_SIZE = 1048576
-    MAX_S3_CONNECTIONS = 10
 
     def _retry_requests(func):
         def wrapper(*args, **kwargs):
