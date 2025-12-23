@@ -17,7 +17,7 @@ import time
 
 from packaging.version import Version, parse
 from streamer import streamer_client as cli
-from typing import Any, Optional, List
+from typing import Any, BinaryIO, List, Optional
 
 from firecrest.utilities import (
     parse_retry_after,
