@@ -14,6 +14,7 @@ import os
 import pathlib
 import ssl
 import time
+import subprocess
 
 from packaging.version import Version, parse
 from streamer import streamer_client as cli
@@ -128,6 +129,17 @@ class ExternalTransfer:
             time.sleep(i)
 
 
+def _get_wormhole_code(transfer_info: dict) -> str:
+    trans_dir = transfer_info.get("transferDirectives", {})
+    code = trans_dir.get("wormholeCode")
+    if not code:
+        raise MultipartUploadException(
+            transfer_info,
+            "Could not find wormhole code in transfer info"
+        )
+    return code
+
+
 class ExternalUpload(ExternalTransfer):
     def __init__(self, client, transfer_info, local_file, file_size):
         self._client = client
@@ -141,6 +153,27 @@ class ExternalUpload(ExternalTransfer):
     @property
     def transfer_data(self):
         return self._transfer_info
+
+    @property
+    def wormhole_code(self):
+        return self._transfer_info.get(
+            "transferDirectives", {}
+        ).get("wormholeCode")
+
+    def send_file_wormhole(self):
+        if not isinstance(self._local_file, (str, pathlib.Path)):
+            raise ValueError(
+                "`local_file` must be a path when using wormhole."
+            )
+        code = _get_wormhole_code(self._transfer_info)
+        self._client.log(
+            logging.DEBUG,
+            "Starting wormhole send using external CLI."
+        )
+        subprocess.run(
+            ["wormhole", "send", str(self._local_file), "--code", code],
+            check=True
+        )
 
     def upload_file_to_stage(self):
         urls = self._transfer_info.get("partsUploadUrls")
@@ -324,6 +357,27 @@ class ExternalDownload(ExternalTransfer):
     @property
     def transfer_data(self):
         return self._transfer_info
+
+    @property
+    def wormhole_code(self):
+        return self._transfer_info.get(
+            "transferDirectives", {}
+        ).get("wormholeCode")
+
+    def receive_file_wormhole(self):
+        if not isinstance(self._file_path, (str, pathlib.Path)):
+            raise ValueError(
+                "`target_path` must be a path when using wormhole."
+            )
+        code = _get_wormhole_code(self._transfer_info)
+        self._client.log(
+            logging.DEBUG,
+            "Starting wormhole receive using external CLI."
+        )
+        subprocess.run(
+            ["wormhole", "receive", "--code", code, "-o", str(self._file_path)],
+            check=True
+        )
 
     def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
@@ -1503,15 +1557,16 @@ class Firecrest:
                          relevant when the file is larger than
                          `MAX_DIRECT_UPLOAD_SIZE`)
         :param transfer_method: the method to be used for the upload of large
-                                files. Supported methods: "s3", "streamer".
+                                files. Supported methods: "s3", "streamer",
+                                "wormhole".
         :param file_size: the size of the file in bytes. Required for the
                           `local_file` is a file-like object.
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        if transfer_method not in ["s3", "streamer"]:
+        if transfer_method not in ["s3", "streamer", "wormhole"]:
             raise ValueError(
-                f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
-                f"and 'streamer' are currently supported."
+                f"Unsupported transfer_method '{transfer_method}'. Only 's3', "
+                f"'streamer' and 'wormhole' are currently supported."
             )
 
         # TODO: check local_file is readable if file-like object, otherwise that is exists
@@ -1607,6 +1662,8 @@ class Firecrest:
 
                 # Directly upload the file via the streamer
                 ext_upload.upload_file_streamer()
+            elif actual_transfer_method == "wormhole":
+                ext_upload.send_file_wormhole()
 
         return ext_upload
 
@@ -1630,13 +1687,14 @@ class Firecrest:
                         `MAX_DIRECT_UPLOAD_SIZE`)
         :param blocking: whether to wait for the job to complete
         :param transfer_method: the method to be used for the download of large
-                                files. Supported methods: "s3", "streamer".
+                                files. Supported methods: "s3", "streamer",
+                                "wormhole".
         :calls: POST `/filesystem/{system_name}/transfer/download`
         """
-        if transfer_method not in ["s3", "streamer"]:
+        if transfer_method not in ["s3", "streamer", "wormhole"]:
             raise ValueError(
-                f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
-                f"and 'streamer' are currently supported."
+                f"Unsupported transfer_method '{transfer_method}'. Only 's3', "
+                f"'streamer' and 'wormhole' are currently supported."
             )
 
         if not isinstance(target_path, (str, pathlib.Path)):
@@ -1696,7 +1754,7 @@ class Firecrest:
             data = {
                 "source_path": source_path,
                 "transfer_directives": {
-                    "transferMethod": "s3"
+                    "transferMethod": transfer_method
                 }
             }
 
@@ -1736,6 +1794,8 @@ class Firecrest:
             elif actual_transfer_method == "streamer":
                 download_obj.wait_for_streamer_job_to_listen()
                 download_obj.download_file_streamer()
+            elif actual_transfer_method == "wormhole":
+                download_obj.receive_file_wormhole()
 
         return download_obj
 
