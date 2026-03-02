@@ -591,7 +591,7 @@ class AsyncFirecrest:
         return_json: bool = True
     ) -> dict:
         status_code = response.status_code
-        # handle_response(response)
+        handle_response(response)
         if status_code != expected_status_code:
             self.log(
                 logging.DEBUG,
@@ -1453,7 +1453,7 @@ class AsyncFirecrest:
         filename: str,
         account: Optional[str] = None,
         blocking: bool = True,
-        transfer_method: str = "s3"
+        transfer_method: str = "wormhole"
     ) -> Optional[AsyncExternalUpload]:
         """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
@@ -1476,13 +1476,15 @@ class AsyncFirecrest:
                          relevant when the file is larger than
                          `MAX_DIRECT_UPLOAD_SIZE`)
         :param transfer_method: the method to be used for the upload of large
-                                files. Supported methods: "s3", "streamer".
+                                files. Supported methods: "s3", "streamer",
+                                "wormhole".
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
-        if transfer_method not in ["s3", "streamer"]:
+        print(f'transfer method: {transfer_method}')
+        if transfer_method not in ["s3", "streamer", "wormhole"]:
             raise ValueError(
                 f"Unsupported transfer_method '{transfer_method}'. Only 's3' "
-                f"and 'streamer' are currently supported."
+                f"'streamer' and 'wormhole' are currently supported."
             )
 
         if not isinstance(local_file, (str, pathlib.Path)):
