@@ -150,6 +150,11 @@ class ExternalUpload(ExternalTransfer):
             ).get("parts_upload_urls")
 
         if urls is None:
+            urls = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("partsUploadUrls")
+
+        if urls is None:
             raise MultipartUploadException(
                 self._transfer_info,
                 "Could not find parts upload URLs in the transfer info"
@@ -176,6 +181,11 @@ class ExternalUpload(ExternalTransfer):
             chunk_size = self._transfer_info.get(
                 "transferDirectives", {}
             ).get("max_part_size")
+
+        if chunk_size is None:
+            chunk_size = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("maxPartSize")
 
         if chunk_size is None:
             raise MultipartUploadException(
@@ -251,6 +261,11 @@ class ExternalUpload(ExternalTransfer):
             ).get("complete_upload_url")
 
         if url is None:
+            url = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("completeUploadUrl")
+
+        if url is None:
             raise MultipartUploadException(
                 self._transfer_info,
                 "Could not find complete upload URL in the transfer info"
@@ -317,6 +332,11 @@ class ExternalDownload(ExternalTransfer):
             download_url = self._transfer_info.get(
                 "transferDirectives", {}
             ).get("download_url")
+
+        if download_url is None:
+            download_url = self._transfer_info.get(
+                "transferDirectives", {}
+            ).get("downloadUrl")
 
         if download_url is None:
             raise MultipartUploadException(
@@ -1690,9 +1710,14 @@ class Firecrest:
             file_path=target_path
         )
 
-        actual_transfer_method = transfer_info.get(
-            "transferDirectives", {}
-        ).get("transfer_method", "s3")
+        trans_dir = transfer_info.get("transferDirectives", {})
+        if trans_dir:
+            actual_transfer_method = trans_dir.get(
+                "transferMethod",
+                trans_dir.get("transfer_method", "s3")
+            )
+        else:
+            actual_transfer_method = "s3"
 
         if blocking:
             self.log(
