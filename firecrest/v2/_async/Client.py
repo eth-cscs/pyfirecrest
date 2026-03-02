@@ -1702,9 +1702,14 @@ class AsyncFirecrest:
             file_path=target_path
         )
 
-        actual_transfer_method = transfer_info.get(
-            "transferDirectives", {}
-        ).get("transfer_method", "s3")
+        trans_dir = transfer_info.get("transferDirectives", {})
+        if trans_dir:
+            actual_transfer_method = trans_dir.get(
+                "transferMethod",
+                trans_dir.get("transfer_method", "s3")
+            )
+        else:
+            actual_transfer_method = "s3"
 
         if blocking:
             self.log(
