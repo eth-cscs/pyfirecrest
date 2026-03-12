@@ -536,7 +536,7 @@ class AsyncFirecrest:
 
     @_retry_requests  # type: ignore
     async def _post_request(
-        self, endpoint, additional_headers=None, params=None, data=None, files=None
+        self, endpoint, additional_headers=None, params=None, data=None, files=None, json_data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {
@@ -553,14 +553,15 @@ class AsyncFirecrest:
                 params=params,
                 data=data,
                 files=files,
-                timeout=self.timeout
+                timeout=self.timeout,
+                json=json_data
             )
 
         return resp
 
     @_retry_requests  # type: ignore
     async def _put_request(
-        self, endpoint, additional_headers=None, data=None
+        self, endpoint, additional_headers=None, data=None, json_data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = {
@@ -572,7 +573,7 @@ class AsyncFirecrest:
         self.log(logging.DEBUG, f"Making PUT request to {endpoint}")
         with time_block(f"PUT request to {endpoint}", logger):
             resp = await self._session.put(
-                url=url, headers=headers, data=data, timeout=self.timeout
+                url=url, headers=headers, data=data, timeout=self.timeout, json=json_data
             )
 
         return resp
@@ -913,7 +914,7 @@ class AsyncFirecrest:
         }
         resp = await self._put_request(
             endpoint=f"/filesystem/{system_name}/ops/chmod",
-            data=json.dumps(data)
+            json_data=data
         )
         return self._check_response(resp, 200)["output"]
 
@@ -941,7 +942,7 @@ class AsyncFirecrest:
         }
         resp = await self._put_request(
             endpoint=f"/filesystem/{system_name}/ops/chown",
-            data=json.dumps(data)
+            json_data=data
         )
         return self._check_response(resp, 200)["output"]
 
@@ -986,10 +987,10 @@ class AsyncFirecrest:
         """
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/ops/symlink",
-            data=json.dumps({
+            json_data={
                 "sourcePath": source_path,
                 "linkPath": link_path
-            })
+            }
         )
         return self._check_response(resp, 201)
 
@@ -1009,10 +1010,10 @@ class AsyncFirecrest:
         """
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/ops/mkdir",
-            data=json.dumps({
+            json_data={
                 "sourcePath": path,
                 "parent": create_parents
-            })
+            }
         )
         return self._check_response(resp, 201)["output"]
 
@@ -1047,7 +1048,7 @@ class AsyncFirecrest:
 
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/mv",
-            data=json.dumps(data)
+            json_data=data
         )
         job_info = self._check_response(resp, 201)
 
@@ -1102,7 +1103,7 @@ class AsyncFirecrest:
         try:
             resp = await self._post_request(
                 endpoint=f"/filesystem/{system_name}/ops/compress",
-                data=json.dumps(data)
+                json_data=data
             )
             self._check_response(resp, 204)
             return None
@@ -1122,7 +1123,7 @@ class AsyncFirecrest:
 
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/compress",
-            data=json.dumps(data)
+            json_data=data
         )
         job_info = self._check_response(resp, 201)
 
@@ -1167,7 +1168,7 @@ class AsyncFirecrest:
         try:
             resp = await self._post_request(
                 endpoint=f"/filesystem/{system_name}/ops/extract",
-                data=json.dumps(data)
+                json_data=data
             )
             self._check_response(resp, 204)
             return None
@@ -1187,7 +1188,7 @@ class AsyncFirecrest:
 
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/extract",
-            data=json.dumps(data)
+            json_data=data
         )
         job_info = self._check_response(resp, 201)
 
@@ -1372,7 +1373,7 @@ class AsyncFirecrest:
 
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/cp",
-            data=json.dumps(data)
+            json_data=data
         )
         job_info = self._check_response(resp, 201)
 
@@ -1560,7 +1561,7 @@ class AsyncFirecrest:
 
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/upload",
-            data=json.dumps(data)
+            json_data=data
         )
 
         transfer_info = self._check_response(resp, 201)
@@ -1692,7 +1693,7 @@ class AsyncFirecrest:
 
         resp = await self._post_request(
             endpoint=f"/filesystem/{system_name}/transfer/download",
-            data=json.dumps(data)
+            json_data=data
         )
 
         transfer_info = self._check_response(resp, 201)
@@ -1807,7 +1808,7 @@ class AsyncFirecrest:
 
         resp = await self._post_request(
             endpoint=f"/compute/{system_name}/jobs",
-            data=json.dumps(data)
+            json_data=data
         )
         return self._check_response(resp, 201)
 
@@ -1899,6 +1900,6 @@ class AsyncFirecrest:
         """
         resp = await self._put_request(
             endpoint=f"/compute/{system_name}/jobs/{jobid}/attach",
-            data=json.dumps({"command": command})
+            json_data={"command": command}
         )
         return self._check_response(resp, 204)
