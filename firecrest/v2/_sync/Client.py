@@ -64,7 +64,7 @@ def sleep_generator():
             value *= 2
 
 
-class SyncExternalTransfer:
+class ExternalTransfer:
     def wait_for_transfer_job(self, timeout=None):
         self._client._wait_for_transfer_job(
             self._transfer_info,
@@ -174,7 +174,7 @@ class SyncExternalUpload(SyncExternalTransfer):
             ["wormhole", "send", str(self._local_file), "--code", code],
             capture_output=True
         )
-        rc = process.wait()
+        rc = process.returncode
         if rc != 0:
             raise MultipartUploadException(
                 self._transfer_info,
@@ -382,15 +382,10 @@ class ExternalDownload(ExternalTransfer):
             "Starting wormhole receive using external CLI."
         )
         process = subprocess.run(
-            "wormhole",
-            "receive",
-            "--code",
-            code,
-            "-o",
-            str(self._file_path)
+            ["wormhole", "receive", "--code", code, "-o", str(self._file_path)],
             capture_output=True
         )
-        rc = process.wait()
+        rc = process.returncode
         if rc != 0:
             raise MultipartUploadException(
                 self._transfer_info,
@@ -1648,7 +1643,7 @@ class Firecrest:
             ]
             # Start wormhole process and capture code from stderr
             wormhole_proc = subprocess.Popen(
-                *wormhole_cmd,
+                wormhole_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
