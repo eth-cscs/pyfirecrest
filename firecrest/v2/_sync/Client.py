@@ -140,7 +140,7 @@ def _get_wormhole_code(transfer_info: dict) -> str:
     return code
 
 
-class SyncExternalUpload(SyncExternalTransfer):
+class ExternalUpload(ExternalTransfer):
     def __init__(self, client, transfer_info, local_file):
         self._client = client
         self._local_file = local_file
@@ -1686,7 +1686,7 @@ class Firecrest:
             )
 
             transfer_info = self._check_response(resp, 201)
-            ext_upload = SyncExternalUpload(
+            ext_upload = ExternalUpload(
                 client=self,
                 transfer_info=transfer_info,
                 local_file=local_file,
