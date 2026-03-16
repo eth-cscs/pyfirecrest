@@ -1627,7 +1627,7 @@ class AsyncFirecrest:
 
             self.log(
                 logging.DEBUG,
-                f"Will upload through wormhole."
+                "Will upload through wormhole."
             )
 
             wormhole_cmd = [
@@ -1638,7 +1638,7 @@ class AsyncFirecrest:
                 "4"
             ]
             # Start wormhole process and capture code from stderr
-            wormhole_proc = await asyncio.create_subprocess_exec(
+            wormhole_proc: Any = await asyncio.create_subprocess_exec(
                 *wormhole_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
@@ -1692,7 +1692,7 @@ class AsyncFirecrest:
             await ext_upload.wait_for_transfer_job()
 
             # Wait for the wormhole command of upload to finish
-            rc = await wormhole_proc.wait(timeout=30)
+            rc = await wormhole_proc.wait()
             if rc != 0:
                 raise MultipartUploadException(
                     transfer_info,

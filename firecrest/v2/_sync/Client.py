@@ -141,14 +141,14 @@ def _get_wormhole_code(transfer_info: dict) -> str:
 
 
 class ExternalUpload(ExternalTransfer):
-    def __init__(self, client, transfer_info, local_file):
+    def __init__(self, client, transfer_info, local_file, file_size=None):
         self._client = client
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
         # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
-        self._total_file_size = os.path.getsize(local_file)
+        self._total_file_size = file_size
 
     @property
     def transfer_data(self):
@@ -1630,7 +1630,7 @@ class Firecrest:
 
             self.log(
                 logging.DEBUG,
-                f"Will upload through wormhole."
+                "Will upload through wormhole."
             )
 
             wormhole_cmd = [
@@ -1641,13 +1641,13 @@ class Firecrest:
                 "4"
             ]
             # Start wormhole process and capture code from stderr
-            wormhole_proc = subprocess.Popen(
+            wormhole_proc: Any = subprocess.Popen(
                 wormhole_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
 
-            wormhole_code = None
+            wormhole_code: Any = None
             while True:
                 line = wormhole_proc.stderr.readline()
                 if not line:
