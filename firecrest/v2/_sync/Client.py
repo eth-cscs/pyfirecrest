@@ -199,20 +199,19 @@ class SyncExternalUpload(SyncExternalTransfer):
                 "Could not find parts upload URLs in the transfer info"
             )
 
-        asyncio.gather(
-            *[
-                self._upload_part(
-                    upload_url,
-                    index,
-                ) for index, upload_url in enumerate(urls)
-            ]
-        )
+        # TODO: maybe we should run this in parallel for normal files
+        for index, upload_url in enumerate(urls):
+            self._upload_part(upload_url, index)
 
-        # S3 complains when tags are not sorted
+        # S3 requires parts sorted by PartNumber
         self._all_tags.sort(key=lambda x: x['PartNumber'])
         checksum = part_checksum_xml(self._all_tags)
-        self._complete_upload(
-            checksum
+        self._complete_upload(checksum)
+
+    def wait_for_transfer_job(self, timeout=None):
+        self._client._wait_for_transfer_job(
+            self._transfer_info,
+            timeout=timeout
         )
 
     def _upload_part(self, url, index):
