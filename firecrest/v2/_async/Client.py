@@ -1573,6 +1573,8 @@ class AsyncFirecrest:
                                 "wormhole".
         :calls: POST `/filesystem/{system_name}/transfer/upload`
         """
+        data: dict[str, Any]
+
         if transfer_method not in ["s3", "streamer", "wormhole"]:
             raise ValueError(
                 f"Unsupported transfer_method '{transfer_method}'. Only 's3', "
@@ -1700,7 +1702,6 @@ class AsyncFirecrest:
 
             return ext_upload
 
-        data: dict[str, Any]
         if self._api_version < parse("2.4.0"):
             data = {
                 "source_path": directory,
