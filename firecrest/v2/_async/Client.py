@@ -64,7 +64,7 @@ def sleep_generator():
             value *= 2
 
 
-class AsyncExternalTransfer:
+class ExternalTransfer:
     async def wait_for_transfer_job(self, timeout=None):
         await self._client._wait_for_transfer_job(
             self._transfer_info,
@@ -140,7 +140,7 @@ def _get_wormhole_code(transfer_info: dict) -> str:
     return code
 
 
-class AsyncExternalUpload(AsyncExternalTransfer):
+class ExternalUpload(ExternalTransfer):
     def __init__(self, client, transfer_info, local_file):
         self._client = client
         self._local_file = local_file
@@ -346,7 +346,7 @@ class AsyncExternalUpload(AsyncExternalTransfer):
         )
 
 
-class AsyncExternalDownload(AsyncExternalTransfer):
+class ExternalDownload(ExternalTransfer):
     def __init__(self, client, transfer_info, file_path):
         self._client = client
         self._transfer_info = transfer_info
@@ -1548,7 +1548,7 @@ class AsyncFirecrest:
         account: Optional[str] = None,
         blocking: bool = True,
         transfer_method: str = "wormhole"
-    ) -> Optional[AsyncExternalUpload]:
+    ) -> Optional[ExternalUpload]:
         """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
         The function will return `None` in this case.
@@ -1683,7 +1683,7 @@ class AsyncFirecrest:
             )
 
             transfer_info = self._check_response(resp, 201)
-            ext_upload = AsyncExternalUpload(
+            ext_upload = ExternalUpload(
                 client=self,
                 transfer_info=transfer_info,
                 local_file=local_file,
@@ -1725,7 +1725,7 @@ class AsyncFirecrest:
         )
 
         transfer_info = self._check_response(resp, 201)
-        ext_upload = AsyncExternalUpload(
+        ext_upload = ExternalUpload(
             client=self,
             transfer_info=transfer_info,
             local_file=local_file,
@@ -1769,7 +1769,7 @@ class AsyncFirecrest:
         account: Optional[str] = None,
         blocking: bool = True,
         transfer_method: str = "wormhole"
-    ) -> Optional[AsyncExternalDownload]:
+    ) -> Optional[ExternalDownload]:
         """Download a file from the remote system.
 
         :param system_name: the system name where the filesystem belongs to
@@ -1858,7 +1858,7 @@ class AsyncFirecrest:
         )
 
         transfer_info = self._check_response(resp, 201)
-        download_obj = AsyncExternalDownload(
+        download_obj = ExternalDownload(
             client=self,
             transfer_info=transfer_info,
             file_path=target_path
