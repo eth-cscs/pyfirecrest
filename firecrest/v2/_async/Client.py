@@ -1700,6 +1700,7 @@ class AsyncFirecrest:
 
             return ext_upload
 
+        data: dict[str, Any]
         if self._api_version < parse("2.4.0"):
             data = {
                 "source_path": directory,
