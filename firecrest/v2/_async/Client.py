@@ -18,6 +18,7 @@ import ssl
 from packaging.version import Version, parse
 from streamer import streamer_client as cli
 from typing import Any, Optional, List
+import subprocess
 
 from firecrest.utilities import (
     parse_retry_after,
@@ -684,7 +685,7 @@ class AsyncFirecrest:
         return_json: bool = True
     ) -> dict:
         status_code = response.status_code
-        handle_response(response)
+        # handle_response(response)
         if status_code != expected_status_code:
             self.log(
                 logging.DEBUG,
@@ -1614,6 +1615,92 @@ class AsyncFirecrest:
             f"stage area of FirecREST and then moved to the "
             f"target directory, since it's {local_file_size} bytes."
         )
+
+        if transfer_method == "wormhole":
+            if not blocking:
+                self.log(
+                    logging.WARNING,
+                    "For the wormhole upload `blocking=True` is mandatory."
+                )
+
+            # Generate wormhole code using external CLI
+
+            self.log(
+                logging.DEBUG,
+                f"Will upload through wormhole."
+            )
+
+            wormhole_cmd = [
+                "wormhole",
+                "send",
+                str(local_file),
+                "--code-length",
+                "4"
+            ]
+            # Start wormhole process and capture code from stderr
+            wormhole_proc = await asyncio.create_subprocess_exec(
+                *wormhole_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            wormhole_code = None
+            while True:
+                line = await wormhole_proc.stderr.readline()
+                if not line:
+                    break
+                decoded_line = line.decode().strip()
+                if "Wormhole code is:" in decoded_line:
+                    wormhole_code = decoded_line.split(":")[-1].strip()
+                    self.log(
+                        logging.DEBUG,
+                        f"Upload through wormhole: {wormhole_code}."
+                    )
+                    break
+
+            if not wormhole_code:
+                await wormhole_proc.wait()
+                stderr = await wormhole_proc.stderr.read()
+                raise MultipartUploadException(
+                    {},
+                    f"Failed to get wormhole code: {stderr.decode()}"
+                )
+
+            data = {
+                "path": os.path.join(directory, filename),
+                "transfer_directives": {
+                    "wormholeCode": wormhole_code,
+                    "transfer_method": transfer_method
+                }
+            }
+
+            if account is not None:
+                data["account"] = account
+
+            resp = await self._post_request(
+                endpoint=f"/filesystem/{system_name}/transfer/upload",
+                json_data=data
+            )
+
+            transfer_info = self._check_response(resp, 201)
+            ext_upload = AsyncExternalUpload(
+                client=self,
+                transfer_info=transfer_info,
+                local_file=local_file,
+            )
+
+            await ext_upload.wait_for_transfer_job()
+
+            # Wait for the wormhole command of upload to finish
+            rc = await wormhole_proc.wait(timeout=30)
+            if rc != 0:
+                raise MultipartUploadException(
+                    transfer_info,
+                    f"Wormhole send failed with exit code {rc}"
+                )
+
+            return ext_upload
+
         if self._api_version < parse("2.4.0"):
             data = {
                 "source_path": directory,
@@ -1671,8 +1758,6 @@ class AsyncFirecrest:
 
                 # Directly upload the file via the streamer
                 await ext_upload.upload_file_streamer()
-            elif actual_transfer_method == "wormhole":
-                await ext_upload.send_file_wormhole()
 
         return ext_upload
 
@@ -1683,7 +1768,7 @@ class AsyncFirecrest:
         target_path: str | pathlib.Path,
         account: Optional[str] = None,
         blocking: bool = True,
-        transfer_method: str = "s3"
+        transfer_method: str = "wormhole"
     ) -> Optional[AsyncExternalDownload]:
         """Download a file from the remote system.
 

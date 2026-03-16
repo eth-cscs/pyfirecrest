@@ -64,7 +64,7 @@ def sleep_generator():
             value *= 2
 
 
-class ExternalTransfer:
+class SyncExternalTransfer:
     def wait_for_transfer_job(self, timeout=None):
         self._client._wait_for_transfer_job(
             self._transfer_info,
@@ -140,15 +140,15 @@ def _get_wormhole_code(transfer_info: dict) -> str:
     return code
 
 
-class ExternalUpload(ExternalTransfer):
-    def __init__(self, client, transfer_info, local_file, file_size):
+class SyncExternalUpload(SyncExternalTransfer):
+    def __init__(self, client, transfer_info, local_file):
         self._client = client
         self._local_file = local_file
         self._transfer_info = transfer_info
         self._all_tags = []
         # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
-        self._total_file_size = file_size
+        self._total_file_size = os.path.getsize(local_file)
 
     @property
     def transfer_data(self):
@@ -170,10 +170,16 @@ class ExternalUpload(ExternalTransfer):
             logging.DEBUG,
             "Starting wormhole send using external CLI."
         )
-        subprocess.run(
+        process = subprocess.run(
             ["wormhole", "send", str(self._local_file), "--code", code],
-            check=True
+            capture_output=True
         )
+        rc = process.wait()
+        if rc != 0:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Wormhole send failed with exit code {rc}"
+            )
 
     def upload_file_to_stage(self):
         urls = self._transfer_info.get("partsUploadUrls")
@@ -193,19 +199,20 @@ class ExternalUpload(ExternalTransfer):
                 "Could not find parts upload URLs in the transfer info"
             )
 
-        # TODO: maybe we should run this in parallel for normal files
-        for index, upload_url in enumerate(urls):
-            self._upload_part(upload_url, index)
+        asyncio.gather(
+            *[
+                self._upload_part(
+                    upload_url,
+                    index,
+                ) for index, upload_url in enumerate(urls)
+            ]
+        )
 
-        # S3 requires parts sorted by PartNumber
+        # S3 complains when tags are not sorted
         self._all_tags.sort(key=lambda x: x['PartNumber'])
         checksum = part_checksum_xml(self._all_tags)
-        self._complete_upload(checksum)
-
-    def wait_for_transfer_job(self, timeout=None):
-        self._client._wait_for_transfer_job(
-            self._transfer_info,
-            timeout=timeout
+        self._complete_upload(
+            checksum
         )
 
     def _upload_part(self, url, index):
@@ -287,7 +294,7 @@ class ExternalUpload(ExternalTransfer):
         })
 
     def _complete_upload(self, checksum):
-        url = self._transfer_info.get("completeUploadUrl")
+        url = self._transfer_info.get("completeMultipartUploadUrl")
         if url is None:
             url = self._transfer_info.get(
                 "transferDirectives", {}
@@ -374,10 +381,21 @@ class ExternalDownload(ExternalTransfer):
             logging.DEBUG,
             "Starting wormhole receive using external CLI."
         )
-        subprocess.run(
-            ["wormhole", "receive", "--code", code, "-o", str(self._file_path)],
-            check=True
+        process = subprocess.run(
+            "wormhole",
+            "receive",
+            "--code",
+            code,
+            "-o",
+            str(self._file_path)
+            capture_output=True
         )
+        rc = process.wait()
+        if rc != 0:
+            raise MultipartUploadException(
+                self._transfer_info,
+                f"Wormhole receive failed with exit code {rc}"
+            )
 
     def download_file_from_stage(self, file_path=None):
         file_name = file_path or self._file_path
@@ -1606,6 +1624,92 @@ class Firecrest:
             f"stage area of FirecREST and then moved to the "
             f"target directory, since it's {local_file_size} bytes."
         )
+
+        if transfer_method == "wormhole":
+            if not blocking:
+                self.log(
+                    logging.WARNING,
+                    "For the wormhole upload `blocking=True` is mandatory."
+                )
+
+            # Generate wormhole code using external CLI
+
+            self.log(
+                logging.DEBUG,
+                f"Will upload through wormhole."
+            )
+
+            wormhole_cmd = [
+                "wormhole",
+                "send",
+                str(local_file),
+                "--code-length",
+                "4"
+            ]
+            # Start wormhole process and capture code from stderr
+            wormhole_proc = subprocess.Popen(
+                *wormhole_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+
+            wormhole_code = None
+            while True:
+                line = wormhole_proc.stderr.readline()
+                if not line:
+                    break
+                decoded_line = line.decode().strip()
+                if "Wormhole code is:" in decoded_line:
+                    wormhole_code = decoded_line.split(":")[-1].strip()
+                    self.log(
+                        logging.DEBUG,
+                        f"Upload through wormhole: {wormhole_code}."
+                    )
+                    break
+
+            if not wormhole_code:
+                wormhole_proc.wait()
+                stderr = wormhole_proc.stderr.read()
+                raise MultipartUploadException(
+                    {},
+                    f"Failed to get wormhole code: {stderr.decode()}"
+                )
+
+            data = {
+                "path": os.path.join(directory, filename),
+                "transfer_directives": {
+                    "wormholeCode": wormhole_code,
+                    "transfer_method": transfer_method
+                }
+            }
+
+            if account is not None:
+                data["account"] = account
+
+            resp = self._post_request(
+                endpoint=f"/filesystem/{system_name}/transfer/upload",
+                json_data=data
+            )
+
+            transfer_info = self._check_response(resp, 201)
+            ext_upload = SyncExternalUpload(
+                client=self,
+                transfer_info=transfer_info,
+                local_file=local_file,
+            )
+
+            ext_upload.wait_for_transfer_job()
+
+            # Wait for the wormhole command of upload to finish
+            rc = wormhole_proc.wait(timeout=30)
+            if rc != 0:
+                raise MultipartUploadException(
+                    transfer_info,
+                    f"Wormhole send failed with exit code {rc}"
+                )
+
+            return ext_upload
+
         if self._api_version < parse("2.4.0"):
             data = {
                 "source_path": directory,
@@ -1628,6 +1732,7 @@ class Firecrest:
             endpoint=f"/filesystem/{system_name}/transfer/upload",
             json_data=data
         )
+
         transfer_info = self._check_response(resp, 201)
         ext_upload = ExternalUpload(
             client=self,
@@ -1663,8 +1768,6 @@ class Firecrest:
 
                 # Directly upload the file via the streamer
                 ext_upload.upload_file_streamer()
-            elif actual_transfer_method == "wormhole":
-                ext_upload.send_file_wormhole()
 
         return ext_upload
 
