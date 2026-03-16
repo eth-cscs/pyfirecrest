@@ -18,7 +18,6 @@ import ssl
 from packaging.version import Version, parse
 from streamer import streamer_client as cli
 from typing import Any, Optional, List
-import subprocess
 
 from firecrest.utilities import (
     parse_retry_after,
