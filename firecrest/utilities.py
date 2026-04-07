@@ -174,6 +174,5 @@ def part_checksum_xml(all_tags):
         part_etag.text = p['ETag']
         part_number = ElementTree.SubElement(part_element, 'PartNumber')
         part_number.text = str(p['PartNumber'])
-    return ElementTree.tostring(
-        root, encoding='utf-8', xml_declaration=True, method='xml'
-    ).decode('utf-8')
+    xml_body = ElementTree.tostring(root, encoding='unicode', method='xml')
+    return '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n' + xml_body
