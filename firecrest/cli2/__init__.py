@@ -15,7 +15,7 @@ import yaml
 import firecrest as fc
 
 from firecrest import __app_name__, __version__
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -1034,7 +1034,9 @@ def main(
             "--token-command is mutually exclusive with --client-id, --client-secret, and --token-url"
         )
 
+    auth_obj: Union[fc.TokenCommandAuth, fc.ClientCredentialsAuth]
     if using_token_command:
+        assert token_command is not None
         auth_obj = fc.TokenCommandAuth(token_command)
     elif using_client_creds:
         missing = [
@@ -1049,8 +1051,10 @@ def main(
                 f"Client credentials mode requires all of: --client-id, --client-secret, --token-url. "
                 f"Missing: {', '.join(missing)}"
             )
-        auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
-        auth_obj.timeout = auth_timeout
+        assert client_id is not None and client_secret is not None and token_url is not None
+        cc_auth = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
+        cc_auth.timeout = auth_timeout
+        auth_obj = cc_auth
     else:
         raise typer.BadParameter(
             "No authentication method provided. Use --token-command or supply "
