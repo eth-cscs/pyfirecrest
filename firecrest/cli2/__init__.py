@@ -970,16 +970,21 @@ def main(
     firecrest_url: str = typer.Option(
         ..., help="FirecREST URL.", envvar="FIRECREST_URL"
     ),
-    client_id: str = typer.Option(
-        ..., help="Registered client ID.", envvar="FIRECREST_CLIENT_ID"
+    client_id: Optional[str] = typer.Option(
+        None, help="Registered client ID.", envvar="FIRECREST_CLIENT_ID"
     ),
-    client_secret: str = typer.Option(
-        ..., help="Secret for the client.", envvar="FIRECREST_CLIENT_SECRET"
+    client_secret: Optional[str] = typer.Option(
+        None, help="Secret for the client.", envvar="FIRECREST_CLIENT_SECRET"
     ),
-    token_url: str = typer.Option(
-        ...,
+    token_url: Optional[str] = typer.Option(
+        None,
         help="URL of the token request in the authorization server (e.g. https://auth.com/auth/.../openid-connect/token).",
         envvar="AUTH_TOKEN_URL",
+    ),
+    token_command: Optional[str] = typer.Option(
+        None,
+        help="Shell command whose stdout is used as the bearer token. Mutually exclusive with --client-id/--client-secret/--token-url.",
+        envvar="FIRECREST_TOKEN_COMMAND",
     ),
     api_version: str = typer.Option(
         None,
@@ -1003,17 +1008,55 @@ def main(
     """
     CLI for FirecREST
 
-    Before running you need to setup the following variables or pass them as required options:
-    - FIRECREST_URL: FirecREST URL
-    - FIRECREST_CLIENT_ID: registered client ID
-    - FIRECREST_CLIENT_SECRET: secret for the client
-    - AUTH_TOKEN_URL: URL for the token request in the authorization server (e.g. https://auth.your-server.com/auth/.../openid-connect/token)
+    Authentication — choose one mode:
+
+    \b
+    Client credentials (default):
+      Set FIRECREST_CLIENT_ID, FIRECREST_CLIENT_SECRET, and AUTH_TOKEN_URL
+      (or pass --client-id, --client-secret, --token-url).
+
+    \b
+    Token command:
+      Set FIRECREST_TOKEN_COMMAND to a shell command whose stdout is the
+      bearer token (or pass --token-command). The command is re-run on
+      each request, so token refresh is handled automatically.
+      Example: --token-command "my-org-cli auth token"
     """
     _ensure_event_loop()
 
     global client
-    auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
-    auth_obj.timeout = auth_timeout
+
+    using_token_command = token_command is not None
+    using_client_creds = any([client_id, client_secret, token_url])
+
+    if using_token_command and using_client_creds:
+        raise typer.BadParameter(
+            "--token-command is mutually exclusive with --client-id, --client-secret, and --token-url"
+        )
+
+    if using_token_command:
+        auth_obj = fc.TokenCommandAuth(token_command)
+    elif using_client_creds:
+        missing = [
+            name for name, val in [
+                ("--client-id", client_id),
+                ("--client-secret", client_secret),
+                ("--token-url", token_url),
+            ] if val is None
+        ]
+        if missing:
+            raise typer.BadParameter(
+                f"Client credentials mode requires all of: --client-id, --client-secret, --token-url. "
+                f"Missing: {', '.join(missing)}"
+            )
+        auth_obj = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
+        auth_obj.timeout = auth_timeout
+    else:
+        raise typer.BadParameter(
+            "No authentication method provided. Use --token-command or supply "
+            "--client-id, --client-secret, and --token-url."
+        )
+
     client = fc.v2.AsyncFirecrest(firecrest_url=firecrest_url, authorization=auth_obj)
     client.timeout = timeout
     if api_version:
