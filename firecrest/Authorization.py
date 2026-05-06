@@ -130,7 +130,7 @@ class TokenCommandAuth:
         """Run the configured command and return its stdout as the access token."""
         result = subprocess.run(
             self._command,
-            shell=True,
+            shell=True,  # nosec B602 - shell=True is intentional: the command is user-supplied and user-controlled
             capture_output=True,
             text=True,
         )
