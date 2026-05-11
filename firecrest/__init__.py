@@ -6,7 +6,7 @@
 #
 import sys
 from . import v1, v2
-from firecrest.Authorization import ClientCredentialsAuth
+from firecrest.Authorization import ClientCredentialsAuth, TokenCommandAuth
 from firecrest.FirecrestException import (
     ClientsCredentialsException,
     FirecrestException,
@@ -26,6 +26,7 @@ __all__ = [
     "v1",
     "v2",
     "ClientCredentialsAuth",
+    "TokenCommandAuth",
     "ClientsCredentialsException",
     "FirecrestException",
     "HeaderException",

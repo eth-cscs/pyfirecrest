@@ -6,6 +6,7 @@
 #
 import logging
 import requests
+import subprocess
 import time
 
 import firecrest.FirecrestException as fe
@@ -108,3 +109,38 @@ class ClientCredentialsAuth:
             f"Token expires at {datetime.fromtimestamp(self._token_expiration_ts)}"
         )
         return self._access_token
+
+
+class TokenCommandAuth:
+    """
+    Authorization class that obtains a token by running a shell command.
+
+    The command is executed on every call to :meth:`get_access_token`, so it
+    naturally handles token refresh. The token is read from the command's
+    stdout (stripped of surrounding whitespace).
+
+    :param command: Shell command whose stdout is the bearer token.
+    :type command: str
+    """
+
+    def __init__(self, command: str):
+        self._command = command
+
+    def get_access_token(self) -> str:
+        """Run the configured command and return its stdout as the access token."""
+        result = subprocess.run(
+            self._command,
+            shell=True,  # nosec B602 - shell=True is intentional: the command is user-supplied and user-controlled
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Token command failed (exit {result.returncode}): {result.stderr.strip()}"
+            )
+
+        token = result.stdout.strip()
+        if not token:
+            raise RuntimeError("Token command produced no output")
+
+        return token
