@@ -1,7 +1,7 @@
 API v1
 ======
 
-.. deprecated::
+.. warning::
 
     FirecREST v1 is in **maintenance mode**: only minimal-effort issue fixes will be addressed and no new features are planned.
     New projects should use :doc:`reference_v2_index` whenever possible.
