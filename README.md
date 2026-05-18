@@ -27,14 +27,14 @@ keycloak = f7t.ClientCredentialsAuth(
     client_id, client_secret, token_uri
 )
 
-# Setup the client for the specific account
-client = f7t.v1.Firecrest(
+# Setup the v2 client
+client = f7t.v2.Firecrest(
     firecrest_url="http://localhost:8000", authorization=keycloak
 )
 
 try:
-    parameters = client.parameters()
-    print(f"Firecrest parameters: {parameters}")
+    systems = client.systems()
+    print(f"Available systems: {systems}")
 except f7t.FirecrestException as e:
     # When the error comes from the responses to a firecrest request you will get a
     # `FirecrestException` and from this you can examine the http responses yourself
@@ -49,14 +49,20 @@ except Exception as e:
 
 ### How to use it from the terminal
 
-After version 1.3.0 pyFirecREST comes together with a CLI but for now it can only be used with the `f7t.ClientCredentialsAuth` authentication class.
+The CLI defaults to FirecREST v2. It supports two authentication modes.
 
-Assuming you are using the same client, you can start by setting as environment variables:
+**Client credentials** — set the following environment variables:
 ```bash
+export FIRECREST_URL=http://localhost:8000
 export FIRECREST_CLIENT_ID=firecrest-sample
 export FIRECREST_CLIENT_SECRET=b391e177-fa50-4987-beaf-e6d33ca93571
-export FIRECREST_URL=http://localhost:8000
 export AUTH_TOKEN_URL=http://localhost:8080/auth/realms/kcrealm/protocol/openid-connect/token
+```
+
+**Token command** — set a shell command whose stdout is the bearer token (re-run on each request for automatic refresh):
+```bash
+export FIRECREST_URL=http://localhost:8000
+export FIRECREST_TOKEN_COMMAND="my-org-cli auth token"
 ```
 
 After that you can explore the capabilities of the CLI with the `--help` option:
@@ -66,30 +72,25 @@ firecrest ls --help
 firecrest submit --help
 firecrest upload --help
 firecrest download --help
-firecrest submit-template --help
 ```
 
 Some basic examples:
 ```bash
-# Get the parameters of different microservices of FirecREST
-firecrest parameters
-
 # Get the available systems
 firecrest systems
 
 # Set the environment variable to specify the name of the system
 export FIRECREST_SYSTEM="cluster"
 
+# Get the user and group information for the current user on the selected system
+firecrest id
+
 # List files of directory
 firecrest ls /home
 
 # Submit a job
-firecrest submit script.sh
+firecrest submit --working-dir /home/user script.sh
 
-# Upload a "small" file (you can check the maximum size in `UTILITIES_MAX_FILE_SIZE` from the `parameters` command)
-firecrest upload --type=direct local_file.txt /path/to/cluster/fs
-
-# Upload a "large" file
-firecrest upload --type=external local_file.txt /path/to/cluster/fs
-# You will have to finish the upload with a second command that will be given in the output
+# Upload a file to the cluster filesystem
+firecrest upload local_file.txt /path/to/cluster/fs remote_file.txt
 ```

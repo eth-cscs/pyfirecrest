@@ -1,13 +1,43 @@
 How to use the CLI
 ==================
 
-After version 1.3.0, pyFirecREST comes together with a CLI but for now it can only be used with the ``ClientCredentialsAuth`` authentication class.
+After version 1.3.0, pyFirecREST comes together with a CLI. It supports both FirecREST v1 and v2, and defaults to **v2**.
 
-.. attention::
+You always need to set ``FIRECREST_URL`` with the URL for the FirecREST instance you are using.
+For authentication, choose one of the two modes below.
 
-    The CLI currently only supports FirecREST v1. Support for v2 is planned for the next release.
+Client credentials
+------------------
 
-You will need to set the environment variables ``FIRECREST_CLIENT_ID``, ``FIRECREST_CLIENT_SECRET`` and ``AUTH_TOKEN_URL`` to set up the Client Credentials client, as well as ``FIRECREST_URL`` with the URL for the FirecREST instance you are using.
+Set ``FIRECREST_CLIENT_ID``, ``FIRECREST_CLIENT_SECRET``, and ``AUTH_TOKEN_URL`` (or pass them as ``--client-id``, ``--client-secret``, and ``--token-url``):
+
+.. code-block:: bash
+
+    export FIRECREST_URL=https://firecrest.example.com
+    export FIRECREST_CLIENT_ID=my-client
+    export FIRECREST_CLIENT_SECRET=my-secret
+    export AUTH_TOKEN_URL=https://auth.example.com/auth/.../openid-connect/token
+
+Token command
+-------------
+
+Set ``FIRECREST_TOKEN_COMMAND`` to a shell command whose stdout is the bearer token (or pass ``--token-command``).
+The command is re-run on each request, so token refresh is handled automatically:
+
+.. code-block:: bash
+
+    export FIRECREST_URL=https://firecrest.example.com
+    export FIRECREST_TOKEN_COMMAND="my-org-cli auth token"
+
+    # Or inline:
+    firecrest --token-command "my-org-cli auth token" systems
+
+.. note::
+
+    ``--token-command`` is mutually exclusive with ``--client-id`` / ``--client-secret`` / ``--token-url``.
+
+FirecREST cli examples for v2
+-----------------------------
 
 After that you can explore the capabilities of the CLI with the `--help` option:
 
@@ -18,7 +48,6 @@ After that you can explore the capabilities of the CLI with the `--help` option:
     firecrest submit --help
     firecrest upload --help
     firecrest download --help
-    firecrest submit-template --help
 
 Some basic examples:
 
@@ -30,18 +59,14 @@ Some basic examples:
     # Set the environment variable to specify the name of the system
     export FIRECREST_SYSTEM=cluster1
 
-    # Get the parameters of different microservices of FirecREST
-    firecrest parameters
+    # Get the user and group information for the current user on the selected system
+    firecrest id
 
     # List files of directory
     firecrest ls /home
 
     # Submit a job
-    firecrest submit script.sh
+    firecrest submit --working-dir /home/user script.sh
 
-    # Upload a "small" file (you can check the maximum size in `UTILITIES_MAX_FILE_SIZE` from the `parameters` command)
-    firecrest upload --type=direct local_file.txt /path/to/cluster/fs
-
-    # Upload a "large" file
-    firecrest upload --type=external local_file.txt /path/to/cluster/fs
-    # You will have to finish the upload with a second command that will be given in the output
+    # Upload a file to the cluster filesystem
+    firecrest upload local_file.txt /path/to/cluster/fs remote_file.txt
