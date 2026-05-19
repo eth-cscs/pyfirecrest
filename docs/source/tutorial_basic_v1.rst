@@ -1,6 +1,11 @@
 Tutorial for FirecREST v1
 =========================
 
+.. warning::
+
+    FirecREST v1 is in **maintenance mode**: only minimal-effort issue fixes will be addressed and no new features are planned.
+    New projects should use :doc:`tutorial_basic_v2` whenever possible.
+
 Your starting point to use pyFirecREST will be the creation of a FirecREST object.
 This is simply a mini client that, in cooperation with the authorization object, will take care of the necessary requests that need to be made and handle the responses.
 

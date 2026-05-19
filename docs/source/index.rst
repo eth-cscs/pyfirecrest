@@ -2,7 +2,7 @@
 Welcome to PyFirecREST
 ======================
 
-PyFirecREST is a Python library to use the `FirecREST API <https://firecrest.readthedocs.io>`__. With it, you can manage your resources from Python 3 scripts.
+PyFirecREST is a Python library to use the `FirecREST API v2 <https://eth-cscs.github.io/firecrest-v2/>`__. With it, you can manage your resources from Python 3 scripts.
 
 
 
@@ -25,8 +25,8 @@ You can also clone it from `Github <https://github.com/eth-cscs/pyfirecrest>`__ 
    :caption: Reference:
 
    reference_auth
-   reference_v1_index
    reference_v2_index
+   reference_v1_index
 
 
 Contact
