@@ -1,6 +1,6 @@
 # PyFirecREST
 
-This is a simple python wrapper for the [FirecREST API](https://github.com/eth-cscs/firecrest).
+This is a simple python wrapper for the [FirecREST API](https://github.com/eth-cscs/firecrest-v2).
 
 ### How to install
 - Through [PyPI](https://pypi.org/project/pyfirecrest/):
