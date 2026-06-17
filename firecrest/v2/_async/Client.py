@@ -1546,7 +1546,7 @@ class AsyncFirecrest:
         filename: str,
         account: Optional[str] = None,
         blocking: bool = True,
-        transfer_method: str = "wormhole"
+        transfer_method: str = "s3"
     ) -> Optional[AsyncExternalUpload]:
         """Upload a file to the system. Small files will be
         uploaded directly to FirecREST and will be immediately available.
@@ -1769,7 +1769,7 @@ class AsyncFirecrest:
         target_path: str | pathlib.Path,
         account: Optional[str] = None,
         blocking: bool = True,
-        transfer_method: str = "wormhole"
+        transfer_method: str = "s3"
     ) -> Optional[AsyncExternalDownload]:
         """Download a file from the remote system.
 
