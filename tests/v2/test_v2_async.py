@@ -1,7 +1,9 @@
 import json
 import pytest
 
-from context_v2 import AsyncFirecrest, UnexpectedStatusException
+from context_v2 import (AsyncFirecrest,
+                       NotImplementedOnAPIversion,
+                       UnexpectedStatusException)
 from werkzeug.wrappers import Response
 from werkzeug.wrappers import Request
 from handlers import (fc_server,
@@ -345,6 +347,32 @@ async def test_job_submit(valid_client):
     resp = await valid_client.submit("cluster", "/path/to/dir",
                                      script_str="...")
     assert resp == data["response"]
+
+
+@pytest.mark.asyncio
+async def test_job_submit_partition_reservation(valid_client):
+    data = read_json_file("v2/responses/job_submit.json")
+    resp = await valid_client.submit("cluster", "/path/to/dir",
+                                     script_str="...",
+                                     partition="part_a",
+                                     reservation="res_a")
+    assert resp == data["response"]
+
+
+@pytest.mark.asyncio
+async def test_job_submit_partition_old_api(valid_client):
+    valid_client.set_api_version("2.5.3")
+    with pytest.raises(NotImplementedOnAPIversion):
+        await valid_client.submit("cluster", "/path/to/dir",
+                                  script_str="...", partition="part_a")
+
+
+@pytest.mark.asyncio
+async def test_job_submit_reservation_old_api(valid_client):
+    valid_client.set_api_version("2.5.3")
+    with pytest.raises(NotImplementedOnAPIversion):
+        await valid_client.submit("cluster", "/path/to/dir",
+                                  script_str="...", reservation="res_a")
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,9 @@
 import json
 import pytest
 
-from context_v2 import Firecrest, UnexpectedStatusException
+from context_v2 import (Firecrest,
+                       NotImplementedOnAPIversion,
+                       UnexpectedStatusException)
 from werkzeug.wrappers import Response
 from werkzeug.wrappers import Request
 from handlers import (fc_server,
@@ -320,6 +322,30 @@ def test_job_submit(valid_client):
                                script_str="...")
 
     assert resp == data["response"]
+
+
+def test_job_submit_partition_reservation(valid_client):
+    data = read_json_file("v2/responses/job_submit.json")
+    resp = valid_client.submit("cluster", "/path/to/dir",
+                               script_str="...",
+                               partition="part_a",
+                               reservation="res_a")
+
+    assert resp == data["response"]
+
+
+def test_job_submit_partition_old_api(valid_client):
+    valid_client.set_api_version("2.5.3")
+    with pytest.raises(NotImplementedOnAPIversion):
+        valid_client.submit("cluster", "/path/to/dir",
+                            script_str="...", partition="part_a")
+
+
+def test_job_submit_reservation_old_api(valid_client):
+    valid_client.set_api_version("2.5.3")
+    with pytest.raises(NotImplementedOnAPIversion):
+        valid_client.submit("cluster", "/path/to/dir",
+                            script_str="...", reservation="res_a")
 
 
 def test_job_submit_no_script(valid_client):
