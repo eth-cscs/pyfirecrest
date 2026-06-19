@@ -11,4 +11,7 @@ from firecrest.v2 import (  # noqa
     ExternalDownload,
     ExternalUpload,
 )
-from firecrest.FirecrestException import UnexpectedStatusException
+from firecrest.FirecrestException import (  # noqa
+    NotImplementedOnAPIversion,
+    UnexpectedStatusException,
+)

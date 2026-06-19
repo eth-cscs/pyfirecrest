@@ -544,13 +544,13 @@ class AsyncFirecrest:
         # to `None`, the client will keep trying until it gets a different
         # status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
-        self._api_version: Version = parse("2.4.0")
+        self._api_version: Version = parse("2.5.4")
         self._session = httpx.AsyncClient(verify=self._verify)
         self._upload_semaphore = asyncio.Semaphore(self.MAX_S3_CONNECTIONS)
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be
-        assumed that you are using version 2.4.0 or compatible. The version is
+        assumed that you are using version 2.5.4 or compatible. The version is
         parsed by the `packaging` library.
         """
         self._api_version = parse(api_version)
@@ -1899,7 +1899,9 @@ class AsyncFirecrest:
         script_local_path: Optional[str] = None,
         script_remote_path: Optional[str] = None,
         env_vars: Optional[dict[str, str]] = None,
-        account: Optional[str] = None
+        account: Optional[str] = None,
+        partition: Optional[str] = None,
+        reservation: Optional[str] = None
     ) -> dict:
         """Submit a job.
 
@@ -1912,6 +1914,8 @@ class AsyncFirecrest:
         :param env_vars: environment variables to be set before running the
                          job
         :param account: the account to be used for the job
+        :param partition: the partition to be used for the job
+        :param reservation: the reservation to be used for the job
         :calls: POST `/compute/{system_name}/jobs`
         """
 
@@ -1969,6 +1973,24 @@ class AsyncFirecrest:
                 )
 
             data["job"]["account"] = account
+
+        if partition is not None:
+            if self._api_version < parse("2.5.4"):
+                raise NotImplementedOnAPIversion(
+                    "partition override is not available for "
+                    "version <2.5.4 of the API."
+                )
+
+            data["job"]["partition"] = partition
+
+        if reservation is not None:
+            if self._api_version < parse("2.5.4"):
+                raise NotImplementedOnAPIversion(
+                    "reservation override is not available for "
+                    "version <2.5.4 of the API."
+                )
+
+            data["job"]["reservation"] = reservation
 
         resp = await self._post_request(
             endpoint=f"/compute/{system_name}/jobs",

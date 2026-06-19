@@ -812,6 +812,14 @@ def submit(
     account: Optional[str] = typer.Option(
         None,
         help="The account to use for the operation. If not specified, the default account will be used.",
+    ),
+    partition: Optional[str] = typer.Option(
+        None,
+        help="The partition to use for the job. If not specified, the default partition will be used.",
+    ),
+    reservation: Optional[str] = typer.Option(
+        None,
+        help="The reservation to use for the job. If not specified, no reservation will be used.",
     )
 ):
     """Submit a batch script to the workload manager of the target system."""
@@ -830,6 +838,8 @@ def submit(
                 working_dir=working_dir,
                 env_vars=envvars,
                 account=account,
+                partition=partition,
+                reservation=reservation,
             ))
         else:
             result = asyncio.run(client.submit(
@@ -838,6 +848,8 @@ def submit(
                 working_dir=working_dir,
                 env_vars=envvars,
                 account=account,
+                partition=partition,
+                reservation=reservation,
             ))
 
         json_out(result)
