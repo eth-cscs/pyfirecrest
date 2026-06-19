@@ -30,6 +30,8 @@ class ClientCredentialsAuth:
     :type token_uri: string
     :param min_token_validity: reuse OIDC token until {min_token_validity} sec before the expiration time (by default 10). Since the token will be checked by different microservices, setting more time in min_token_validity will ensure that the token doesn't expire in the middle of the request.
     :type min_token_validity: float
+    :param client_auth_method: client authentication method used to send the credentials to the token endpoint. Either ``"client_secret_post"`` (default), which sends the credentials in the request body, or ``"client_secret_basic"``, which sends them using HTTP Basic authentication.
+    :type client_auth_method: string
     """
 
     def __init__(
@@ -38,10 +40,17 @@ class ClientCredentialsAuth:
         client_secret: str,
         token_uri: str,
         min_token_validity: int = 10,
+        client_auth_method: str = "client_secret_post",
     ):
+        if client_auth_method not in ("client_secret_post", "client_secret_basic"):
+            raise ValueError(
+                "client_auth_method must be either 'client_secret_post' or "
+                f"'client_secret_basic', got '{client_auth_method}'"
+            )
         self._client_id = client_id
         self._client_secret = client_secret
         self._token_uri = token_uri
+        self._client_auth_method = client_auth_method
         self._access_token = None
         self._token_expiration_ts = None
         self._min_token_validity = min_token_validity
@@ -81,13 +90,20 @@ class ClientCredentialsAuth:
             return self._access_token
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        data = {
-            "grant_type": "client_credentials",
-            "client_id": self._client_id,
-            "client_secret": self._client_secret,
-        }
+        data = {"grant_type": "client_credentials"}
+        auth = None
+        if self._client_auth_method == "client_secret_basic":
+            auth = (self._client_id, self._client_secret)
+        else:
+            data["client_id"] = self._client_id
+            data["client_secret"] = self._client_secret
+
         resp = requests.post(
-            self._token_uri, headers=headers, data=data, timeout=self.timeout
+            self._token_uri,
+            headers=headers,
+            data=data,
+            timeout=self.timeout,
+            auth=auth,
         )
         try:
             resp_json = resp.json()
