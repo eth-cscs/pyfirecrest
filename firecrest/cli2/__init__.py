@@ -993,6 +993,13 @@ def main(
         help="URL of the token request in the authorization server (e.g. https://auth.com/auth/.../openid-connect/token).",
         envvar="AUTH_TOKEN_URL",
     ),
+    client_auth_method: str = typer.Option(
+        "client_secret_post",
+        help="Client credentials mode only. Client authentication method used to send the "
+        "credentials to the token endpoint: 'client_secret_post' (default, credentials in the "
+        "request body) or 'client_secret_basic' (credentials via HTTP Basic auth).",
+        envvar="FIRECREST_CLIENT_AUTH_METHOD",
+    ),
     token_command: Optional[str] = typer.Option(
         None,
         help="Shell command whose stdout is used as the bearer token. Mutually exclusive with --client-id/--client-secret/--token-url.",
@@ -1026,6 +1033,9 @@ def main(
     Client credentials (default):
       Set FIRECREST_CLIENT_ID, FIRECREST_CLIENT_SECRET, and AUTH_TOKEN_URL
       (or pass --client-id, --client-secret, --token-url).
+      By default the credentials are sent in the request body
+      (client_secret_post). Pass --client-auth-method client_secret_basic
+      to send them via HTTP Basic auth instead.
 
     \b
     Token command:
@@ -1064,7 +1074,12 @@ def main(
                 f"Missing: {', '.join(missing)}"
             )
         assert client_id is not None and client_secret is not None and token_url is not None
-        cc_auth = fc.ClientCredentialsAuth(client_id, client_secret, token_url)
+        cc_auth = fc.ClientCredentialsAuth(
+            client_id,
+            client_secret,
+            token_url,
+            client_auth_method=client_auth_method,
+        )
         cc_auth.timeout = auth_timeout
         auth_obj = cc_auth
     else:

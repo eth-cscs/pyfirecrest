@@ -45,9 +45,48 @@ def auth_handler(request):
     return Response(json.dumps(ret), status=ret_status, content_type="application/json")
 
 
+def auth_handler_basic(request):
+    # client_secret_basic sends the credentials via HTTP Basic auth
+    if request.authorization is None:
+        ret = {
+            "error": "invalid_client",
+            "error_description": "Missing client credentials",
+        }
+        return Response(
+            json.dumps(ret), status=400, content_type="application/json"
+        )
+
+    client_id = request.authorization.username
+    client_secret = request.authorization.password
+    if client_id == "valid_id" and client_secret == "valid_secret":
+        ret = {
+            "access_token": "VALID_TOKEN",
+            "expires_in": 15,
+            "refresh_expires_in": 0,
+            "token_type": "Bearer",
+            "not-before-policy": 0,
+            "scope": "profile firecrest email",
+        }
+        ret_status = 200
+    else:
+        ret = {
+            "error": "invalid_client",
+            "error_description": "Invalid client credentials",
+        }
+        ret_status = 400
+
+    return Response(json.dumps(ret), status=ret_status, content_type="application/json")
+
+
 @pytest.fixture
 def auth_server(httpserver):
     httpserver.expect_request("/auth/token").respond_with_handler(auth_handler)
+    return httpserver
+
+
+@pytest.fixture
+def auth_server_basic(httpserver):
+    httpserver.expect_request("/auth/token").respond_with_handler(auth_handler_basic)
     return httpserver
 
 
@@ -71,6 +110,39 @@ def test_client_credentials_valid(auth_server):
     # Change the secret differentiate between first and second request
     auth_obj._client_secret = "valid_secret_2"
     assert auth_obj.get_access_token() == "token_2"
+
+
+def test_client_credentials_basic_valid(auth_server_basic):
+    auth_obj = firecrest.ClientCredentialsAuth(
+        "valid_id",
+        "valid_secret",
+        auth_server_basic.url_for("/auth/token"),
+        client_auth_method="client_secret_basic",
+    )
+    assert auth_obj.get_access_token() == "VALID_TOKEN"
+
+
+def test_client_credentials_basic_invalid_secret(auth_server_basic):
+    auth_obj = firecrest.ClientCredentialsAuth(
+        "valid_id",
+        "invalid_secret",
+        auth_server_basic.url_for("/auth/token"),
+        client_auth_method="client_secret_basic",
+    )
+    with pytest.raises(Exception) as exc_info:
+        auth_obj.get_access_token()
+
+    assert "Client credentials error" in str(exc_info.value)
+
+
+def test_client_credentials_invalid_auth_method():
+    with pytest.raises(ValueError):
+        firecrest.ClientCredentialsAuth(
+            "valid_id",
+            "valid_secret",
+            "https://auth.example.com/auth/token",
+            client_auth_method="invalid_method",
+        )
 
 
 def test_client_credentials_invalid_id(auth_server):
