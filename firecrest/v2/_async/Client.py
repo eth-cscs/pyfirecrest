@@ -15,7 +15,7 @@ import os
 import pathlib
 import ssl
 
-from packaging.version import Version, parse
+from packaging.version import InvalidVersion, Version, parse
 from streamer import streamer_client as cli
 from typing import Any, Optional, List
 
@@ -545,15 +545,49 @@ class AsyncFirecrest:
         # status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("2.5.4")
+        # Set to `True` when the user sets the version explicitly, in which
+        # case the version detected from the response headers is ignored
+        self._api_version_explicit: bool = False
+        self._detected_version_header: Optional[str] = None
         self._session = httpx.AsyncClient(verify=self._verify)
         self._upload_semaphore = asyncio.Semaphore(self.MAX_S3_CONNECTIONS)
 
     def set_api_version(self, api_version: str) -> None:
         """Set the version of the api of firecrest. By default it will be
-        assumed that you are using version 2.5.4 or compatible. The version is
-        parsed by the `packaging` library.
+        assumed that you are using version 2.5.4 or compatible, until the
+        version is detected from the `f7t-appversion` header of the
+        responses. Calling this method disables the automatic detection of
+        the version from the response headers. The version is parsed by the
+        `packaging` library.
         """
         self._api_version = parse(api_version)
+        self._api_version_explicit = True
+
+    def _update_api_version_from_response(
+        self, response: httpx.Response
+    ) -> None:
+        if self._api_version_explicit:
+            return
+
+        header = response.headers.get("f7t-appversion")
+        if not header or header == self._detected_version_header:
+            return
+
+        self._detected_version_header = header
+        try:
+            self._api_version = parse(header)
+            self.log(
+                logging.DEBUG,
+                f"Set API version to {header} from the response header"
+            )
+        except InvalidVersion:
+            # Development deployments report versions like "2.x.x"; keep
+            # the current version in that case
+            self.log(
+                logging.DEBUG,
+                f"Could not parse API version from the response header: "
+                f"{header}"
+            )
 
     async def close_session(self) -> None:
         """Close the httpx session"""
@@ -604,6 +638,7 @@ class AsyncFirecrest:
                 url=url, headers=headers, params=params, timeout=self.timeout
             )
 
+        self._update_api_version_from_response(resp)
         return resp
 
     @_retry_requests  # type: ignore
@@ -629,6 +664,7 @@ class AsyncFirecrest:
                 json=json_data
             )
 
+        self._update_api_version_from_response(resp)
         return resp
 
     @_retry_requests  # type: ignore
@@ -648,6 +684,7 @@ class AsyncFirecrest:
                 url=url, headers=headers, data=data, timeout=self.timeout, json=json_data
             )
 
+        self._update_api_version_from_response(resp)
         return resp
 
     @_retry_requests  # type: ignore
@@ -675,6 +712,7 @@ class AsyncFirecrest:
                 timeout=self.timeout,
             )
 
+        self._update_api_version_from_response(resp)
         return resp
 
     def _check_response(

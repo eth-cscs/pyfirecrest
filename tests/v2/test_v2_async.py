@@ -384,3 +384,49 @@ async def test_job_submit_no_script(valid_client):
         "Exactly one of the arguments `script_str`, "
         "`script_local_path` or `script_remote_path` must be set."
     )
+
+
+def _version_header_client(httpserver, app_version):
+    class ValidAuthorization:
+        def get_access_token(self):
+            return "VALID_TOKEN"
+
+    headers = {"f7t-appversion": app_version} if app_version else None
+    data = read_json_file("v2/responses/systems.json")
+    httpserver.expect_request(
+        "/status/systems", method="GET"
+    ).respond_with_json(data["response"], headers=headers)
+    return AsyncFirecrest(
+        firecrest_url=httpserver.url_for("/"),
+        authorization=ValidAuthorization()
+    )
+
+
+@pytest.mark.asyncio
+async def test_api_version_autodetect(httpserver):
+    client = _version_header_client(httpserver, "2.6.1")
+    assert str(client._api_version) == "2.5.4"
+    await client.systems()
+    assert str(client._api_version) == "2.6.1"
+
+
+@pytest.mark.asyncio
+async def test_api_version_autodetect_invalid_version(httpserver):
+    client = _version_header_client(httpserver, "2.x.x")
+    await client.systems()
+    assert str(client._api_version) == "2.5.4"
+
+
+@pytest.mark.asyncio
+async def test_api_version_autodetect_no_header(httpserver):
+    client = _version_header_client(httpserver, None)
+    await client.systems()
+    assert str(client._api_version) == "2.5.4"
+
+
+@pytest.mark.asyncio
+async def test_api_version_explicit_disables_autodetect(httpserver):
+    client = _version_header_client(httpserver, "2.6.1")
+    client.set_api_version("2.3.0")
+    await client.systems()
+    assert str(client._api_version) == "2.3.0"
