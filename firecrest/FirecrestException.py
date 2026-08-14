@@ -6,6 +6,8 @@
 #
 import json
 
+from firecrest.tracing import current_correlation_id
+
 
 ERROR_HEADERS = {
     "X-A-Directory",
@@ -20,6 +22,20 @@ ERROR_HEADERS = {
 }
 
 
+def _tracing_suffix(request_id=None, correlation_id=None):
+    """Format the tracing IDs for an exception message. Returns an empty
+    string when no ID is available.
+    """
+    ids = []
+    if request_id:
+        ids.append(f"X-Request-ID: {request_id}")
+
+    if correlation_id:
+        ids.append(f"X-Correlation-ID: {correlation_id}")
+
+    return f" [{', '.join(ids)}]" if ids else ""
+
+
 class FirecrestException(Exception):
     """Base class for exceptions raised when using PyFirecREST."""
 
@@ -31,13 +47,37 @@ class FirecrestException(Exception):
     def responses(self):
         return self._responses
 
+    @property
+    def request_id(self):
+        """The `X-Request-ID` header of the last request, or `None` when
+        the request didn't carry one.
+        """
+        if not self._responses:
+            return None
+
+        return self._responses[-1].request.headers.get("X-Request-ID")
+
+    @property
+    def correlation_id(self):
+        """The `X-Correlation-ID` header of the last request, or `None`
+        when the request didn't carry one.
+        """
+        if not self._responses:
+            return None
+
+        return self._responses[-1].request.headers.get("X-Correlation-ID")
+
     def __str__(self):
         try:
             last_json_response = self._responses[-1].json()
         except json.decoder.JSONDecodeError:
             last_json_response = None
 
-        return f"last request: {self._responses[-1].status_code} {last_json_response}"
+        return (
+            f"last request: {self._responses[-1].status_code} "
+            f"{last_json_response}"
+            f"{_tracing_suffix(self.request_id, self.correlation_id)}"
+        )
 
 
 class NotFound(FirecrestException):
@@ -120,6 +160,15 @@ class TransferJobFailedException(Exception):
     def __init__(self, transfer_job_info, file_not_found=False):
         self._transfer_job_info = transfer_job_info
         self._file_not_found = file_not_found
+        self._correlation_id = current_correlation_id.get()
+
+    @property
+    def correlation_id(self):
+        """The `X-Correlation-ID` header of the requests of the transfer
+        operation, or `None` when no ID was set when the exception was
+        raised.
+        """
+        return self._correlation_id
 
     def __str__(self):
         if self._file_not_found:
@@ -127,11 +176,13 @@ class TransferJobFailedException(Exception):
                 f"Logs for transfer job not found. Maybe the job was "
                 f"cancelled. Check the transfer job for more information: "
                 f"{self._transfer_job_info['transferJob']}"
+                f"{_tracing_suffix(correlation_id=self._correlation_id)}"
             )
 
         return (
             f"Transfer job failed. Check the log files for more "
             f"information: {self._transfer_job_info['transferJob']}"
+            f"{_tracing_suffix(correlation_id=self._correlation_id)}"
         )
 
 
@@ -155,6 +206,7 @@ class TransferJobTimeoutException(TransferJobFailedException):
             f"Transfer job has exceeded the user-defined timeout. "
             f"Transfer job was cancelled: "
             f"{self._transfer_job_info['transferJob']}."
+            f"{_tracing_suffix(correlation_id=self._correlation_id)}"
         )
 
 
@@ -164,12 +216,22 @@ class MultipartUploadException(Exception):
     def __init__(self, transfer_job_info, msg=None):
         self._transfer_job_info = transfer_job_info
         self._msg = msg
+        self._correlation_id = current_correlation_id.get()
+
+    @property
+    def correlation_id(self):
+        """The `X-Correlation-ID` header of the requests of the transfer
+        operation, or `None` when no ID was set when the exception was
+        raised.
+        """
+        return self._correlation_id
 
     def __str__(self):
         ret = f"{self._msg}: " if self._msg else ""
         ret += (
             f"Multipart upload failed. Transfer info: "
             f"({self._transfer_job_info})"
+            f"{_tracing_suffix(correlation_id=self._correlation_id)}"
         )
         return ret
 

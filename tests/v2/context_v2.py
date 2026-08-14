@@ -15,3 +15,4 @@ from firecrest.FirecrestException import (  # noqa
     NotImplementedOnAPIversion,
     UnexpectedStatusException,
 )
+from firecrest.tracing import correlation_id  # noqa

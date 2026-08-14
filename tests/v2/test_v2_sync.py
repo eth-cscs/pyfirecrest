@@ -2,6 +2,7 @@ import json
 import pytest
 
 from context_v2 import (Firecrest,
+                       correlation_id,
                        NotImplementedOnAPIversion,
                        UnexpectedStatusException)
 from werkzeug.wrappers import Response
@@ -261,8 +262,11 @@ def test_chown_not_permitted(valid_client):
         valid_client.chown("cluster", "/home/test1/xxx",
                            "test1", "users")
 
-    assert str(excinfo.value) == (
-        f"last request: 403 {data['response']}: expected status 200"
+    exc = excinfo.value
+    assert str(exc) == (
+        f"last request: 403 {data['response']}"
+        f" [X-Request-ID: {exc.request_id},"
+        f" X-Correlation-ID: {exc.correlation_id}]: expected status 200"
     )
 
 
@@ -398,3 +402,55 @@ def test_api_version_explicit_disables_autodetect(httpserver):
     client.set_api_version("2.3.0")
     client.systems()
     assert str(client._api_version) == "2.3.0"
+
+
+def test_tracing_headers(valid_client, fc_server):
+    valid_client.systems()
+    valid_client.partitions("cluster")
+
+    requests = [req for req, _ in fc_server.log]
+    assert len(requests) == 2
+    for req in requests:
+        assert req.headers["X-Request-ID"]
+        assert req.headers["X-Correlation-ID"]
+
+    # Every request gets a fresh request ID and every method call gets its
+    # own auto-generated correlation ID
+    assert (
+        requests[0].headers["X-Request-ID"] !=
+        requests[1].headers["X-Request-ID"]
+    )
+    assert (
+        requests[0].headers["X-Correlation-ID"] !=
+        requests[1].headers["X-Correlation-ID"]
+    )
+
+
+def test_user_provided_correlation_id(valid_client, fc_server):
+    with correlation_id("my-workflow-id"):
+        valid_client.systems()
+        valid_client.partitions("cluster")
+
+    requests = [req for req, _ in fc_server.log]
+    assert len(requests) == 2
+    for req in requests:
+        assert req.headers["X-Correlation-ID"] == "my-workflow-id"
+
+    # The request IDs are still unique per request
+    assert (
+        requests[0].headers["X-Request-ID"] !=
+        requests[1].headers["X-Request-ID"]
+    )
+
+
+def test_exception_carries_tracing_ids(invalid_client, fc_server):
+    with pytest.raises(UnexpectedStatusException) as excinfo:
+        invalid_client.systems()
+
+    exc = excinfo.value
+    requests = [req for req, _ in fc_server.log]
+    assert exc.request_id == requests[-1].headers["X-Request-ID"]
+    assert exc.correlation_id == requests[-1].headers["X-Correlation-ID"]
+    # The IDs show up in the exception message
+    assert exc.request_id in str(exc)
+    assert exc.correlation_id in str(exc)

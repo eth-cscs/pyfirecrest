@@ -7,6 +7,7 @@
 import sys
 from . import v1, v2
 from firecrest.Authorization import ClientCredentialsAuth, TokenCommandAuth
+from firecrest.tracing import correlation_id
 from firecrest.FirecrestException import (
     ClientsCredentialsException,
     FirecrestException,
@@ -27,6 +28,7 @@ __all__ = [
     "v2",
     "ClientCredentialsAuth",
     "TokenCommandAuth",
+    "correlation_id",
     "ClientsCredentialsException",
     "FirecrestException",
     "HeaderException",

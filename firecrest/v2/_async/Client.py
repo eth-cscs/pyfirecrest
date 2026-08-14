@@ -8,17 +8,20 @@ from __future__ import annotations
 
 import aiofiles
 import asyncio
+import functools
 import httpx
 import json
 import logging
 import os
 import pathlib
 import ssl
+import uuid
 
 from packaging.version import InvalidVersion, Version, parse
 from streamer import streamer_client as cli
 from typing import Any, Optional, List
 
+from firecrest.tracing import current_correlation_id, ensure_correlation_id
 from firecrest.utilities import (
     parse_retry_after,
     part_checksum_xml,
@@ -63,12 +66,28 @@ def sleep_generator():
             value *= 2
 
 
+def _with_correlation_id(func):
+    """Ensure a correlation ID is set for the duration of the method, so
+    that all the requests it makes share the same `X-Correlation-ID`
+    header. An ID set by the user with :func:`firecrest.correlation_id`
+    takes precedence; otherwise a random UUID4 is generated for each method
+    call.
+    """
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        with ensure_correlation_id():
+            return await func(*args, **kwargs)
+
+    return wrapper
+
+
 class AsyncExternalTransfer:
     async def wait_for_transfer_job(self, timeout=None):
-        await self._client._wait_for_transfer_job(
-            self._transfer_info,
-            timeout=timeout
-        )
+        with ensure_correlation_id(self._correlation_id):
+            await self._client._wait_for_transfer_job(
+                self._transfer_info,
+                timeout=timeout
+            )
 
     async def wait_for_streamer_job_to_listen(self):
         job_id = self._transfer_info.get("transferJob", {}).get("jobId")
@@ -85,6 +104,10 @@ class AsyncExternalTransfer:
                 "Could not find transfer job system name in the transfer info"
             )
 
+        with ensure_correlation_id(self._correlation_id):
+            await self._wait_for_streamer_job_to_listen(system_name, job_id)
+
+    async def _wait_for_streamer_job_to_listen(self, system_name, job_id):
         for i in sleep_generator():
             try:
                 job = await self._client.job_info(system_name, job_id)
@@ -144,6 +167,9 @@ class AsyncExternalUpload(AsyncExternalTransfer):
         self._client = client
         self._local_file = local_file
         self._transfer_info = transfer_info
+        # Keep the correlation ID of the method that created the transfer,
+        # so that follow-up requests can be traced as part of it
+        self._correlation_id = current_correlation_id.get()
         self._all_tags = []
         # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
@@ -350,6 +376,9 @@ class AsyncExternalDownload(AsyncExternalTransfer):
         self._client = client
         self._transfer_info = transfer_info
         self._file_path = file_path
+        # Keep the correlation ID of the method that created the transfer,
+        # so that follow-up requests can be traced as part of it
+        self._correlation_id = current_correlation_id.get()
         # Chunk size for the multipart download. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
 
@@ -618,6 +647,18 @@ class AsyncFirecrest:
         if not self.disable_client_logging:
             logger.log(level, msg)
 
+    def _tracing_headers(self) -> dict:
+        """Return the tracing headers of a request: a fresh `X-Request-ID`
+        for this request and, when one is set in the current context, the
+        `X-Correlation-ID`.
+        """
+        headers = {"X-Request-ID": str(uuid.uuid4())}
+        correlation = current_correlation_id.get()
+        if correlation is not None:
+            headers["X-Correlation-ID"] = correlation
+
+        return headers
+
     @_retry_requests  # type: ignore
     async def _get_request(
         self,
@@ -626,13 +667,19 @@ class AsyncFirecrest:
         params=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.DEBUG, f"Making GET request to {endpoint}")
+        self.log(
+            logging.DEBUG,
+            f"Making GET request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"GET request to {endpoint}", logger):
             resp = await self._session.get(
                 url=url, headers=headers, params=params, timeout=self.timeout
@@ -646,13 +693,19 @@ class AsyncFirecrest:
         self, endpoint, additional_headers=None, params=None, data=None, files=None, json_data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.DEBUG, f"Making POST request to {endpoint}")
+        self.log(
+            logging.DEBUG,
+            f"Making POST request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"POST request to {endpoint}", logger):
             resp = await self._session.post(
                 url=url,
@@ -672,13 +725,19 @@ class AsyncFirecrest:
         self, endpoint, additional_headers=None, data=None, json_data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.DEBUG, f"Making PUT request to {endpoint}")
+        self.log(
+            logging.DEBUG,
+            f"Making PUT request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"PUT request to {endpoint}", logger):
             resp = await self._session.put(
                 url=url, headers=headers, data=data, timeout=self.timeout, json=json_data
@@ -692,13 +751,19 @@ class AsyncFirecrest:
         self, endpoint, additional_headers=None, params=None, data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.INFO, f"Making DELETE request to {endpoint}")
+        self.log(
+            logging.INFO,
+            f"Making DELETE request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"DELETE request to {endpoint}", logger):
             # httpx doesn't support data in the `delete` method so we will
             # have to use the generic `request` method
@@ -735,6 +800,7 @@ class AsyncFirecrest:
 
         return response.json() if return_json and status_code != 204 else {}
 
+    @_with_correlation_id  # type: ignore
     async def server_version(self) -> str | None:
         """Returns the exact API version of the FirecREST server.
 
@@ -750,6 +816,7 @@ class AsyncFirecrest:
         else:
             return None
 
+    @_with_correlation_id  # type: ignore
     async def systems(self) -> List[dict]:
         """Returns available systems.
 
@@ -758,6 +825,7 @@ class AsyncFirecrest:
         resp = await self._get_request(endpoint="/status/systems")
         return self._check_response(resp, 200)['systems']
 
+    @_with_correlation_id  # type: ignore
     async def nodes(
         self,
         system_name: str
@@ -772,6 +840,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)['nodes']
 
+    @_with_correlation_id  # type: ignore
     async def reservations(
         self,
         system_name: str
@@ -786,6 +855,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)['reservations']
 
+    @_with_correlation_id  # type: ignore
     async def partitions(
         self,
         system_name: str
@@ -800,6 +870,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["partitions"]
 
+    @_with_correlation_id  # type: ignore
     async def userinfo(
         self,
         system_name: str
@@ -813,6 +884,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)
 
+    @_with_correlation_id  # type: ignore
     async def list_files(
         self,
         system_name: str,
@@ -846,6 +918,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def head(
         self,
         system_name: str,
@@ -897,6 +970,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)['output']
 
+    @_with_correlation_id  # type: ignore
     async def tail(
         self,
         system_name: str,
@@ -950,6 +1024,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)['output']
 
+    @_with_correlation_id  # type: ignore
     async def view(
         self,
         system_name: str,
@@ -968,6 +1043,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def checksum(
         self,
         system_name: str,
@@ -986,6 +1062,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def file_type(
         self,
         system_name: str,
@@ -1004,6 +1081,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def chmod(
         self,
         system_name: str,
@@ -1028,6 +1106,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def chown(
         self,
         system_name: str,
@@ -1056,6 +1135,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def stat(
         self,
         system_name: str,
@@ -1081,6 +1161,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def symlink(
         self,
         system_name: str,
@@ -1104,6 +1185,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 201)
 
+    @_with_correlation_id  # type: ignore
     async def mkdir(
         self,
         system_name: str,
@@ -1127,6 +1209,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 201)["output"]
 
+    @_with_correlation_id  # type: ignore
     async def mv(
         self,
         system_name: str,
@@ -1170,6 +1253,7 @@ class AsyncFirecrest:
 
         return job_info
 
+    @_with_correlation_id  # type: ignore
     async def compress(
         self,
         system_name: str,
@@ -1242,6 +1326,7 @@ class AsyncFirecrest:
 
         return None
 
+    @_with_correlation_id  # type: ignore
     async def extract(
         self,
         system_name: str,
@@ -1352,6 +1437,7 @@ class AsyncFirecrest:
         ):
             raise TransferJobFailedException(job_info)
 
+    @_with_correlation_id  # type: ignore
     async def wait_for_job(
         self,
         system_name: str,
@@ -1447,6 +1533,7 @@ class AsyncFirecrest:
 
         return job
 
+    @_with_correlation_id  # type: ignore
     async def cp(
         self,
         system_name: str,
@@ -1495,6 +1582,7 @@ class AsyncFirecrest:
 
         return job_info
 
+    @_with_correlation_id  # type: ignore
     async def rm(
         self,
         system_name: str,
@@ -1576,6 +1664,7 @@ class AsyncFirecrest:
 
         return job_info
 
+    @_with_correlation_id  # type: ignore
     async def upload(
         self,
         system_name: str,
@@ -1800,6 +1889,7 @@ class AsyncFirecrest:
 
         return ext_upload
 
+    @_with_correlation_id  # type: ignore
     async def download(
         self,
         system_name: str,
@@ -1929,6 +2019,7 @@ class AsyncFirecrest:
 
         return download_obj
 
+    @_with_correlation_id  # type: ignore
     async def submit(
         self,
         system_name: str,
@@ -2036,6 +2127,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 201)
 
+    @_with_correlation_id  # type: ignore
     async def job_info(
         self,
         system_name: str,
@@ -2077,6 +2169,7 @@ class AsyncFirecrest:
         result_jobs = self._check_response(resp, 200)["jobs"]
         return result_jobs if result_jobs is not None else []
 
+    @_with_correlation_id  # type: ignore
     async def job_metadata(
         self,
         system_name: str,
@@ -2093,6 +2186,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 200)['jobs']
 
+    @_with_correlation_id  # type: ignore
     async def cancel_job(
         self,
         system_name: str,
@@ -2109,6 +2203,7 @@ class AsyncFirecrest:
         )
         return self._check_response(resp, 204)
 
+    @_with_correlation_id  # type: ignore
     async def attach_to_job(
         self,
         system_name: str,

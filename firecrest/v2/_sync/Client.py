@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import httpx
 import json
 import logging
@@ -15,11 +16,13 @@ import pathlib
 import ssl
 import time
 import subprocess
+import uuid
 
 from packaging.version import InvalidVersion, Version, parse
 from streamer import streamer_client as cli
 from typing import Any, BinaryIO, List, Optional
 
+from firecrest.tracing import current_correlation_id, ensure_correlation_id
 from firecrest.utilities import (
     parse_retry_after,
     part_checksum_xml,
@@ -64,12 +67,28 @@ def sleep_generator():
             value *= 2
 
 
+def _with_correlation_id(func):
+    """Ensure a correlation ID is set for the duration of the method, so
+    that all the requests it makes share the same `X-Correlation-ID`
+    header. An ID set by the user with :func:`firecrest.correlation_id`
+    takes precedence; otherwise a random UUID4 is generated for each method
+    call.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with ensure_correlation_id():
+            return func(*args, **kwargs)
+
+    return wrapper
+
+
 class ExternalTransfer:
     def wait_for_transfer_job(self, timeout=None):
-        self._client._wait_for_transfer_job(
-            self._transfer_info,
-            timeout=timeout
-        )
+        with ensure_correlation_id(self._correlation_id):
+            self._client._wait_for_transfer_job(
+                self._transfer_info,
+                timeout=timeout
+            )
 
     def wait_for_streamer_job_to_listen(self):
         job_id = self._transfer_info.get("transferJob", {}).get("jobId")
@@ -86,6 +105,10 @@ class ExternalTransfer:
                 "Could not find transfer job system name in the transfer info"
             )
 
+        with ensure_correlation_id(self._correlation_id):
+            self._wait_for_streamer_job_to_listen(system_name, job_id)
+
+    def _wait_for_streamer_job_to_listen(self, system_name, job_id):
         for i in sleep_generator():
             try:
                 job = self._client.job_info(system_name, job_id)
@@ -145,6 +168,9 @@ class ExternalUpload(ExternalTransfer):
         self._client = client
         self._local_file = local_file
         self._transfer_info = transfer_info
+        # Keep the correlation ID of the method that created the transfer,
+        # so that follow-up requests can be traced as part of it
+        self._correlation_id = current_correlation_id.get()
         self._all_tags = []
         # Chunk size for the multipart upload. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
@@ -209,10 +235,11 @@ class ExternalUpload(ExternalTransfer):
         self._complete_upload(checksum)
 
     def wait_for_transfer_job(self, timeout=None):
-        self._client._wait_for_transfer_job(
-            self._transfer_info,
-            timeout=timeout
-        )
+        with ensure_correlation_id(self._correlation_id):
+            self._client._wait_for_transfer_job(
+                self._transfer_info,
+                timeout=timeout
+            )
 
     def _upload_part(self, url, index):
         chunk_size = self._transfer_info.get("maxPartSize")
@@ -357,6 +384,9 @@ class ExternalDownload(ExternalTransfer):
         self._client = client
         self._transfer_info = transfer_info
         self._file_path = file_path
+        # Keep the correlation ID of the method that created the transfer,
+        # so that follow-up requests can be traced as part of it
+        self._correlation_id = current_correlation_id.get()
         # Chunk size for the multipart download. Default is 64MB.
         self.chunk_size = 64 * 1024 * 1024  # 64MB
 
@@ -618,6 +648,18 @@ class Firecrest:
         if not self.disable_client_logging:
             logger.log(level, msg)
 
+    def _tracing_headers(self) -> dict:
+        """Return the tracing headers of a request: a fresh `X-Request-ID`
+        for this request and, when one is set in the current context, the
+        `X-Correlation-ID`.
+        """
+        headers = {"X-Request-ID": str(uuid.uuid4())}
+        correlation = current_correlation_id.get()
+        if correlation is not None:
+            headers["X-Correlation-ID"] = correlation
+
+        return headers
+
     @_retry_requests  # type: ignore
     def _get_request(
         self,
@@ -626,13 +668,19 @@ class Firecrest:
         params=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.DEBUG, f"Making GET request to {endpoint}")
+        self.log(
+            logging.DEBUG,
+            f"Making GET request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"GET request to {endpoint}", logger):
             resp = self._session.get(
                 url=url, headers=headers, params=params, timeout=self.timeout
@@ -646,13 +694,19 @@ class Firecrest:
         self, endpoint, additional_headers=None, params=None, data=None, files=None, json_data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.DEBUG, f"Making POST request to {endpoint}")
+        self.log(
+            logging.DEBUG,
+            f"Making POST request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"POST request to {endpoint}", logger):
             resp = self._session.post(
                 url=url,
@@ -672,13 +726,19 @@ class Firecrest:
         self, endpoint, additional_headers=None, data=None, json_data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.DEBUG, f"Making PUT request to {endpoint}")
+        self.log(
+            logging.DEBUG,
+            f"Making PUT request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"PUT request to {endpoint}", logger):
             resp = self._session.put(
                 url=url, headers=headers, data=data, timeout=self.timeout, json=json_data
@@ -692,13 +752,19 @@ class Firecrest:
         self, endpoint, additional_headers=None, params=None, data=None
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
-        headers = {
-            "Authorization": f"Bearer {self._authorization.get_access_token()}"
-        }
+        headers = self._tracing_headers()
+        headers["Authorization"] = (
+            f"Bearer {self._authorization.get_access_token()}"
+        )
         if additional_headers:
             headers.update(additional_headers)
 
-        self.log(logging.INFO, f"Making DELETE request to {endpoint}")
+        self.log(
+            logging.INFO,
+            f"Making DELETE request to {endpoint} "
+            f"(X-Request-ID: {headers['X-Request-ID']}, "
+            f"X-Correlation-ID: {headers.get('X-Correlation-ID')})"
+        )
         with time_block(f"DELETE request to {endpoint}", logger):
             # httpx doesn't support data in the `delete` method so we will
             # have to use the generic `request` method
@@ -735,6 +801,7 @@ class Firecrest:
 
         return response.json() if return_json and status_code != 204 else {}
 
+    @_with_correlation_id  # type: ignore
     def server_version(self) -> str | None:
         """Returns the exact API version of the FirecREST server.
 
@@ -750,6 +817,7 @@ class Firecrest:
         else:
             return None
 
+    @_with_correlation_id  # type: ignore
     def systems(self) -> List[dict]:
         """Returns available systems.
 
@@ -758,6 +826,7 @@ class Firecrest:
         resp = self._get_request(endpoint="/status/systems")
         return self._check_response(resp, 200)['systems']
 
+    @_with_correlation_id  # type: ignore
     def nodes(
         self,
         system_name: str
@@ -772,6 +841,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)['nodes']
 
+    @_with_correlation_id  # type: ignore
     def reservations(
         self,
         system_name: str
@@ -786,6 +856,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)['reservations']
 
+    @_with_correlation_id  # type: ignore
     def partitions(
         self,
         system_name: str
@@ -800,6 +871,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["partitions"]
 
+    @_with_correlation_id  # type: ignore
     def userinfo(
         self,
         system_name: str
@@ -813,6 +885,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)
 
+    @_with_correlation_id  # type: ignore
     def list_files(
         self,
         system_name: str,
@@ -846,6 +919,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     def head(
         self,
         system_name: str,
@@ -897,6 +971,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)['output']
 
+    @_with_correlation_id  # type: ignore
     def tail(
         self,
         system_name: str,
@@ -950,6 +1025,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)['output']
 
+    @_with_correlation_id  # type: ignore
     def view(
         self,
         system_name: str,
@@ -968,6 +1044,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     def checksum(
         self,
         system_name: str,
@@ -986,6 +1063,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     def file_type(
         self,
         system_name: str,
@@ -1004,6 +1082,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     def chmod(
         self,
         system_name: str,
@@ -1028,6 +1107,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     def chown(
         self,
         system_name: str,
@@ -1056,6 +1136,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     def stat(
         self,
         system_name: str,
@@ -1081,6 +1162,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)["output"]
 
+    @_with_correlation_id  # type: ignore
     def symlink(
         self,
         system_name: str,
@@ -1104,6 +1186,7 @@ class Firecrest:
         )
         return self._check_response(resp, 201)
 
+    @_with_correlation_id  # type: ignore
     def mkdir(
         self,
         system_name: str,
@@ -1127,6 +1210,7 @@ class Firecrest:
         )
         return self._check_response(resp, 201)["output"]
 
+    @_with_correlation_id  # type: ignore
     def mv(
         self,
         system_name: str,
@@ -1170,6 +1254,7 @@ class Firecrest:
 
         return job_info
 
+    @_with_correlation_id  # type: ignore
     def compress(
         self,
         system_name: str,
@@ -1242,6 +1327,7 @@ class Firecrest:
 
         return None
 
+    @_with_correlation_id  # type: ignore
     def extract(
         self,
         system_name: str,
@@ -1352,6 +1438,7 @@ class Firecrest:
         ):
             raise TransferJobFailedException(job_info)
 
+    @_with_correlation_id  # type: ignore
     def wait_for_job(
         self,
         system_name: str,
@@ -1447,6 +1534,7 @@ class Firecrest:
 
         return job
 
+    @_with_correlation_id  # type: ignore
     def cp(
         self,
         system_name: str,
@@ -1495,6 +1583,7 @@ class Firecrest:
 
         return job_info
 
+    @_with_correlation_id  # type: ignore
     def rm(
         self,
         system_name: str,
@@ -1576,6 +1665,7 @@ class Firecrest:
 
         return job_info
 
+    @_with_correlation_id  # type: ignore
     def upload(
         self,
         system_name: str,
@@ -1805,6 +1895,7 @@ class Firecrest:
 
         return ext_upload
 
+    @_with_correlation_id  # type: ignore
     def download(
         self,
         system_name: str,
@@ -1937,6 +2028,7 @@ class Firecrest:
 
         return download_obj
 
+    @_with_correlation_id  # type: ignore
     def submit(
         self,
         system_name: str,
@@ -2044,6 +2136,7 @@ class Firecrest:
         )
         return self._check_response(resp, 201)
 
+    @_with_correlation_id  # type: ignore
     def job_info(
         self,
         system_name: str,
@@ -2085,6 +2178,7 @@ class Firecrest:
         result_jobs = self._check_response(resp, 200)["jobs"]
         return result_jobs if result_jobs is not None else []
 
+    @_with_correlation_id  # type: ignore
     def job_metadata(
         self,
         system_name: str,
@@ -2101,6 +2195,7 @@ class Firecrest:
         )
         return self._check_response(resp, 200)['jobs']
 
+    @_with_correlation_id  # type: ignore
     def cancel_job(
         self,
         system_name: str,
@@ -2117,6 +2212,7 @@ class Firecrest:
         )
         return self._check_response(resp, 204)
 
+    @_with_correlation_id  # type: ignore
     def attach_to_job(
         self,
         system_name: str,
