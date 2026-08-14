@@ -68,6 +68,12 @@ dev = [
     "unasync"
 ]
 
+[tool.ruff.lint]
+# Keep the rule set that was the default before ruff 0.16 expanded the
+# defaults. New rule groups can be adopted deliberately by extending this
+# list (and fixing the findings they report).
+select = ["E4", "E7", "E9", "F"]
+
 [tool.mypy]
 show_error_codes = true
 strict = false

@@ -4,23 +4,22 @@
 #  Please, refer to the LICENSE file in the root directory.
 #  SPDX-License-Identifier: BSD-3-Clause
 #
-import uuid
+from __future__ import annotations
 
+import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Optional
-
 
 #: Context variable holding the correlation ID that is sent as the
 #: `X-Correlation-ID` header in all the requests to FirecREST made in the
 #: current context. Use the :func:`correlation_id` context manager to set it.
-current_correlation_id: ContextVar[Optional[str]] = ContextVar(
+current_correlation_id: ContextVar[str | None] = ContextVar(
     "firecrest_correlation_id", default=None
 )
 
 
 @contextmanager
-def correlation_id(cid: Optional[str] = None):
+def correlation_id(cid: str | None = None):
     """Attach a correlation ID to all the requests to FirecREST that are
     made inside this context. The ID is sent in the `X-Correlation-ID`
     header of every request, so all of them can be traced in the server
@@ -47,7 +46,7 @@ def correlation_id(cid: Optional[str] = None):
 
 
 @contextmanager
-def ensure_correlation_id(default: Optional[str] = None):
+def ensure_correlation_id(default: str | None = None):
     """Set the correlation ID only when none is set in the current context.
 
     Used internally by the clients so that every public method call gets a
