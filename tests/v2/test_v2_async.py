@@ -339,6 +339,20 @@ async def test_job_info_account(valid_client):
 
 
 @pytest.mark.asyncio
+async def test_job_info_name(valid_client):
+    data = read_json_file("v2/responses/job_info_name.json")
+    resp = await valid_client.job_info("cluster", name="allocation")
+    assert resp == data["response"]["jobs"]
+
+
+@pytest.mark.asyncio
+async def test_job_info_name_old_api(valid_client):
+    valid_client.set_api_version("2.5.6")
+    with pytest.raises(NotImplementedOnAPIversion):
+        await valid_client.job_info("cluster", name="allocation")
+
+
+@pytest.mark.asyncio
 async def test_job_metadata(valid_client):
     data = read_json_file("v2/responses/job_metadata.json")
     resp = await valid_client.job_metadata("cluster", "1")
