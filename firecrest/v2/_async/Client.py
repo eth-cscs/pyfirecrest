@@ -573,7 +573,7 @@ class AsyncFirecrest:
         # to `None`, the client will keep trying until it gets a different
         # status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
-        self._api_version: Version = parse("2.5.4")
+        self._api_version: Version = parse("2.5.7")
         # Set to `True` when the user sets the version explicitly, in which
         # case the version detected from the response headers is ignored
         self._api_version_explicit: bool = False
@@ -2134,7 +2134,8 @@ class AsyncFirecrest:
         jobid: Optional[str] = None,
         allusers: bool = False,
         account: Optional[str] = None,
-        name: Optional[str] = None
+        name: Optional[str] = None,
+        time_window: Optional[str] = None
     ) -> list:
         """Get job information. When the job is not specified, it will return
         all the jobs.
@@ -2147,6 +2148,13 @@ class AsyncFirecrest:
                         into account when you are not specifying a jobid.
         :param name: a job name to filter the jobs by. It will only be taken
                      into account when you are not specifying a jobid.
+        :param time_window: how far back to look for historical (completed,
+                            failed, cancelled...) jobs. Pending and running
+                            jobs are always returned. Accepted values are
+                            `1h`, `8h`, `24h`, `3d` and `7d`. It will
+                            only be taken into account when you are not
+                            specifying a jobid. Has no effect on PBS
+                            clusters.
         :calls: GET `/compute/{system_name}/jobs` or
                 GET `/compute/{system_name}/jobs/{job}`
         """
@@ -2171,9 +2179,20 @@ class AsyncFirecrest:
                 "version <2.5.7 of the API."
             )
 
+        if self._api_version < parse("2.5.7") and time_window:
+            raise NotImplementedOnAPIversion(
+                "The `time_window` parameter is not available for "
+                "version <2.5.7 of the API."
+            )
+
         resp = await self._get_request(
             endpoint=url,
-            params={"allusers": allusers, "account": account, "name": name}
+            params={
+                "allusers": allusers,
+                "account": account,
+                "name": name,
+                "time_window": time_window,
+            }
         )
         result_jobs = self._check_response(resp, 200)["jobs"]
         return result_jobs if result_jobs is not None else []
