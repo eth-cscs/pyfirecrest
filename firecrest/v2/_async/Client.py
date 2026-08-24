@@ -2133,7 +2133,8 @@ class AsyncFirecrest:
         system_name: str,
         jobid: Optional[str] = None,
         allusers: bool = False,
-        account: Optional[str] = None
+        account: Optional[str] = None,
+        name: Optional[str] = None
     ) -> list:
         """Get job information. When the job is not specified, it will return
         all the jobs.
@@ -2144,6 +2145,8 @@ class AsyncFirecrest:
                          current user
         :param account: an account to filter the jobs by. It will only be taken
                         into account when you are not specifying a jobid.
+        :param name: a job name to filter the jobs by. It will only be taken
+                     into account when you are not specifying a jobid.
         :calls: GET `/compute/{system_name}/jobs` or
                 GET `/compute/{system_name}/jobs/{job}`
         """
@@ -2162,9 +2165,15 @@ class AsyncFirecrest:
                 "version <2.4.2 of the API."
             )
 
+        if self._api_version < parse("2.5.7") and name:
+            raise NotImplementedOnAPIversion(
+                "The `name` parameter is not available for "
+                "version <2.5.7 of the API."
+            )
+
         resp = await self._get_request(
             endpoint=url,
-            params={"allusers": allusers, "account": account}
+            params={"allusers": allusers, "account": account, "name": name}
         )
         result_jobs = self._check_response(resp, 200)["jobs"]
         return result_jobs if result_jobs is not None else []

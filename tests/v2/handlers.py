@@ -287,7 +287,9 @@ def get_jobs_handler(request: Request):
     if endpoint == "jobs":
         endpoint = "job"
 
-        if "account=users2" in "&".join(params):
+        if "name=allocation" in "&".join(params):
+            suffix = "_info_name"
+        elif "account=users2" in "&".join(params):
             suffix = "_info_account"
         elif "allusers=true" in "&".join(params):
             suffix = "_info_all_users"
