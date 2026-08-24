@@ -879,12 +879,19 @@ def job_info(
         help=("A job name to filter the jobs by. It will only be taken into "
               "account when you are not specifying a jobid."),
     ),
+    time_window: Optional[str] = typer.Option(
+        None,
+        help=("How far back to look for historical (completed, failed, "
+              "cancelled...) jobs. Accepted values: 1h, 8h, 24h, 3d, 7d. "
+              "It will only be taken into account when "
+              "you are not specifying a jobid."),
+    ),
 ):
     """Retrieve information about submitted jobs.
     """
     try:
         result = asyncio.run(
-            client.job_info(system, jobid, allusers, account, name)
+            client.job_info(system, jobid, allusers, account, name, time_window)
         )
         json_out(result)
     except Exception as e:

@@ -326,6 +326,19 @@ def test_job_info_name_old_api(valid_client):
         valid_client.job_info("cluster", name="allocation")
 
 
+def test_job_info_time_window(valid_client):
+    data = read_json_file("v2/responses/job_info_time_window.json")
+    resp = valid_client.job_info("cluster", time_window="7d")
+
+    assert resp == data["response"]["jobs"]
+
+
+def test_job_info_time_window_old_api(valid_client):
+    valid_client.set_api_version("2.5.6")
+    with pytest.raises(NotImplementedOnAPIversion):
+        valid_client.job_info("cluster", time_window="7d")
+
+
 def test_job_metadata(valid_client):
     data = read_json_file("v2/responses/job_metadata.json")
     resp = valid_client.job_metadata("cluster", "1")
@@ -393,7 +406,7 @@ def _version_header_client(httpserver, app_version):
 
 def test_api_version_autodetect(httpserver):
     client = _version_header_client(httpserver, "2.6.1")
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
     client.systems()
     assert str(client._api_version) == "2.6.1"
 
@@ -401,13 +414,13 @@ def test_api_version_autodetect(httpserver):
 def test_api_version_autodetect_invalid_version(httpserver):
     client = _version_header_client(httpserver, "2.x.x")
     client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
 
 
 def test_api_version_autodetect_no_header(httpserver):
     client = _version_header_client(httpserver, None)
     client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
 
 
 def test_api_version_explicit_disables_autodetect(httpserver):

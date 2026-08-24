@@ -287,7 +287,9 @@ def get_jobs_handler(request: Request):
     if endpoint == "jobs":
         endpoint = "job"
 
-        if "name=allocation" in "&".join(params):
+        if "time_window=7d" in "&".join(params):
+            suffix = "_info_time_window"
+        elif "name=allocation" in "&".join(params):
             suffix = "_info_name"
         elif "account=users2" in "&".join(params):
             suffix = "_info_account"
