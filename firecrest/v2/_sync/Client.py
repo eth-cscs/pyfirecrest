@@ -2160,8 +2160,7 @@ class Firecrest:
         :param time_window: how far back to look for historical (completed,
                             failed, cancelled...) jobs. Pending and running
                             jobs are always returned. Accepted values are
-                            `1h`, `8h`, `24h`, `3d` and `7d`; the API
-                            defaults to `24h` when not specified. It will
+                            `1h`, `8h`, `24h`, `3d` and `7d`. It will
                             only be taken into account when you are not
                             specifying a jobid. Has no effect on PBS
                             clusters.
