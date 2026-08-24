@@ -406,7 +406,7 @@ def _version_header_client(httpserver, app_version):
 
 def test_api_version_autodetect(httpserver):
     client = _version_header_client(httpserver, "2.6.1")
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
     client.systems()
     assert str(client._api_version) == "2.6.1"
 
@@ -414,13 +414,13 @@ def test_api_version_autodetect(httpserver):
 def test_api_version_autodetect_invalid_version(httpserver):
     client = _version_header_client(httpserver, "2.x.x")
     client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
 
 
 def test_api_version_autodetect_no_header(httpserver):
     client = _version_header_client(httpserver, None)
     client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
 
 
 def test_api_version_explicit_disables_autodetect(httpserver):

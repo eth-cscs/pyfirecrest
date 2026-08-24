@@ -437,7 +437,7 @@ def _version_header_client(httpserver, app_version):
 @pytest.mark.asyncio
 async def test_api_version_autodetect(httpserver):
     client = _version_header_client(httpserver, "2.6.1")
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
     await client.systems()
     assert str(client._api_version) == "2.6.1"
 
@@ -446,14 +446,14 @@ async def test_api_version_autodetect(httpserver):
 async def test_api_version_autodetect_invalid_version(httpserver):
     client = _version_header_client(httpserver, "2.x.x")
     await client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
 
 
 @pytest.mark.asyncio
 async def test_api_version_autodetect_no_header(httpserver):
     client = _version_header_client(httpserver, None)
     await client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.5.7"
 
 
 @pytest.mark.asyncio
