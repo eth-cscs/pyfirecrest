@@ -287,7 +287,17 @@ def get_jobs_handler(request: Request):
     if endpoint == "jobs":
         endpoint = "job"
 
-        if "time_window=7d" in "&".join(params):
+        query = "&".join(params)
+        # mimic the API rejecting an empty enum value (httpx would send
+        # `time_window=` if `None` params were not dropped by the client)
+        if "time_window=&" in f"{query}&":
+            return Response(
+                json.dumps({"errorType": "validation"}),
+                status=400,
+                content_type="application/json",
+            )
+
+        if "time_window=7d" in query:
             suffix = "_info_time_window"
         elif "name=allocation" in "&".join(params):
             suffix = "_info_name"

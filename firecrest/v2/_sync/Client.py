@@ -582,7 +582,7 @@ class Firecrest:
         # to `None`, the client will keep trying until it gets a different
         # status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
-        self._api_version: Version = parse("2.5.7")
+        self._api_version: Version = parse("2.6.0")
         # Set to `True` when the user sets the version explicitly, in which
         # case the version detected from the response headers is ignored
         self._api_version_explicit: bool = False
@@ -674,6 +674,11 @@ class Firecrest:
         )
         if additional_headers:
             headers.update(additional_headers)
+
+        # httpx serializes `None` values as empty strings, which the API may
+        # reject (e.g. enum-typed query parameters), so drop them entirely
+        if params:
+            params = {k: v for k, v in params.items() if v is not None}
 
         self.log(
             logging.DEBUG,
@@ -2182,16 +2187,16 @@ class Firecrest:
                 "version <2.4.2 of the API."
             )
 
-        if self._api_version < parse("2.5.7") and name:
+        if self._api_version < parse("2.6.0") and name:
             raise NotImplementedOnAPIversion(
                 "The `name` parameter is not available for "
-                "version <2.5.7 of the API."
+                "version <2.6.0 of the API."
             )
 
-        if self._api_version < parse("2.5.7") and time_window:
+        if self._api_version < parse("2.6.0") and time_window:
             raise NotImplementedOnAPIversion(
                 "The `time_window` parameter is not available for "
-                "version <2.5.7 of the API."
+                "version <2.6.0 of the API."
             )
 
         resp = self._get_request(
