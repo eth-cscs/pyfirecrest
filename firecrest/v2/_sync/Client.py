@@ -505,9 +505,12 @@ class Firecrest:
 
     :param firecrest_url: FirecREST's URL
     :param authorization: the authorization object. This object is responsible
-                          of handling the credentials and the only requirement
-                          for it is that it has a method get_access_token()
-                          that returns a valid access token.
+                          of handling the credentials. It must provide either
+                          a method auth_headers() that returns the HTTP
+                          headers that authenticate a request (e.g.
+                          `ApiKeyAuth`), or a method get_access_token() that
+                          returns a valid bearer token (e.g.
+                          `ClientCredentialsAuth`).
     :param verify: either a boolean, in which case it controls whether
                    requests will verify the server’s TLS certificate,
                    or a string, in which case it must be a path to a CA bundle
@@ -648,6 +651,21 @@ class Firecrest:
         if not self.disable_client_logging:
             logger.log(level, msg)
 
+    def _auth_headers(self) -> dict:
+        """Return the headers that authenticate a request, as provided by the
+        authorization object. Objects exposing `auth_headers()` are used
+        directly; otherwise the legacy `get_access_token()` contract is used
+        to build a Bearer header.
+        """
+        auth_headers = getattr(self._authorization, "auth_headers", None)
+        if auth_headers is None:
+            token = self._authorization.get_access_token()
+            return {
+                "Authorization": f"Bearer {token}"
+            }
+
+        return dict(auth_headers())
+
     def _tracing_headers(self) -> dict:
         """Return the tracing headers of a request: a fresh `X-Request-ID`
         for this request and, when one is set in the current context, the
@@ -669,9 +687,7 @@ class Firecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
 
@@ -700,9 +716,7 @@ class Firecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
 
@@ -732,9 +746,7 @@ class Firecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
 
@@ -758,9 +770,7 @@ class Firecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
 

@@ -1,7 +1,8 @@
 import json
 import pytest
 
-from context_v2 import (Firecrest,
+from context_v2 import (ApiKeyAuth,
+                       Firecrest,
                        correlation_id,
                        NotImplementedOnAPIversion,
                        UnexpectedStatusException)
@@ -480,3 +481,37 @@ def test_exception_carries_tracing_ids(invalid_client, fc_server):
     # The IDs show up in the exception message
     assert exc.request_id in str(exc)
     assert exc.correlation_id in str(exc)
+
+
+def test_api_key_auth(fc_server):
+    data = read_json_file("v2/responses/systems.json")
+    client = Firecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=ApiKeyAuth("VALID_KEY"),
+    )
+    client.set_api_version("2.99.0")
+    assert client.systems() == data["response"]["systems"]
+
+
+def test_api_key_auth_invalid(fc_server):
+    client = Firecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=ApiKeyAuth("INVALID_KEY"),
+    )
+    client.set_api_version("2.99.0")
+    with pytest.raises(UnexpectedStatusException):
+        client.systems()
+
+
+def test_custom_auth_headers(fc_server):
+    class CustomAuthorization:
+        def auth_headers(self):
+            return {"Authorization": "Bearer VALID_TOKEN"}
+
+    data = read_json_file("v2/responses/systems.json")
+    client = Firecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=CustomAuthorization(),
+    )
+    client.set_api_version("2.99.0")
+    assert client.systems() == data["response"]["systems"]

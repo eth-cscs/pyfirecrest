@@ -6,7 +6,11 @@
 #
 import sys
 from . import v1, v2
-from firecrest.Authorization import ClientCredentialsAuth, TokenCommandAuth
+from firecrest.Authorization import (
+    ApiKeyAuth,
+    ClientCredentialsAuth,
+    TokenCommandAuth
+)
 from firecrest.tracing import correlation_id
 from firecrest.FirecrestException import (
     ClientsCredentialsException,
@@ -26,6 +30,7 @@ MIN_PYTHON_VERSION = (3, 7, 0)
 __all__ = [
     "v1",
     "v2",
+    "ApiKeyAuth",
     "ClientCredentialsAuth",
     "TokenCommandAuth",
     "correlation_id",
