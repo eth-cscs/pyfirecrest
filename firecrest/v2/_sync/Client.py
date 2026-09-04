@@ -890,7 +890,7 @@ class Firecrest:
         resp = self._get_request(
              endpoint=f"/status/{system_name}/userinfo"
         )
-        return self._check_response(resp, 200)
+        return self._check_response(resp, 200)  # type: ignore
 
     @_with_correlation_id  # type: ignore
     def list_files(
