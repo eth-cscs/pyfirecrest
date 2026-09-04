@@ -5,7 +5,7 @@ See also: https://firecrest-api.cscs.ch
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import Any, Optional
 
 if sys.version_info >= (3, 8):
     from typing import TypedDict
@@ -204,3 +204,28 @@ class UserId(TypedDict):
     user: Id
     group: Id
     groups: list[Id]
+
+
+class GroupInfo(Id):
+    """A group record with a default flag, from `status/{system}/userinfo`"""
+
+    default: bool
+
+
+class AccountInfo(TypedDict):
+    """An account record, from `status/{system}/userinfo`"""
+
+    name: str
+    default: bool
+
+
+class UserInfo(TypedDict):
+    """A user information record, from `status/{system}/userinfo`
+
+    `accounts` is `None` when the system's scheduler does not report
+    accounts (e.g. PBS) or the user has no associations.
+    """
+
+    user: Id
+    groups: list[GroupInfo]
+    accounts: Optional[list[AccountInfo]]

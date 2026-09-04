@@ -158,8 +158,9 @@ def test_id(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "fireuser" in stdout
-    assert "1000" in stdout
+    assert "uid=1000(fireuser)" in stdout
+    assert "gid=100(users)" in stdout
+    assert "groups=100(users)" in stdout
 
 
 def test_head(valid_credentials):

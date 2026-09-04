@@ -220,9 +220,18 @@ def id(
             json_out(result)
         else:
             user = f"{result['user']['id']}({result['user']['name']})"
-            group = f"{result['group']['id']}({result['group']['name']})"
-            all_groups = ",".join([f"{g['id']}({g['name']})" for g in result["groups"]])
-            console.print(f"uid={user} gid={group} groups={all_groups}")
+            groups = result["groups"]
+            # API versions before 2.6.0 return the primary group in a
+            # top-level `group` field; newer versions flag it in `groups`.
+            group = result.get("group")
+            if group is None:
+                group = next(
+                    (g for g in groups if g.get("default")),
+                    groups[0] if groups else None,
+                )
+            group_str = f"{group['id']}({group['name']})" if group else ""
+            all_groups = ",".join(f"{g['id']}({g['name']})" for g in groups)
+            console.print(f"uid={user} gid={group_str} groups={all_groups}")
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
