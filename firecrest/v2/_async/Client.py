@@ -10,6 +10,7 @@ import aiofiles
 import asyncio
 import functools
 import httpx
+import inspect
 import json
 import logging
 import os
@@ -497,9 +498,12 @@ class AsyncFirecrest:
 
     :param firecrest_url: FirecREST's URL
     :param authorization: the authorization object. This object is responsible
-                          of handling the credentials and the only requirement
-                          for it is that it has a method get_access_token()
-                          that returns a valid access token.
+                          of handling the credentials. It must provide either
+                          a method auth_headers() that returns the HTTP
+                          headers that authenticate a request (e.g.
+                          `ApiKeyAuth`), or a method get_access_token() that
+                          returns a valid bearer token (e.g.
+                          `ClientCredentialsAuth`).
     :param verify: either a boolean, in which case it controls whether
                    requests will verify the server’s TLS certificate,
                    or a string, in which case it must be a path to a CA bundle
@@ -575,7 +579,7 @@ class AsyncFirecrest:
         # to `None`, the client will keep trying until it gets a different
         # status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
-        self._api_version: Version = parse("2.5.4")
+        self._api_version: Version = parse("2.6.0")
         # Set to `True` when the user sets the version explicitly, in which
         # case the version detected from the response headers is ignored
         self._api_version_explicit: bool = False
@@ -649,6 +653,25 @@ class AsyncFirecrest:
         if not self.disable_client_logging:
             logger.log(level, msg)
 
+    async def _auth_headers(self) -> dict:
+        """Return the headers that authenticate a request, as provided by the
+        authorization object. Objects exposing `auth_headers()` are used
+        directly (the result may be awaitable); otherwise the legacy
+        `get_access_token()` contract is used to build a Bearer header.
+        """
+        auth_headers = getattr(self._authorization, "auth_headers", None)
+        if auth_headers is None:
+            token = self._authorization.get_access_token()
+            return {
+                "Authorization": f"Bearer {token}"
+            }
+
+        headers = auth_headers()
+        if inspect.isawaitable(headers):
+            headers = await headers
+
+        return dict(headers)
+
     def _tracing_headers(self) -> dict:
         """Return the tracing headers of a request: a fresh `X-Request-ID`
         for this request and, when one is set in the current context, the
@@ -670,11 +693,14 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(await self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
+
+        # httpx serializes `None` values as empty strings, which the API may
+        # reject (e.g. enum-typed query parameters), so drop them entirely
+        if params:
+            params = {k: v for k, v in params.items() if v is not None}
 
         self.log(
             logging.DEBUG,
@@ -696,9 +722,7 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(await self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
 
@@ -728,9 +752,7 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(await self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
 
@@ -754,9 +776,7 @@ class AsyncFirecrest:
     ) -> httpx.Response:
         url = f"{self._firecrest_url}{endpoint}"
         headers = self._tracing_headers()
-        headers["Authorization"] = (
-            f"Bearer {self._authorization.get_access_token()}"
-        )
+        headers.update(await self._auth_headers())
         if additional_headers:
             headers.update(additional_headers)
 
@@ -2140,7 +2160,9 @@ class AsyncFirecrest:
         system_name: str,
         jobid: Optional[str] = None,
         allusers: bool = False,
-        account: Optional[str] = None
+        account: Optional[str] = None,
+        name: Optional[str] = None,
+        time_window: Optional[str] = None
     ) -> list:
         """Get job information. When the job is not specified, it will return
         all the jobs.
@@ -2151,6 +2173,15 @@ class AsyncFirecrest:
                          current user
         :param account: an account to filter the jobs by. It will only be taken
                         into account when you are not specifying a jobid.
+        :param name: a job name to filter the jobs by. It will only be taken
+                     into account when you are not specifying a jobid.
+        :param time_window: how far back to look for historical (completed,
+                            failed, cancelled...) jobs. Pending and running
+                            jobs are always returned. Accepted values are
+                            `1h`, `8h`, `24h`, `3d` and `7d`. It will
+                            only be taken into account when you are not
+                            specifying a jobid. Has no effect on PBS
+                            clusters.
         :calls: GET `/compute/{system_name}/jobs` or
                 GET `/compute/{system_name}/jobs/{job}`
         """
@@ -2169,9 +2200,26 @@ class AsyncFirecrest:
                 "version <2.4.2 of the API."
             )
 
+        if self._api_version < parse("2.6.0") and name:
+            raise NotImplementedOnAPIversion(
+                "The `name` parameter is not available for "
+                "version <2.6.0 of the API."
+            )
+
+        if self._api_version < parse("2.6.0") and time_window:
+            raise NotImplementedOnAPIversion(
+                "The `time_window` parameter is not available for "
+                "version <2.6.0 of the API."
+            )
+
         resp = await self._get_request(
             endpoint=url,
-            params={"allusers": allusers, "account": account}
+            params={
+                "allusers": allusers,
+                "account": account,
+                "name": name,
+                "time_window": time_window,
+            }
         )
         result_jobs = self._check_response(resp, 200)["jobs"]
         return result_jobs if result_jobs is not None else []

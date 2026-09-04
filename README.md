@@ -49,7 +49,7 @@ except Exception as e:
 
 ### How to use it from the terminal
 
-The CLI defaults to FirecREST v2. It supports two authentication modes.
+The CLI defaults to FirecREST v2. It supports three authentication modes.
 
 **Client credentials** — set the following environment variables:
 ```bash
@@ -63,6 +63,12 @@ export AUTH_TOKEN_URL=http://localhost:8080/auth/realms/kcrealm/protocol/openid-
 ```bash
 export FIRECREST_URL=http://localhost:8000
 export FIRECREST_TOKEN_COMMAND="my-org-cli auth token"
+```
+
+**API key** — e.g. for a service account; sent in the `X-API-Key` header (override the header name with `FIRECREST_API_KEY_HEADER`):
+```bash
+export FIRECREST_URL=http://localhost:8000
+export FIRECREST_API_KEY=my-api-key
 ```
 
 After that you can explore the capabilities of the CLI with the `--help` option:

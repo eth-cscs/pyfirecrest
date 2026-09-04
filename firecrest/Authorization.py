@@ -13,7 +13,7 @@ import firecrest.FirecrestException as fe
 
 from datetime import datetime
 from requests.compat import json  # type: ignore
-from typing import Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,10 @@ class ClientCredentialsAuth:
         )
         return self._access_token
 
+    def auth_headers(self) -> Dict[str, str]:
+        """Return the HTTP headers that authenticate a request to FirecREST."""
+        return {"Authorization": f"Bearer {self.get_access_token()}"}
+
 
 class TokenCommandAuth:
     """
@@ -160,3 +164,37 @@ class TokenCommandAuth:
             raise RuntimeError("Token command produced no output")
 
         return token
+
+    def auth_headers(self) -> Dict[str, str]:
+        """Return the HTTP headers that authenticate a request to FirecREST."""
+        return {"Authorization": f"Bearer {self.get_access_token()}"}
+
+
+class ApiKeyAuth:
+    """
+    Authorization class for API keys (e.g. FirecREST service accounts).
+
+    The key is sent on every request in a dedicated header instead of the
+    ``Authorization: Bearer`` header used by token-based authorization.
+
+    :param api_key: the API key.
+    :type api_key: str
+    :param header_name: name of the header carrying the key (by default
+        ``X-API-Key``).
+    :type header_name: str
+    """
+
+    def __init__(self, api_key: str, header_name: str = "X-API-Key"):
+        if not api_key:
+            raise ValueError("api_key must be a non-empty string")
+        if not header_name:
+            raise ValueError("header_name must be a non-empty string")
+        self._api_key = api_key
+        self._header_name = header_name
+
+    def __repr__(self) -> str:
+        return f"ApiKeyAuth(header_name={self._header_name!r}, api_key='***')"
+
+    def auth_headers(self) -> Dict[str, str]:
+        """Return the HTTP headers that authenticate a request to FirecREST."""
+        return {self._header_name: self._api_key}

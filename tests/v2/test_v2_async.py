@@ -1,7 +1,8 @@
 import json
 import pytest
 
-from context_v2 import (AsyncFirecrest,
+from context_v2 import (ApiKeyAuth,
+                       AsyncFirecrest,
                        correlation_id,
                        NotImplementedOnAPIversion,
                        UnexpectedStatusException)
@@ -339,6 +340,34 @@ async def test_job_info_account(valid_client):
 
 
 @pytest.mark.asyncio
+async def test_job_info_name(valid_client):
+    data = read_json_file("v2/responses/job_info_name.json")
+    resp = await valid_client.job_info("cluster", name="allocation")
+    assert resp == data["response"]["jobs"]
+
+
+@pytest.mark.asyncio
+async def test_job_info_name_old_api(valid_client):
+    valid_client.set_api_version("2.5.7")
+    with pytest.raises(NotImplementedOnAPIversion):
+        await valid_client.job_info("cluster", name="allocation")
+
+
+@pytest.mark.asyncio
+async def test_job_info_time_window(valid_client):
+    data = read_json_file("v2/responses/job_info_time_window.json")
+    resp = await valid_client.job_info("cluster", time_window="7d")
+    assert resp == data["response"]["jobs"]
+
+
+@pytest.mark.asyncio
+async def test_job_info_time_window_old_api(valid_client):
+    valid_client.set_api_version("2.5.7")
+    with pytest.raises(NotImplementedOnAPIversion):
+        await valid_client.job_info("cluster", time_window="7d")
+
+
+@pytest.mark.asyncio
 async def test_job_metadata(valid_client):
     data = read_json_file("v2/responses/job_metadata.json")
     resp = await valid_client.job_metadata("cluster", "1")
@@ -409,7 +438,7 @@ def _version_header_client(httpserver, app_version):
 @pytest.mark.asyncio
 async def test_api_version_autodetect(httpserver):
     client = _version_header_client(httpserver, "2.6.1")
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.6.0"
     await client.systems()
     assert str(client._api_version) == "2.6.1"
 
@@ -418,14 +447,14 @@ async def test_api_version_autodetect(httpserver):
 async def test_api_version_autodetect_invalid_version(httpserver):
     client = _version_header_client(httpserver, "2.x.x")
     await client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.6.0"
 
 
 @pytest.mark.asyncio
 async def test_api_version_autodetect_no_header(httpserver):
     client = _version_header_client(httpserver, None)
     await client.systems()
-    assert str(client._api_version) == "2.5.4"
+    assert str(client._api_version) == "2.6.0"
 
 
 @pytest.mark.asyncio
@@ -489,3 +518,40 @@ async def test_exception_carries_tracing_ids(invalid_client, fc_server):
     # The IDs show up in the exception message
     assert exc.request_id in str(exc)
     assert exc.correlation_id in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth(fc_server):
+    data = read_json_file("v2/responses/systems.json")
+    client = AsyncFirecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=ApiKeyAuth("VALID_KEY"),
+    )
+    client.set_api_version("2.99.0")
+    assert await client.systems() == data["response"]["systems"]
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_invalid(fc_server):
+    client = AsyncFirecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=ApiKeyAuth("INVALID_KEY"),
+    )
+    client.set_api_version("2.99.0")
+    with pytest.raises(UnexpectedStatusException):
+        await client.systems()
+
+
+@pytest.mark.asyncio
+async def test_async_auth_headers(fc_server):
+    class AsyncAuthorization:
+        async def auth_headers(self):
+            return {"Authorization": "Bearer VALID_TOKEN"}
+
+    data = read_json_file("v2/responses/systems.json")
+    client = AsyncFirecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=AsyncAuthorization(),
+    )
+    client.set_api_version("2.99.0")
+    assert await client.systems() == data["response"]["systems"]
