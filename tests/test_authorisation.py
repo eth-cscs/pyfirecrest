@@ -163,3 +163,39 @@ def test_client_credentials_invalid_secret(auth_server):
         auth_obj.get_access_token()
 
     assert "Client credentials error" in str(exc_info.value)
+
+
+def test_api_key_auth_headers():
+    auth = firecrest.ApiKeyAuth("my-key")
+    assert auth.auth_headers() == {"X-API-Key": "my-key"}
+    assert not hasattr(auth, "get_access_token")
+
+
+def test_api_key_auth_custom_header():
+    auth = firecrest.ApiKeyAuth("my-key", header_name="Api-Key")
+    assert auth.auth_headers() == {"Api-Key": "my-key"}
+
+
+def test_api_key_auth_invalid_args():
+    with pytest.raises(ValueError):
+        firecrest.ApiKeyAuth("")
+
+    with pytest.raises(ValueError):
+        firecrest.ApiKeyAuth("my-key", header_name="")
+
+
+def test_api_key_auth_repr_hides_key():
+    auth = firecrest.ApiKeyAuth("super-secret")
+    assert "super-secret" not in repr(auth)
+
+
+def test_client_credentials_auth_headers(auth_server):
+    auth = firecrest.ClientCredentialsAuth(
+        "valid_id", "valid_secret", auth_server.url_for("/auth/token")
+    )
+    assert auth.auth_headers() == {"Authorization": "Bearer VALID_TOKEN"}
+
+
+def test_token_command_auth_headers():
+    auth = firecrest.TokenCommandAuth("echo my-token")
+    assert auth.auth_headers() == {"Authorization": "Bearer my-token"}

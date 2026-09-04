@@ -4,7 +4,7 @@ How to use the CLI
 After version 1.3.0, pyFirecREST comes together with a CLI. It supports both FirecREST v1 and v2, and defaults to **v2**.
 
 You always need to set ``FIRECREST_URL`` with the URL for the FirecREST instance you are using.
-For authentication, choose one of the two modes below.
+For authentication, choose one of the modes below.
 
 Client credentials
 ------------------
@@ -32,9 +32,23 @@ The command is re-run on each request, so token refresh is handled automatically
     # Or inline:
     firecrest --token-command "my-org-cli auth token" systems
 
+API key
+-------
+
+Set ``FIRECREST_API_KEY`` to your API key (or pass ``--api-key``), for example for a service account.
+The key is sent in the ``X-API-Key`` header; if your deployment expects a different header name, set ``FIRECREST_API_KEY_HEADER`` (or pass ``--api-key-header``):
+
+.. code-block:: bash
+
+    export FIRECREST_URL=https://firecrest.example.com
+    export FIRECREST_API_KEY=my-api-key
+
+    # Or inline:
+    firecrest --api-key my-api-key systems
+
 .. note::
 
-    ``--token-command`` is mutually exclusive with ``--client-id`` / ``--client-secret`` / ``--token-url``.
+    The three authentication modes are mutually exclusive.
 
 FirecREST cli examples for v2
 -----------------------------

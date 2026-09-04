@@ -16,3 +16,4 @@ from firecrest.FirecrestException import (  # noqa
     UnexpectedStatusException,
 )
 from firecrest.tracing import correlation_id  # noqa
+from firecrest.Authorization import ApiKeyAuth  # noqa
