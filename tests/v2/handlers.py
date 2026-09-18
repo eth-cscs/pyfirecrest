@@ -95,8 +95,24 @@ def auth_handler(request):
     return Response(json.dumps(ret), status=ret_status, content_type="application/json")
 
 
+VALID_API_KEY = "VALID_KEY"
+
+
+def _is_authorized(request: Request) -> bool:
+    """Accept either a valid bearer token or a valid API key. A request
+    authenticated with an API key must not carry an Authorization header."""
+    api_key = request.headers.get("X-API-Key")
+    if api_key is not None:
+        return (
+            api_key == VALID_API_KEY
+            and "Authorization" not in request.headers
+        )
+
+    return request.headers.get("Authorization") == "Bearer VALID_TOKEN"
+
+
 def status_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+    if not _is_authorized(request):
         return Response(
             json.dumps({"message": "Bad token; invalid JSON"}),
             status=401,
@@ -115,7 +131,7 @@ def status_handler(request: Request):
 
 
 def filesystem_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+    if not _is_authorized(request):
         return Response(
             json.dumps({"message": "Bad token; invalid JSON"}),
             status=401,
@@ -243,7 +259,7 @@ def filesystem_handler(request: Request):
 
 
 def submit_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+    if not _is_authorized(request):
         return Response(
             json.dumps({"message": "Bad token; invalid JSON"}),
             status=401,
@@ -271,7 +287,7 @@ def submit_handler(request: Request):
 
 
 def get_jobs_handler(request: Request):
-    if request.headers["Authorization"] != "Bearer VALID_TOKEN":
+    if not _is_authorized(request):
         return Response(
             json.dumps({"message": "Bad token; invalid JSON"}),
             status=401,

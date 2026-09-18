@@ -220,9 +220,18 @@ def id(
             json_out(result)
         else:
             user = f"{result['user']['id']}({result['user']['name']})"
-            group = f"{result['group']['id']}({result['group']['name']})"
-            all_groups = ",".join([f"{g['id']}({g['name']})" for g in result["groups"]])
-            console.print(f"uid={user} gid={group} groups={all_groups}")
+            groups = result["groups"]
+            # API versions before 2.6.0 return the primary group in a
+            # top-level `group` field; newer versions flag it in `groups`.
+            group = result.get("group")
+            if group is None:
+                group = next(
+                    (g for g in groups if g.get("default")),
+                    groups[0] if groups else None,
+                )
+            group_str = f"{group['id']}({group['name']})" if group else ""
+            all_groups = ",".join(f"{g['id']}({g['name']})" for g in groups)
+            console.print(f"uid={user} gid={group_str} groups={all_groups}")
     except Exception as e:
         examine_exeption(e)
         raise typer.Exit(code=1)
@@ -1019,6 +1028,16 @@ def main(
         help="Shell command whose stdout is used as the bearer token. Mutually exclusive with --client-id/--client-secret/--token-url.",
         envvar="FIRECREST_TOKEN_COMMAND",
     ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        help="API key (e.g. for a service account). Sent in the header given by --api-key-header. Mutually exclusive with the other authentication modes.",
+        envvar="FIRECREST_API_KEY",
+    ),
+    api_key_header: str = typer.Option(
+        "X-API-Key",
+        help="API key mode only. Name of the header carrying the API key.",
+        envvar="FIRECREST_API_KEY_HEADER",
+    ),
     api_version: str = typer.Option(
         None,
         help="Set the version of the api of firecrest. By default it will be assumed that you are using version 1.13.1 or "
@@ -1057,6 +1076,12 @@ def main(
       bearer token (or pass --token-command). The command is re-run on
       each request, so token refresh is handled automatically.
       Example: --token-command "my-org-cli auth token"
+
+    \b
+    API key (e.g. service accounts):
+      Set FIRECREST_API_KEY (or pass --api-key). The key is sent in the
+      X-API-Key header; override the header name with
+      FIRECREST_API_KEY_HEADER / --api-key-header.
     """
     _ensure_event_loop()
 
@@ -1064,14 +1089,19 @@ def main(
 
     using_token_command = token_command is not None
     using_client_creds = any([client_id, client_secret, token_url])
+    using_api_key = api_key is not None
 
-    if using_token_command and using_client_creds:
+    if sum([using_token_command, using_client_creds, using_api_key]) > 1:
         raise typer.BadParameter(
-            "--token-command is mutually exclusive with --client-id, --client-secret, and --token-url"
+            "--token-command, --api-key, and --client-id/--client-secret/--token-url "
+            "are mutually exclusive"
         )
 
-    auth_obj: Union[fc.TokenCommandAuth, fc.ClientCredentialsAuth]
-    if using_token_command:
+    auth_obj: Union[fc.TokenCommandAuth, fc.ClientCredentialsAuth, fc.ApiKeyAuth]
+    if using_api_key:
+        assert api_key is not None
+        auth_obj = fc.ApiKeyAuth(api_key, header_name=api_key_header)
+    elif using_token_command:
         assert token_command is not None
         auth_obj = fc.TokenCommandAuth(token_command)
     elif using_client_creds:
@@ -1098,8 +1128,8 @@ def main(
         auth_obj = cc_auth
     else:
         raise typer.BadParameter(
-            "No authentication method provided. Use --token-command or supply "
-            "--client-id, --client-secret, and --token-url."
+            "No authentication method provided. Use --api-key, --token-command, "
+            "or supply --client-id, --client-secret, and --token-url."
         )
 
     client = fc.v2.AsyncFirecrest(firecrest_url=firecrest_url, authorization=auth_obj)

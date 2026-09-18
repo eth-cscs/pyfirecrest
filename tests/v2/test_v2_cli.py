@@ -158,8 +158,9 @@ def test_id(valid_credentials):
     result = runner.invoke(cli.app, args=args)
     stdout = common.clean_stdout(result.stdout)
     assert result.exit_code == 0
-    assert "fireuser" in stdout
-    assert "1000" in stdout
+    assert "uid=1000(fireuser)" in stdout
+    assert "gid=100(users)" in stdout
+    assert "groups=100(users)" in stdout
 
 
 def test_head(valid_credentials):
@@ -530,3 +531,39 @@ def test_job_metadata(valid_credentials):
         "standardError",
     ]:
         assert field in stdout
+
+
+def test_api_key_auth(fc_server):
+    args = [
+        f"--firecrest-url={fc_server.url_for('/')}",
+        "--api-key=VALID_KEY",
+        "--api-version=2.99.0",
+        "systems",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+    assert "cluster" in common.clean_stdout(result.stdout)
+
+
+def test_api_key_auth_env(fc_server, monkeypatch):
+    monkeypatch.setenv("FIRECREST_API_KEY", "VALID_KEY")
+    args = [
+        f"--firecrest-url={fc_server.url_for('/')}",
+        "--api-version=2.99.0",
+        "systems",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code == 0
+    assert "cluster" in common.clean_stdout(result.stdout)
+
+
+def test_api_key_auth_mutually_exclusive(fc_server):
+    args = [
+        f"--firecrest-url={fc_server.url_for('/')}",
+        "--api-key=VALID_KEY",
+        "--token-command=echo token",
+        "systems",
+    ]
+    result = runner.invoke(cli.app, args=args)
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output

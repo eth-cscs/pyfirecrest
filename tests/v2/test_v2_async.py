@@ -1,7 +1,8 @@
 import json
 import pytest
 
-from context_v2 import (AsyncFirecrest,
+from context_v2 import (ApiKeyAuth,
+                       AsyncFirecrest,
                        correlation_id,
                        NotImplementedOnAPIversion,
                        UnexpectedStatusException)
@@ -517,3 +518,40 @@ async def test_exception_carries_tracing_ids(invalid_client, fc_server):
     # The IDs show up in the exception message
     assert exc.request_id in str(exc)
     assert exc.correlation_id in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth(fc_server):
+    data = read_json_file("v2/responses/systems.json")
+    client = AsyncFirecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=ApiKeyAuth("VALID_KEY"),
+    )
+    client.set_api_version("2.99.0")
+    assert await client.systems() == data["response"]["systems"]
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_invalid(fc_server):
+    client = AsyncFirecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=ApiKeyAuth("INVALID_KEY"),
+    )
+    client.set_api_version("2.99.0")
+    with pytest.raises(UnexpectedStatusException):
+        await client.systems()
+
+
+@pytest.mark.asyncio
+async def test_async_auth_headers(fc_server):
+    class AsyncAuthorization:
+        async def auth_headers(self):
+            return {"Authorization": "Bearer VALID_TOKEN"}
+
+    data = read_json_file("v2/responses/systems.json")
+    client = AsyncFirecrest(
+        firecrest_url=fc_server.url_for("/"),
+        authorization=AsyncAuthorization(),
+    )
+    client.set_api_version("2.99.0")
+    assert await client.systems() == data["response"]["systems"]
