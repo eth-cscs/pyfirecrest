@@ -564,11 +564,11 @@ class AsyncFirecrest:
         self._verify = verify
         #: This attribute will be passed to all the requests that will be made.
         #: How many seconds to wait for the server to send data before giving
-        # up. After that time a `requests.exceptions.Timeout` error will be
-        # raised.
+        #: up. After that time a `httpx.TimeoutException` error will be
+        #: raised.
         #:
         #: It can be a float or a tuple. More details here:
-        # https://www.python-httpx.org/advanced/#fine-tuning-the-configuration.
+        #: https://www.python-httpx.org/advanced/#fine-tuning-the-configuration.
         self.timeout: Any = None
         # type is Any because of some incompatibility between httpx and
         # requests library
@@ -576,8 +576,8 @@ class AsyncFirecrest:
         #: Disable all logging from the client.
         self.disable_client_logging: bool = False
         #: Number of retries in case the rate limit is reached. When it is set
-        # to `None`, the client will keep trying until it gets a different
-        # status code than 429.
+        #: to `None`, the client will keep trying until it gets a different
+        #: status code than 429.
         self.num_retries_rate_limit: Optional[int] = None
         self._api_version: Version = parse("2.6.0")
         # Set to `True` when the user sets the version explicitly, in which
