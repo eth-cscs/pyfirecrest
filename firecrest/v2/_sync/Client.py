@@ -508,14 +508,6 @@ class ExternalDownload(ExternalTransfer):
         )
 
 
-def _require_version(min_version: str, feature: str) -> None:
-    if self._api_version < parse(min_version):
-        raise NotImplementedOnAPIversion(
-            f"{feature} is not available for version "
-            f"<{min_version} of the API."
-        )
-
-
 class Firecrest:
     """
     This is the basic class you instantiate to access the FirecREST API v2.
@@ -543,6 +535,13 @@ class Firecrest:
 
     TOO_MANY_REQUESTS_CODE = 429
     MAX_DIRECT_UPLOAD_SIZE = 1048576
+
+    def _require_version(min_version: str, feature: str) -> None:
+        if self._api_version < parse(min_version):
+            raise NotImplementedOnAPIversion(
+                f"{feature} is not available for version "
+                f"<{min_version} of the API."
+            )
 
     def _retry_requests(idempotent_default):
         """Decorator of the request wrappers. The request is repeated
@@ -2238,7 +2237,7 @@ class Firecrest:
             }
         }
         if script_remote_path:
-            _require_version("2.2.6",
+            self._require_version("2.2.6",
                              "submitting a job from a remote script path")
 
             if not script_remote_path.startswith("/"):
@@ -2263,15 +2262,15 @@ class Firecrest:
             data["job"]["env"] = env_vars
 
         if account:
-            _require_version("2.2.6", "account information")
+            self._require_version("2.2.6", "account information")
             data["job"]["account"] = account
 
         if partition is not None:
-            _require_version("2.5.4", "partition override")
+            self._require_version("2.5.4", "partition override")
             data["job"]["partition"] = partition
 
         if reservation is not None:
-            _require_version("2.5.4", "reservation override")
+            self._require_version("2.5.4", "reservation override")
             data["job"]["reservation"] = reservation
 
         optional_params = {
@@ -2288,7 +2287,7 @@ class Firecrest:
         }
         for key, value in optional_params.items():
             if value is not None:
-                _require_version("2.6.2", f"`{key}`")
+                self._require_version("2.6.2", f"`{key}`")
                 data["job"][key] = value
 
         resp = self._post_request(
@@ -2333,16 +2332,16 @@ class Firecrest:
         url = f"{url}/{jobid}" if jobid else url
 
         if allusers is not None:
-            _require_version("2.2.7", "The `allusers` parameter")
+            self._require_version("2.2.7", "The `allusers` parameter")
 
         if account is not None:
-            _require_version("2.4.2", "The `account` parameter")
+            self._require_version("2.4.2", "The `account` parameter")
 
         if name is not None:
-            _require_version("2.6.0", "The `name` parameter")
+            self._require_version("2.6.0", "The `name` parameter")
 
         if time_window is not None:
-            _require_version("2.6.0", "The `time_window` parameter")
+            self._require_version("2.6.0", "The `time_window` parameter")
 
         resp = self._get_request(
             endpoint=url,
