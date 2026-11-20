@@ -536,7 +536,7 @@ class Firecrest:
     TOO_MANY_REQUESTS_CODE = 429
     MAX_DIRECT_UPLOAD_SIZE = 1048576
 
-    def _require_version(min_version: str, feature: str) -> None:
+    def _require_version(self, min_version: str, feature: str) -> None:
         if self._api_version < parse(min_version):
             raise NotImplementedOnAPIversion(
                 f"{feature} is not available for version "
