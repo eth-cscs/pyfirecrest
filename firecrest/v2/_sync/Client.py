@@ -20,7 +20,7 @@ import uuid
 
 from packaging.version import InvalidVersion, Version, parse
 from streamer import streamer_client as cli
-from typing import Any, BinaryIO, Dict, List, Optional
+from typing import Any, BinaryIO, Dict, List, Optional, Union
 
 import firecrest.types as t
 
