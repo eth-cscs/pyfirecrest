@@ -20,7 +20,7 @@ import uuid
 
 from packaging.version import InvalidVersion, Version, parse
 from streamer import streamer_client as cli
-from typing import Any, BinaryIO, Dict, List, Optional
+from typing import Any, BinaryIO, Dict, List, Optional, Union
 
 import firecrest.types as t
 
@@ -535,6 +535,13 @@ class Firecrest:
 
     TOO_MANY_REQUESTS_CODE = 429
     MAX_DIRECT_UPLOAD_SIZE = 1048576
+
+    def _require_version(self, min_version: str, feature: str) -> None:
+        if self._api_version < parse(min_version):
+            raise NotImplementedOnAPIversion(
+                f"{feature} is not available for version "
+                f"<{min_version} of the API."
+            )
 
     def _retry_requests(idempotent_default):
         """Decorator of the request wrappers. The request is repeated
@@ -2170,10 +2177,20 @@ class Firecrest:
         script_str: Optional[str] = None,
         script_local_path: Optional[str] = None,
         script_remote_path: Optional[str] = None,
-        env_vars: Optional[dict[str, str]] = None,
+        env_vars: Optional[Union[dict[str, str], list[str]]] = None,
         account: Optional[str] = None,
         partition: Optional[str] = None,
-        reservation: Optional[str] = None
+        reservation: Optional[str] = None,
+        name: Optional[str] = None,
+        standard_input: Optional[str] = None,
+        standard_output: Optional[str] = None,
+        standard_error: Optional[str] = None,
+        constraints: Optional[str] = None,
+        nodes: Optional[int] = None,
+        tasks_per_node: Optional[int] = None,
+        cpus_per_task: Optional[int] = None,
+        memory_per_node: Optional[int] = None,
+        time_limit: Optional[int] = None,
     ) -> dict:
         """Submit a job.
 
@@ -2188,6 +2205,16 @@ class Firecrest:
         :param account: the account to be used for the job
         :param partition: the partition to be used for the job
         :param reservation: the reservation to be used for the job
+        :param name: the name of the job
+        :param standard_input: path of the file used as standard input
+        :param standard_output: path of the file for standard output
+        :param standard_error: path of the file for standard error
+        :param constraints: node constraints (e.g. features) for the job
+        :param nodes: number of nodes
+        :param tasks_per_node: number of tasks per node
+        :param cpus_per_task: number of CPUs per task
+        :param memory_per_node: memory per node
+        :param time_limit: time limit of the job
         :calls: POST `/compute/{system_name}/jobs`
         """
 
@@ -2210,11 +2237,8 @@ class Firecrest:
             }
         }
         if script_remote_path:
-            if self._api_version < parse("2.2.6"):
-                raise NotImplementedOnAPIversion(
-                    "submitting a job from a remote script path is not "
-                    "supported in API version <2.2.6."
-                )
+            self._require_version("2.2.6",
+                             "submitting a job from a remote script path")
 
             if not script_remote_path.startswith("/"):
                 raise ValueError(
@@ -2238,37 +2262,40 @@ class Firecrest:
             data["job"]["env"] = env_vars
 
         if account:
-            if self._api_version < parse("2.2.6"):
-                raise NotImplementedOnAPIversion(
-                    "account information is not available for "
-                    "version <2.2.6 of the API."
-                )
-
+            self._require_version("2.2.6", "account information")
             data["job"]["account"] = account
 
         if partition is not None:
-            if self._api_version < parse("2.5.4"):
-                raise NotImplementedOnAPIversion(
-                    "partition override is not available for "
-                    "version <2.5.4 of the API."
-                )
-
+            self._require_version("2.5.4", "partition override")
             data["job"]["partition"] = partition
 
         if reservation is not None:
-            if self._api_version < parse("2.5.4"):
-                raise NotImplementedOnAPIversion(
-                    "reservation override is not available for "
-                    "version <2.5.4 of the API."
-                )
-
+            self._require_version("2.5.4", "reservation override")
             data["job"]["reservation"] = reservation
+
+        optional_params = {
+            "name": name,
+            "standardInput": standard_input,
+            "standardOutput": standard_output,
+            "standardError": standard_error,
+            "constraints": constraints,
+            "nodes": nodes,
+            "tasksPerNode": tasks_per_node,
+            "cpusPerTask": cpus_per_task,
+            "memoryPerNode": memory_per_node,
+            "timeLimit": time_limit,
+        }
+        for key, value in optional_params.items():
+            if value is not None:
+                self._require_version("2.6.2", f"`{key}`")
+                data["job"][key] = value
 
         resp = self._post_request(
             endpoint=f"/compute/{system_name}/jobs",
             json_data=data
         )
         return self._check_response(resp, 201)
+
 
     @_with_correlation_id  # type: ignore
     def job_info(
@@ -2304,29 +2331,17 @@ class Firecrest:
         url = f"/compute/{system_name}/jobs"
         url = f"{url}/{jobid}" if jobid else url
 
-        if self._api_version < parse("2.2.7") and allusers:
-            raise NotImplementedOnAPIversion(
-                "The `allusers` parameter is not available for "
-                "version <2.2.7 of the API."
-            )
+        if allusers is not None:
+            self._require_version("2.2.7", "The `allusers` parameter")
 
-        if self._api_version < parse("2.4.2") and account:
-            raise NotImplementedOnAPIversion(
-                "The `account` parameter is not available for "
-                "version <2.4.2 of the API."
-            )
+        if account is not None:
+            self._require_version("2.4.2", "The `account` parameter")
 
-        if self._api_version < parse("2.6.0") and name:
-            raise NotImplementedOnAPIversion(
-                "The `name` parameter is not available for "
-                "version <2.6.0 of the API."
-            )
+        if name is not None:
+            self._require_version("2.6.0", "The `name` parameter")
 
-        if self._api_version < parse("2.6.0") and time_window:
-            raise NotImplementedOnAPIversion(
-                "The `time_window` parameter is not available for "
-                "version <2.6.0 of the API."
-            )
+        if time_window is not None:
+            self._require_version("2.6.0", "The `time_window` parameter")
 
         resp = self._get_request(
             endpoint=url,
